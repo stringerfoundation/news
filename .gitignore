@@ -1,0 +1,11 @@
+node_modules/
+_site/
+.test-output/
+.wrangler/
+.env
+.env.*
+private/
+secrets/
+*.key
+*.pem
+*.sqlite*

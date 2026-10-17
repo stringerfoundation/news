@@ -1,7 +1,38 @@
-# Stringer News
+# Stringer website
 
-This repository is deprecated for now. We’ll be back here soon with more public, open-source code.
+Public source for the news homepage at https://stringerjournalism.org/.
 
-The current news reader is available at [stringerjournalism.org](https://stringerjournalism.org/).
+## Hosting
 
-Only the legacy redirect, its GitHub Pages deployment workflow, and the public Nostr identity mapping remain here to keep existing links and identity verification working. Earlier application code remains available in Git history.
+GitHub Actions checks pull requests and pushes. A successful push to `main` publishes only the `_site` asset allowlist to GitHub Pages at https://stringerfoundation.github.io/stringer-news/.
+
+The Cloudflare Worker in `deploy/homepage-worker/` serves `/` and `/news-assets/` from that Pages site. Other paths and form requests continue to Hostinger. The separate news-subdomain Worker redirects visitors to the main homepage. GitHub Pages has no custom domain; the public website domains stay on Cloudflare and Hostinger.
+
+The private collector and dashboard continue running independently on the operator's server. This repository contains only the public reader, public relay protocol and configuration, public assets, Worker code, and tests. Never add credentials, private keys, journalist CSV files, or databases.
+
+## Development
+
+Use Node 24 or newer:
+
+```sh
+npm ci
+npm run check
+npm test
+npm run build
+npx playwright install chromium
+npm run test:browser
+```
+
+The reader loads verified news from the configured Nostr relays. CI uses synthetic fixtures; it does not publish or collect news. Global publishers supply headlines, attribution, dates and original links; Stringer reporting and photos remain separate. See `LEGAL.md` for the publication policy. Source availability does not grant reuse rights to publisher material or photographs.
+
+## Worker configuration
+
+Keep Wrangler configuration and Cloudflare account/zone details outside tracked source. Set `PAGES_ORIGIN=https://stringerfoundation.github.io/stringer-news/`, `PUBLIC_HOST=stringerjournalism.org`, and `PUBLIC_INDEXING=true`. Deploy as a Worker Route over the existing Hostinger DNS origin. Hostinger passthrough preserves methods, headers, bodies and queries. Pages requests omit visitor cookies and credentials. The Worker preserves the repository path in the Pages origin.
+
+The Worker serves the apex Nostr identity endpoint directly. The existing news-subdomain redirect and identity handling remain independent. Worker deployment is a separate operator action; frontend updates deploy automatically through GitHub Actions without a Cloudflare token in GitHub.
+
+To roll back the Pages origin, restore the previous `PAGES_ORIGIN` in private operator configuration and redeploy the Worker. Disabling the homepage route restores Hostinger's original homepage.
+
+## License
+
+Original project code is licensed under the [MIT License](LICENSE). This license does not grant rights to Stringer names, trademarks, logos, reporting, photographs, or third-party content. Those materials retain their respective rights and permissions; see `LEGAL.md`. Dependency licenses remain applicable.
