@@ -233,14 +233,17 @@ def prepare(api, state, incoming, plan_path):
     main_sha = api.request('commits/main')['sha']
     # Reconcile current heads on every event. GitHub concurrency may replace pending
     # runs, so deployment must never depend on receiving every individual event.
-    heads = [main_sha, *(pull['head']['sha'] for pull in pulls
-                        if (pull['head'].get('repo') or {}).get('full_name') == api.repo)]
-    for sha in dict.fromkeys(heads):
-        runs = api.request(f'actions/workflows/pages.yml/runs?status=success&head_sha={sha}&per_page=100')['workflow_runs']
-        run = next((run for run in runs if select_update(run, api.repo, workflow['id'], pulls, main_sha)), None)
+    targets = [('production', main_sha, [])] + [
+        (str(pull['number']), pull['head']['sha'], [pull]) for pull in pulls
+        if (pull['head'].get('repo') or {}).get('full_name') == api.repo]
+    by_sha = {}
+    for update, sha, relevant_pulls in targets:
+        if sha not in by_sha:
+            by_sha[sha] = api.request(f'actions/workflows/pages.yml/runs?status=success&head_sha={sha}&per_page=100')['workflow_runs']
+        run = next((run for run in by_sha[sha]
+                    if select_update(run, api.repo, workflow['id'], relevant_pulls, main_sha) == update), None)
         if not run:
             continue
-        update = select_update(run, api.repo, workflow['id'], pulls, main_sha)
         previous = metadata['production'] if update == 'production' else metadata['previews'].get(update)
         build = {'sha': run['head_sha'], 'run': run['id'], 'attempt': run.get('run_attempt', 1)}
         if previous == build:
