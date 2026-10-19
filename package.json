@@ -9,13 +9,14 @@
   "scripts": {
     "check": "node scripts/check-syntax.mjs",
     "test": "node --import tsx --test tests/*.test.mjs deploy/homepage-worker/worker.test.mjs",
-    "test:browser": "node --import tsx --test tests/browser.spec.mjs",
+    "test:browser": "node --import tsx --test tests/browser.spec.mjs tests/previews.browser.mjs",
     "build": "node scripts/build.mjs",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:relay": "tsx --test tests/relay/*.test.ts",
     "test:relay-browser": "tsx --test tests/relay/*.browser.ts",
-    "test:artifact": "node --test tests/artifact/*.test.mjs"
+    "test:artifact": "node --test tests/artifact/*.test.mjs",
+    "test:previews": "python3 -B -m unittest discover -s tests/previews -p '*_test.py'"
   },
   "dependencies": {
     "nostr-tools": "2.25.2",
