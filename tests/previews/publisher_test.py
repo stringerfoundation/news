@@ -174,6 +174,20 @@ class PublisherTests(unittest.TestCase):
             self.assertTrue((state / 'site/pr-preview/18/index.html').is_file())
             self.assertEqual(json.loads(plan.read_text())['previews']['18']['sha'], SHA)
 
+        # Two PRs may share a head commit; each still needs its own preview and provenance.
+        class SharedHeadAPI(API):
+            def items(self, _path):
+                return [pull(), pull(19)]
+            def request(self, path, **options):
+                if '/runs?status=success&head_sha=' + SHA in path:
+                    return {'workflow_runs': [run(number=19, run_id=102), run()]}
+                return super().request(path, **options)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with patch.object(publisher, 'checkout_state', side_effect=lambda _api, path: path.mkdir()), patch.object(publisher, 'save_state'):
+                self.assertTrue(publisher.prepare(SharedHeadAPI(), root / 'state', root / 'incoming', root / 'plan'))
+            self.assertEqual(set(json.loads((root / 'plan').read_text())['previews']), {'18', '19'})
+
     def test_generated_branch_persists_assets_and_pending_builds_then_removes_closed_preview(self):
         class API:
             repo, token = REPO, 'fixture'

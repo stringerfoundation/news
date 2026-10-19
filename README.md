@@ -53,7 +53,7 @@ The browser job uploads its checked public assets as a `checked-site` artifact. 
 
 ## PR previews
 
-The generated `pages-state` branch in this same repository holds the last checked production build, active previews, and deployment metadata. Only its `site/` directory is uploaded to Pages. A PR update replaces its own preview; a production update preserves all active previews. Closing or merging a PR removes its preview and updates the bot comment after the combined Pages deployment succeeds. Failed or pending CI retains the previous preview, whose comment identifies the actual checked commit. Generated state survives CI artifact expiry.
+The generated `pages-state` branch in this same repository holds the last checked production build, active previews, and deployment metadata. Only its `site/` directory is uploaded to Pages. A PR update replaces its own preview; a production update preserves all active previews. Closing or merging a PR removes its preview and updates the bot comment after the combined Pages deployment succeeds. Failed or pending CI retains the previous preview, whose comment identifies the actual checked commit. Generated state survives CI artifact expiry. Adding public asset names requires updating both the artifact-test and trusted publisher allowlists.
 
 The publisher reconciles all current PR heads on every successful CI run or PR-close event, so concurrent events cannot discard another preview. Run the **Publish production and PR previews** workflow manually to retry a publication. Initial activation requires merging these workflows into `main` and a successful main CI run. Existing PRs need a new CI run using the updated workflow to upload their first `checked-site` artifact.
 
