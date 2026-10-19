@@ -125,52 +125,79 @@ test('desktop, 768px, and mobile layouts render two populated columns without ov
 test('relative assets and JSON work at /stringer-news/ and a domain root',async()=>{
   for(const path of ['/','/stringer-news/']){const page=await pageAt(path);assert.equal(await page.locator('#world-news article').count(),worldStories(snapshot).length);assert.equal(await page.locator('.main-nav [aria-current]').getAttribute('href'),'./');await page.close();}
 });
-test('mobile keeps courageous stories expanded, hides publisher images and preserves every headline when expanding or refreshing', async () => {
+test('mobile previews five stories per section and preserves independent choices through refresh and resizing', async () => {
   const page = await pageAt('/', 375);
-  const mobileData = structuredClone(snapshot);
-  for (const source of Object.values(mobileData.sources))
-    for (const story of source.stories)
-      story.image = { url: 'https://images.example.org/mobile-fixture.png', alt: 'Fixture photo', credit: 'Kenny Holston/The New York Times' };
-  await page.route('**/data/news.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(mobileData) }));
-  await page.reload();
-  await page.setViewportSize({ width: 375, height: 812 });
-  await page.waitForFunction(() => document.querySelectorAll('#world-news article').length === 4);
-  assert.equal(await page.locator('#stringer-news article:visible').count(), 24);
-  assert.equal(await page.getByText(/More courageous stories/).count(), 0);
-  assert.equal(await page.locator('#world-more-list article').count(), worldStories(snapshot).length - 4);
-  assert.equal(await page.locator('#world-more').getAttribute('open'), null);
-  assert.equal(await page.locator('#global-newswire img').count(), 0);
-  assert.equal(await page.locator('#global-newswire h2:visible').count(), 1);
-  assert.equal(await page.locator('.jump-links').count(), 0);
-  const headlineColor = await page.locator('#world-title').evaluate((node) => getComputedStyle(node).color);
-  const stringerColor = await page.locator('#stringer-title').evaluate((node) => getComputedStyle(node).color);
-  assert.equal(headlineColor, 'rgb(161, 43, 24)');
-  assert.equal(stringerColor, 'rgb(80, 44, 30)');
-  const more = page.locator('#world-more summary');
-  assert.equal(await more.evaluate((node) => getComputedStyle(node).color), headlineColor);
-  const urls = () => page.locator('.desk .story-body > a').evaluateAll((links) => links.map((link) => link.href));
-  const original = (await urls()).sort();
-  assert.equal(new Set(original).size, original.length);
+  const more = page.locator('#world-more');
+  assert.equal(await page.getByRole('button', { name: 'Show more headlines', exact: true }).count(), 1);
+  const courageous = page.locator('#stringer-more');
+  const visibleCount = id => page.locator(`#${id} article:visible`).count();
+  const urls = id => page.locator(`#${id} .story-body > a`).evaluateAll(links => links.map(link => link.href));
+  assert.equal(await visibleCount('world-news'), 5);
+  assert.equal(await visibleCount('stringer-news'), 5);
+  assert.deepEqual((await urls('world-news')).slice(0, 5), worldStories(snapshot).slice(0, 5).map(story => story.url));
+  assert.equal(await more.getAttribute('aria-controls'), 'world-news');
+  assert.equal(await courageous.getAttribute('aria-controls'), 'stringer-news');
+  const original = await urls('world-news');
+  const originalStringer = await urls('stringer-news');
+  const positions = await page.locator('#world-news article').evaluateAll(cards => cards.slice(0, 5).map(card => card.offsetTop));
+  for (const height of [812, 600, 667, 1000]) {
+    await page.setViewportSize({ width: 375, height });
+    await page.evaluate(() => window.scrollTo(0, 300));
+    assert.equal(await visibleCount('world-news'), 5);
+    assert.equal(await visibleCount('stringer-news'), 5);
+    assert.deepEqual(await page.locator('#world-news article').evaluateAll(cards => cards.slice(0, 5).map(card => card.offsetTop)), positions);
+    assert.deepEqual(await urls('world-news'), original);
+  }
   await more.focus(); await page.keyboard.press('Enter');
-  await page.waitForFunction(() => document.querySelector('#world-more summary').textContent === 'Show fewer headlines');
-  assert.equal(await page.locator('#world-more-list article').first().isVisible(), true);
+  assert.equal(await more.getAttribute('aria-expanded'), 'true');
+  assert.equal(await visibleCount('world-news'), original.length);
+  assert.equal(await visibleCount('stringer-news'), 5);
+  await courageous.focus(); await page.keyboard.press('Space');
+  assert.equal(await visibleCount('stringer-news'), 24);
   await poll(page);
-  assert.notEqual(await page.locator('#world-more').getAttribute('open'), null);
-  assert.deepEqual((await urls()).sort(), original);
+  assert.equal(await more.getAttribute('aria-expanded'), 'true');
+  assert.equal(await courageous.getAttribute('aria-expanded'), 'true');
+  assert.deepEqual(await urls('world-news'), original);
+  assert.deepEqual(await urls('stringer-news'), originalStringer);
   await more.click();
-  assert.equal(await page.locator('#stringer-news article:visible').count(), 24);
-  await page.locator('#global-newswire').scrollIntoViewIfNeeded();
-  await page.evaluate(() => document.activeElement.blur());
-  await page.screenshot({ path: '.test-output/mobile-reader.png' });
-  await page.setViewportSize({ width: 1280, height: 1000 });
-  await page.waitForFunction(() => document.querySelectorAll('#world-more-list article').length === 0);
-  assert.deepEqual((await urls()).sort(), original);
+  assert.equal(await visibleCount('world-news'), 5);
+  assert.equal(await visibleCount('stringer-news'), 24);
+  await page.setViewportSize({ width: 768, height: 1000 });
+  await page.waitForFunction(() => document.querySelector('#world-more').hidden);
+  assert.equal(await visibleCount('world-news'), original.length);
+  assert.equal(await visibleCount('stringer-news'), 24);
+  assert.equal(await courageous.isVisible(), false);
   await page.setViewportSize({ width: 375, height: 667 });
-  await page.waitForFunction(() => document.querySelectorAll('#world-news article').length === 3);
-  assert.equal(await page.locator('#stringer-news article:visible').count(), 24);
+  await page.waitForFunction(() => !document.querySelector('#world-more').hidden);
+  assert.equal(await visibleCount('world-news'), 5);
+  assert.equal(await visibleCount('stringer-news'), 24);
+  await courageous.click();
+  assert.equal(await visibleCount('stringer-news'), 5);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-  assert.equal(await page.locator('#global-newswire img').count(), 0);
-  assert.equal(await page.locator('#world-news article').first().locator('h3').count(), 1);
+  await page.locator('#global-newswire').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: '.test-output/mobile-reader.png' });
+  await page.close();
+});
+
+test('mobile controls disappear for short or empty collections and failures retain expanded stories', async () => {
+  const page = await pageAt('/', 375);
+  await page.locator('#world-more').click();
+  await page.route('**/data/news.json', route => route.fulfill({ status: 503, body: 'Unavailable' }));
+  await poll(page);
+  assert.equal(await page.locator('#world-news article:visible').count(), worldStories(snapshot).length);
+  assert.equal(await page.locator('#world-more').getAttribute('aria-expanded'), 'true');
+  for (const count of [5, 3, 0]) {
+    const data = structuredClone(snapshot);
+    for (const source of SOURCES) data.sources[source.id].stories = source.id === 'bbc' || source.id === 'stringer' ? data.sources[source.id].stories.slice(0, count) : [];
+    if (!count) Object.assign(data.sources.stringer, { status: 'failure', lastSuccessAt: null, error: 'Unavailable' });
+    await page.route('**/data/news.json', route => route.fulfill({ json: data }));
+    await poll(page);
+    assert.equal(await page.locator('#world-more').isVisible(), false);
+    assert.equal(await page.locator('#stringer-more').isVisible(), false);
+    assert.equal(await page.locator('#world-news article:visible').count(), count);
+    assert.equal(await page.locator('#stringer-news article:visible').count(), count);
+    if (!count) assert.match(await page.locator('#world-news').innerText(), /No headlines available/);
+  }
   await page.close();
 });
 
@@ -320,21 +347,23 @@ test('header positions match the main site and the mobile menu preserves navigat
   }
 });
 
-test('desktop newswire reaches the Stringer stories with distinct real headlines, including after resize', async () => {
+test('desktop shows every individual headline without grouping or subscription labels', async () => {
   const page = await pageAt('/', 1280);
+  const data = structuredClone(snapshot);
+  for (const source of SOURCES.filter(source => source.id !== 'stringer'))
+    for (const story of data.sources[source.id].stories) story.clusterId = 'shared-event';
+  await page.route('**/news-model.js', async route => route.fulfill({ contentType: 'text/javascript', body: (await readFile(new URL('../news-model.js', import.meta.url), 'utf8')).replace('headlineOnly: sourceId', 'clusterId: story.clusterId, headlineOnly: sourceId') }));
+  await page.route('**/data/news.json', route => route.fulfill({ json: data }));
+  await page.reload();
+  await page.waitForSelector('#world-news article');
   for (const width of [1280, 768, 375, 1440]) {
-    await page.setViewportSize({ width, height:1000 });
-    await page.waitForTimeout(50);
-    const cards = page.locator('#world-news article:not([hidden])');
-    const count = await cards.count();
-    if (width >= 768) {
-      const last = await cards.last().boundingBox();
-      const right = await page.locator('#stringer-news article').last().boundingBox();
-      assert.ok(last.y+last.height >= right.y+right.height-2);
-      assert.ok(last.y < right.y+right.height+2, 'Use only enough headlines to reach the right column');
-      assert.ok(count > 24, 'Longer collection should draw additional headlines');
-    } else assert.equal(count, 4);
-    const links = await cards.locator('.story-body > a').evaluateAll(els=>els.map(el=>el.href));
+    await page.setViewportSize({ width, height: 1000 });
+    await page.waitForFunction(mobile => document.querySelector('#world-more').hidden === !mobile, width < 768);
+    const cards = page.locator('#world-news article:visible');
+    assert.equal(await cards.count(), width < 768 ? 5 : worldStories(snapshot).length);
+    assert.equal(await page.locator('.group-articles,.subscription-warning').count(), 0);
+    assert.doesNotMatch(await page.locator('body').innerText(), /May require subscription|View \d+ articles/);
+    const links = await cards.locator('.story-body > a').evaluateAll(els => els.map(el => el.href));
     assert.equal(new Set(links).size, links.length);
   }
   await page.close();
