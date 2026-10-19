@@ -44,7 +44,7 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
       if (url.hostname === 'commons.wikimedia.org') {
         const query = url.searchParams.get('gsrsearch');
         if (query === 'Unavailable') { await route.fulfill({ status: 503 }); return; }
-        await route.fulfill({ json: { query: { pages: query === 'No results' ? [] : [{ title: 'File:Found.png', imageinfo: [{ mime: 'image/png', thumburl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ab/Found.png/320px-Found.png?utm_source=commons', descriptionurl: 'https://commons.wikimedia.org/wiki/File:Found.png', extmetadata: { Artist: { value: '<a href="https://example.org/">Found photographer</a>' }, Credit: { value: '<b>Own work</b>' }, LicenseUrl: { value: 'https://creativecommons.org/licenses/by-sa/4.0' }, ImageDescription: { value: 'Found illustration' } } }] }] } } }); return;
+        await route.fulfill({ json: { query: { pages: query !== 'Lisbon' ? [] : [{ title: 'File:Found.png', imageinfo: [{ mime: 'image/png', thumburl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ab/Found.png/320px-Found.png?utm_source=commons', descriptionurl: 'https://commons.wikimedia.org/wiki/File:Found.png', extmetadata: { Artist: { value: '<a href="https://example.org/">Found photographer</a>' }, Credit: { value: '<b>Own work</b>' }, LicenseUrl: { value: 'https://creativecommons.org/licenses/by-sa/4.0' }, ImageDescription: { value: 'Found illustration' } } }] }] } } }); return;
       }
       if (url.hostname !== 'reader.test') { await route.abort(); return; }
       const file = url.pathname.slice(1) || 'index.html';
@@ -162,11 +162,14 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     await setup(ownerPage, 'owner');
     await ownerPage.getByRole('button', { name: 'Connect Nostr', exact: true }).click();
     await ownerPage.getByText('Review illustrative images', { exact: true }).click();
+    await ownerPage.getByRole('searchbox').fill('Lisbon');
+    await ownerPage.getByRole('button', { name: 'Search Commons', exact: true }).click();
     await ownerPage.getByRole('button', { name: 'Publish and upvote image', exact: true }).waitFor();
     await ownerPage.getByRole('button', { name: 'Publish and upvote image', exact: true }).click();
     await ownerPage.getByText('Image and approval published.', { exact: true }).waitFor();
     await reader.locator('#world-news .wire-thumbnail img').waitFor();
     assert.match(await reader.locator('#world-news figcaption').textContent() || '', /Found photographer.*CC-BY-SA-4.0/);
+    assert.equal(await ownerPage.getByRole('searchbox').inputValue(), 'Lisbon');
     assert.equal(await ownerPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     await reader.reload();
     await reader.locator('#world-news .wire-thumbnail img').waitFor();

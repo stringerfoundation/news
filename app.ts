@@ -99,12 +99,15 @@ function commonsCaption(candidate: CommonsImage) {
 function imageReview(storyId: string, title: string) {
   if (!voter || !imageSession?.canVote(voter)) return null;
   const selection = imageSession.selection(storyId);
+  if (voter === relayConfig.pubkey && !commonsSearches.has(storyId))
+    commonsSearches.set(storyId, { query: title, loading: false, results: [], error: '', searched: false });
   const details = element('details', '', 'image-review'); details.open = openImageReviews.has(storyId);
   details.append(element('summary', 'Review illustrative images'));
   details.addEventListener('toggle', () => {
     if (details.open) {
       openImageReviews.add(storyId);
-      if (voter === relayConfig.pubkey && !commonsSearches.has(storyId)) void findCommons(storyId, title);
+      const state = commonsSearches.get(storyId);
+      if (voter === relayConfig.pubkey && state && !state.searched && !state.loading) void findCommons(storyId, state.query);
     } else openImageReviews.delete(storyId);
   });
   const current = selection.latest.get(voter)?.vote.candidateId;
@@ -165,7 +168,8 @@ function imageReview(storyId: string, title: string) {
 }
 async function findCommons(storyId: string, query: string) {
   if (!searchCommons || commonsSearches.get(storyId)?.loading) return;
-  const state: CommonsSearch = { query, loading: true, results: [], error: '', searched: false };
+  const state: CommonsSearch = commonsSearches.get(storyId) || { query, loading: false, results: [], error: '', searched: false };
+  Object.assign(state, { query, loading: true, results: [], error: '', searched: false });
   commonsSearches.set(storyId, state); renderWorld();
   try { state.results = await searchCommons(query); }
   catch (error) { state.error = error instanceof Error ? error.message : 'Commons search is unavailable. Please retry.'; }
