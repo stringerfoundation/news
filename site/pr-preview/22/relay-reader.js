@@ -2400,25 +2400,25 @@ function matchFilters(filters, event2) {
   }
   return false;
 }
-function getHex64(json, field) {
+function getHex64(json2, field) {
   let len = field.length + 3;
-  let idx = json.indexOf(`"${field}":`) + len;
-  let s = json.slice(idx).indexOf(`"`) + idx + 1;
-  return json.slice(s, s + 64);
+  let idx = json2.indexOf(`"${field}":`) + len;
+  let s = json2.slice(idx).indexOf(`"`) + idx + 1;
+  return json2.slice(s, s + 64);
 }
-function getSubscriptionId(json) {
-  let idx = json.slice(0, 22).indexOf(`"EVENT"`);
+function getSubscriptionId(json2) {
+  let idx = json2.slice(0, 22).indexOf(`"EVENT"`);
   if (idx === -1)
     return null;
-  let pstart = json.slice(idx + 7 + 1).indexOf(`"`);
+  let pstart = json2.slice(idx + 7 + 1).indexOf(`"`);
   if (pstart === -1)
     return null;
   let start = idx + 7 + 1 + pstart;
-  let pend = json.slice(start + 1, 80).indexOf(`"`);
+  let pend = json2.slice(start + 1, 80).indexOf(`"`);
   if (pend === -1)
     return null;
   let end = start + 1 + pend;
-  return json.slice(start + 1, end);
+  return json2.slice(start + 1, end);
 }
 function makeAuthEvent(relayURL, challenge2) {
   return {
@@ -2790,17 +2790,17 @@ var AbstractRelay = class {
     }
   }
   _onmessage(ev) {
-    const json = ev.data;
-    if (!json) {
+    const json2 = ev.data;
+    if (!json2) {
       return;
     }
-    const subid = getSubscriptionId(json);
+    const subid = getSubscriptionId(json2);
     if (subid) {
       const so = this.openSubs.get(subid);
       if (!so) {
         return;
       }
-      const id = getHex64(json, "id");
+      const id = getHex64(json2, "id");
       const alreadyHave = so.alreadyHaveEvent?.(id);
       so.receivedEvent?.(this, id);
       if (alreadyHave) {
@@ -2808,7 +2808,7 @@ var AbstractRelay = class {
       }
     }
     try {
-      let data = JSON.parse(json);
+      let data = JSON.parse(json2);
       switch (data[0]) {
         case "EVENT": {
           const so = this.openSubs.get(data[1]);
@@ -2892,7 +2892,7 @@ var AbstractRelay = class {
       }
     } catch (err) {
       try {
-        const [_, __, event2] = JSON.parse(json);
+        const [_, __, event2] = JSON.parse(json2);
         console.warn(`[nostr] relay ${this.url} error processing message:`, err, event2);
       } catch (_) {
         console.warn(`[nostr] relay ${this.url} error processing message:`, err);
@@ -5442,41 +5442,41 @@ __export(fakejson_exports, {
   matchEventKind: () => matchEventKind,
   matchEventPubkey: () => matchEventPubkey
 });
-function getHex642(json, field) {
+function getHex642(json2, field) {
   let len = field.length + 3;
-  let idx = json.indexOf(`"${field}":`) + len;
-  let s = json.slice(idx).indexOf(`"`) + idx + 1;
-  return json.slice(s, s + 64);
+  let idx = json2.indexOf(`"${field}":`) + len;
+  let s = json2.slice(idx).indexOf(`"`) + idx + 1;
+  return json2.slice(s, s + 64);
 }
-function getInt(json, field) {
+function getInt(json2, field) {
   let len = field.length;
-  let idx = json.indexOf(`"${field}":`) + len + 3;
-  let sliced = json.slice(idx);
+  let idx = json2.indexOf(`"${field}":`) + len + 3;
+  let sliced = json2.slice(idx);
   let end = Math.min(sliced.indexOf(","), sliced.indexOf("}"));
   return parseInt(sliced.slice(0, end), 10);
 }
-function getSubscriptionId2(json) {
-  let idx = json.slice(0, 22).indexOf(`"EVENT"`);
+function getSubscriptionId2(json2) {
+  let idx = json2.slice(0, 22).indexOf(`"EVENT"`);
   if (idx === -1)
     return null;
-  let pstart = json.slice(idx + 7 + 1).indexOf(`"`);
+  let pstart = json2.slice(idx + 7 + 1).indexOf(`"`);
   if (pstart === -1)
     return null;
   let start = idx + 7 + 1 + pstart;
-  let pend = json.slice(start + 1, 80).indexOf(`"`);
+  let pend = json2.slice(start + 1, 80).indexOf(`"`);
   if (pend === -1)
     return null;
   let end = start + 1 + pend;
-  return json.slice(start + 1, end);
+  return json2.slice(start + 1, end);
 }
-function matchEventId(json, id) {
-  return id === getHex642(json, "id");
+function matchEventId(json2, id) {
+  return id === getHex642(json2, "id");
 }
-function matchEventPubkey(json, pubkey) {
-  return pubkey === getHex642(json, "pubkey");
+function matchEventPubkey(json2, pubkey) {
+  return pubkey === getHex642(json2, "pubkey");
 }
-function matchEventKind(json, kind) {
-  return kind === getInt(json, "kind");
+function matchEventKind(json2, kind) {
+  return kind === getInt(json2, "kind");
 }
 var nip42_exports = {};
 __export(nip42_exports, {
@@ -5751,8 +5751,8 @@ async function searchDomain(domain, query = "") {
     if (res.status !== 200) {
       throw Error("Wrong response code");
     }
-    const json = await res.json();
-    return json.names;
+    const json2 = await res.json();
+    return json2.names;
   } catch (_) {
     return {};
   }
@@ -5768,9 +5768,9 @@ async function queryProfile(fullname) {
     if (res.status !== 200) {
       throw Error("Wrong response code");
     }
-    const json = await res.json();
-    const pubkey = json.names[name];
-    return pubkey ? { pubkey, relays: json.relays?.[pubkey] } : null;
+    const json2 = await res.json();
+    const pubkey = json2.names[name];
+    return pubkey ? { pubkey, relays: json2.relays?.[pubkey] } : null;
   } catch (_e) {
     return null;
   }
@@ -7636,9 +7636,9 @@ function permittedStories(sourceId, stories, permissions = CONTENT_PERMISSIONS) 
   }));
 }
 function applyContentPermissions(snapshot, permissions = CONTENT_PERMISSIONS) {
-  const sources = normalizeSourceSet(snapshot.sources, snapshot.generatedAt);
+  const sources2 = normalizeSourceSet(snapshot.sources, snapshot.generatedAt);
   return { ...snapshot, sources: Object.fromEntries(SOURCES.map((source) => {
-    const entry = sources[source.id];
+    const entry = sources2[source.id];
     return [source.id, permissions[source.id]?.text === true ? { ...entry, stories: permittedStories(source.id, entry.stories, permissions) } : { ...entry, stories: [], status: "paused", lastSuccessAt: null, error: null }];
   })) };
 }
@@ -7659,12 +7659,12 @@ function safeImageUrl(value) {
 }
 var nonempty = (value) => typeof value === "string" && !!value.trim();
 var timestamp = (value) => typeof value === "string" && /^\d{4}-\d\d-\d\dT/.test(value) && Number.isFinite(Date.parse(value));
-function normalizeSourceSet(sources, generatedAt, relay = false) {
-  if (!sources || typeof sources !== "object" || Array.isArray(sources) || Object.keys(sources).some((id) => !SOURCES.some((source) => source.id === id)) || SOURCES.some((source) => source.id !== "cna" && !Object.hasOwn(sources, source.id))) {
+function normalizeSourceSet(sources2, generatedAt, relay = false) {
+  if (!sources2 || typeof sources2 !== "object" || Array.isArray(sources2) || Object.keys(sources2).some((id) => !SOURCES.some((source) => source.id === id)) || SOURCES.some((source) => source.id !== "cna" && !Object.hasOwn(sources2, source.id))) {
     throw new Error("Invalid source set");
   }
-  if (Object.hasOwn(sources, "cna")) return sources;
-  return { ...sources, cna: {
+  if (Object.hasOwn(sources2, "cna")) return sources2;
+  return { ...sources2, cna: {
     ...relay ? { ids: [] } : { stories: [] },
     attemptedAt: generatedAt,
     lastSuccessAt: null,
@@ -7676,8 +7676,8 @@ function validateSnapshot(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Invalid news snapshot");
   let value = input;
   if (!value || ![1, 2].includes(value.schemaVersion) || !timestamp(value.generatedAt) || !value.sources) throw new Error("Invalid news snapshot");
-  const sources = normalizeSourceSet(value.sources, value.generatedAt);
-  if (sources !== value.sources) value = { ...value, sources };
+  const sources2 = normalizeSourceSet(value.sources, value.generatedAt);
+  if (sources2 !== value.sources) value = { ...value, sources: sources2 };
   for (const source of SOURCES) {
     const entry = value.sources[source.id];
     if (!entry || !Array.isArray(entry.stories) || !timestamp(entry.attemptedAt) || !["success", "failure", "paused"].includes(entry.status) || !(entry.lastSuccessAt === null || timestamp(entry.lastSuccessAt))) throw new Error(`Invalid ${source.id} metadata`);
@@ -7766,7 +7766,7 @@ function readAssignment(event2, pubkey, noteId) {
 function assemble(manifestEvent, events, pubkey, allowPartial = false) {
   const manifest = readManifest(manifestEvent, pubkey);
   const byId = new Map(events.map((event2) => [event2.id, event2]));
-  const sources = {};
+  const sources2 = {};
   for (const source of SOURCES) {
     const entry = manifest.sources[source.id];
     const missing = entry.ids.filter((id) => !byId.has(id));
@@ -7791,7 +7791,7 @@ function assemble(manifestEvent, events, pubkey, allowPartial = false) {
       const { clusterId: ignoredCluster, noteId: ignoredNote, ...original } = story;
       return { ...original, noteId: id, ...clusterId ? { clusterId } : {} };
     });
-    sources[source.id] = {
+    sources2[source.id] = {
       ...entry,
       stories,
       ...missing.length && allowPartial ? { unavailable: missing.length } : {},
@@ -7802,14 +7802,14 @@ function assemble(manifestEvent, events, pubkey, allowPartial = false) {
       } : {}
     };
   }
-  if (allowPartial && !Object.values(sources).some((source) => source.stories.length) && Object.values(manifest.sources).some((source) => source.ids.length))
+  if (allowPartial && !Object.values(sources2).some((source) => source.stories.length) && Object.values(manifest.sources).some((source) => source.ids.length))
     throw new Error("No published stories available");
   const clean3 = applyContentPermissions(
-    validateSnapshot({ schemaVersion: 2, generatedAt: manifest.generatedAt, sources })
+    validateSnapshot({ schemaVersion: 2, generatedAt: manifest.generatedAt, sources: sources2 })
   );
   for (const source of SOURCES) {
     clean3.sources[source.id].stories.forEach((story, index) => {
-      const verified = sources[source.id].stories[index];
+      const verified = sources2[source.id].stories[index];
       story.noteId = verified.noteId;
       if (verified.clusterId) story.clusterId = verified.clusterId;
     });
@@ -7865,18 +7865,31 @@ function payload(event2, marker) {
     throw new Error("Invalid image metadata version");
   return value;
 }
-function https(value) {
+function https(value, allowQuery = false) {
   if (typeof value !== "string") throw new Error("Invalid image URL");
   const url = new URL(value);
-  if (url.protocol !== "https:" || url.username || url.password || url.port || url.hash || url.search)
+  if (url.protocol !== "https:" || url.username || url.password || url.port || url.hash || !allowQuery && url.search)
     throw new Error("Invalid image URL");
   return url;
 }
-function readCommonsImage(data) {
+function publicUrl(value) {
+  const url = https(value, true), host = url.hostname.replace(/\.$/, "");
+  if (!host.includes(".") || /[\[\]:]/.test(host) || /^\d+(?:\.\d+)*$/.test(host) || /\.(?:local|localhost|internal|test|invalid|lan|home)$/.test(host)) throw new Error("Invalid public image URL");
+  return url;
+}
+function readIllustration(data) {
   if (data.version !== 1) throw new Error("Invalid image metadata version");
   for (const field of ["title", "alt", "creator", "attribution", "license"]) if (!text(data[field])) throw new Error("Missing image attribution");
-  const image = https(data.url), page = https(data.filePage), license = https(data.licenseUrl);
-  if (!["upload.wikimedia.org", "thumb.wikimedia.org"].includes(image.hostname) || !image.pathname.startsWith("/wikipedia/commons/") || page.hostname !== "commons.wikimedia.org" || !page.pathname.startsWith("/wiki/File:")) throw new Error("Not a Commons image");
+  const external = data.source === "openverse" || data.source === "eu";
+  const image = external ? publicUrl(data.url) : https(data.url), page = external ? publicUrl(data.filePage) : https(data.filePage), license = https(data.licenseUrl);
+  if (!external) {
+    if (data.source !== void 0 || !["upload.wikimedia.org", "thumb.wikimedia.org"].includes(image.hostname) || !image.pathname.startsWith("/wikipedia/commons/") || page.hostname !== "commons.wikimedia.org" || !page.pathname.startsWith("/wiki/File:")) throw new Error("Not a Commons image");
+  } else {
+    if (!text(data.sourceName)) throw new Error("Missing image source");
+    const catalog = https(data.sourceUrl);
+    if (data.source === "openverse" && (catalog.hostname !== "api.openverse.org" || !/^\/v1\/images\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/$/.test(catalog.pathname))) throw new Error("Invalid Openverse provenance");
+    if (data.source === "eu" && (catalog.hostname !== "audiovisual.ec.europa.eu" || !/^\/en\/(?:media\/)?photo\/P-\d+(?:~2F|%2F)\d+-\d+$/i.test(catalog.pathname) || page.href !== catalog.href || image.hostname !== "ec.europa.eu" || !image.pathname.startsWith("/avservices/repository/photo/") || data.license !== "CC-BY-4.0")) throw new Error("Invalid EU photo provenance");
+  }
   const cc = /^(CC-BY|CC-BY-SA)-(1\.0|2\.0|2\.5|3\.0|4\.0)$/.exec(String(data.license));
   const licensePath = cc ? `/licenses/${cc[1] === "CC-BY" ? "by" : "by-sa"}/${cc[2]}/` : data.license === "CC0-1.0" ? "/publicdomain/zero/1.0/" : data.license === "PDM-1.0" ? "/publicdomain/mark/1.0/" : null;
   if (license.hostname !== "creativecommons.org" || !licensePath || license.pathname !== licensePath) throw new Error("Unsupported image license");
@@ -7889,21 +7902,26 @@ function readCommonsImage(data) {
     creator: data.creator,
     attribution: data.attribution,
     license: data.license,
-    licenseUrl: license.href
+    licenseUrl: license.href,
+    ...external ? { source: data.source, sourceName: data.sourceName, sourceUrl: data.sourceUrl } : {}
   };
+}
+function readCommonsImage(data) {
+  if (data.source !== void 0) throw new Error("Not a Commons image");
+  return readIllustration(data);
 }
 function readCandidate(event2, pubkey, refs, discover = false) {
   checkedEvent(event2, pubkey, 1);
   const storyId = root(event2);
   const indexed = discover && Object.hasOwn(refs, storyId) && event2.tags.some((t) => t[0] === "t" && t[1] === IMAGE_MARKER);
   if (!refs[storyId]?.includes(event2.id) && !indexed) throw new Error("Unlisted candidate");
-  return { ...readCommonsImage(payload(event2, IMAGE_MARKER)), id: event2.id, storyId };
+  return { ...readIllustration(payload(event2, IMAGE_MARKER)), id: event2.id, storyId };
 }
 function candidateTemplate(storyId, image) {
   return {
     kind: 1,
     created_at: Math.floor(Date.now() / 1e3),
-    content: `Illustrative Commons image: ${image.title}
+    content: `Illustrative image: ${image.title}
 ${image.filePage}`,
     tags: [["e", storyId, "", "root"], ["t", IMAGE_MARKER], [IMAGE_MARKER, JSON.stringify(image)]]
   };
@@ -7941,7 +7959,7 @@ function voteTemplate(storyId, candidateId, created_at = Math.floor(Date.now() /
   return {
     kind: 1,
     created_at,
-    content: candidateId ? "Approve this illustrative Commons image." : "Withdraw my image approval.",
+    content: candidateId ? "Approve this illustrative image." : "Withdraw my image approval.",
     tags: [["e", storyId, "", "root"], ["t", VOTE_MARKER], [VOTE_MARKER, JSON.stringify({ version: 1, candidateId })]]
   };
 }
@@ -8081,8 +8099,8 @@ var ImageSession = class {
     this.timer = setTimeout(() => {
       if (this.stopped) return;
       try {
-        const json = JSON.stringify([...this.events.values()]);
-        if (json.length <= 5e6) localStorage.setItem(this.cacheKey, json);
+        const json2 = JSON.stringify([...this.events.values()]);
+        if (json2.length <= 5e6) localStorage.setItem(this.cacheKey, json2);
         else localStorage.removeItem(this.cacheKey);
       } catch {
       }
@@ -8114,7 +8132,7 @@ var ImageSession = class {
   async propose(signer, pubkey, storyId, image) {
     if (pubkey !== this.config.pubkey || await signer.getPublicKey() !== pubkey) throw new Error("Connect Stringer\u2019s account to publish image candidates.");
     if (this.stopped || !Object.hasOwn(this.refs, storyId)) throw new Error("This headline is no longer available.");
-    const template = candidateTemplate(storyId, readCommonsImage(image));
+    const template = candidateTemplate(storyId, readIllustration(image));
     const event2 = await signer.signEvent(structuredClone(template));
     checkedEvent(event2, pubkey, 1);
     if (event2.created_at !== template.created_at || event2.content !== template.content || JSON.stringify(event2.tags) !== JSON.stringify(template.tags)) throw new Error("Signer changed the requested image candidate.");
@@ -8163,8 +8181,8 @@ var places = {
   Palestinian: "Palestine"
 };
 function commonsSubject(title) {
-  const names = [...title.matchAll(/\p{Lu}[\p{L}\p{M}'’.-]*(?:\s+(?:(?:de|del|der|van|von|le)\s+)*\p{Lu}[\p{L}\p{M}'’.-]*)*/gu)].map((match) => match[0]);
-  const subject = names.find((name) => !/^(The|A|An)\b/.test(name) && !/^(How|Why|What|After|Before|Flooding|Talks)$/.test(name));
+  const names = [...title.matchAll(/\p{Lu}[\p{L}\p{M}'’.-]*(?:\s+(?:(?:de|del|der|van|von|le)\s+)*\p{Lu}[\p{L}\p{M}'’.-]*)*/gu)].map((match) => match[0].replace(/^(?:Ex-|Former\s+)/, "").split(/\s+(?:Prompt|Prompts|Says|Say|Hits|Warns|Faces|Under|Over|Will|Would|Could|May|Must|As|Has|Have|Is|Are|Was|Were|Sparks|Questions)\b/)[0]);
+  const subject = names.find((name) => !/^(The|A|An)\b/.test(name) && !/^(How|Why|What|After|Before|Flooding|Talks|Deaths|Death|New|Latest|Live|Breaking|Opinion|Analysis|Watch|Photos)$/.test(name));
   return (places[subject || ""] || subject || title).trim().slice(0, 200);
 }
 function plain(value) {
@@ -8238,7 +8256,10 @@ async function searchCommons(query, request = fetch, suggest = false) {
   if (!response.ok) throw new Error("Commons search is unavailable. Please retry.");
   const data = await response.json();
   if (data.error) throw new Error("Commons search is unavailable. Please retry.");
-  const images = [...await preferred, ...readImages(data)];
+  const normalize = (value) => value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  const words = normalize(query).split(" ");
+  const alternatives = readImages(data).filter((image) => !suggest || words.every((word) => normalize(`${image.title} ${decodeURIComponent(new URL(image.filePage).pathname)}`).split(" ").includes(word)));
+  const images = [...await preferred, ...alternatives];
   return images.filter((image, index) => images.findIndex((other) => other.filePage === image.filePage) === index).slice(0, 5);
 }
 function readImages(data) {
@@ -8312,7 +8333,7 @@ async function readRelaySnapshot(config, report = () => {
         void subscription.close();
         resolve([...events.values()]);
       };
-      const timer = setTimeout(finish, Math.min(6e3, remaining));
+      const timer = setTimeout(finish, Math.ceil(Math.min(6e3, remaining)));
       const subscription = pool.subscribeMany(config.relays, filter, {
         maxWait: 5e3,
         abort: abort.signal,
@@ -8436,6 +8457,129 @@ function cachedRelaySnapshot(config) {
   return readCachedCollection(config.pubkey)?.snapshot ?? null;
 }
 
+// relay/open-images.ts
+var sources = { commons: "Wikimedia Commons", openverse: "Openverse", flickr: "Flickr via Openverse", eu: "EU audiovisual library" };
+var euEndpoint = "https://gfdwwnbuul.execute-api.eu-west-1.amazonaws.com/avsportal/avsportal";
+function plain2(value) {
+  if (typeof value !== "string") return "";
+  return new DOMParser().parseFromString(value, "text/html").body.textContent?.replace(/\s+/g, " ").trim().slice(0, 2e3) || "";
+}
+async function json(url, request, timeout = 12e3) {
+  const response = await request(url, { credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(timeout) });
+  if (!response.ok) throw new Error(response.status === 429 ? "Search limit reached. Please retry later." : "Search is unavailable. Please retry.");
+  return response.json();
+}
+async function searchOpenverse(query, request = fetch, flickrOnly = false) {
+  const url = new URL("https://api.openverse.org/v1/images/");
+  url.search = new URLSearchParams({
+    q: query.trim().slice(0, 200),
+    license: "by,by-sa,cc0,pdm",
+    page_size: "10",
+    mature: "false",
+    ...flickrOnly ? { source: "flickr" } : { excluded_source: "wikimedia" }
+  }).toString();
+  const data = await json(url, request, 25e3);
+  if (!Array.isArray(data.results)) throw new Error("Invalid image search response.");
+  const images = [];
+  for (const item of data.results) {
+    if (item.mature || !plain2(item.source) || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(item.id || "") || item.source === "wikimedia" || flickrOnly && item.source !== "flickr") continue;
+    const license = item.license === "cc0" ? "CC0-1.0" : item.license === "pdm" ? "PDM-1.0" : ["by", "by-sa"].includes(item.license || "") ? `CC-${item.license.toUpperCase()}-${item.license_version}` : "";
+    try {
+      images.push(readIllustration({
+        version: 1,
+        source: "openverse",
+        sourceName: `${plain2(item.source)} via Openverse`,
+        sourceUrl: `https://api.openverse.org/v1/images/${item.id}/`,
+        url: item.url,
+        filePage: item.foreign_landing_url,
+        title: plain2(item.title),
+        alt: plain2(item.title),
+        creator: plain2(item.creator),
+        attribution: plain2(item.attribution),
+        license,
+        licenseUrl: item.license_url
+      }));
+    } catch {
+    }
+    if (images.length >= 5) break;
+  }
+  return images;
+}
+async function searchEuPhotos(query, request = fetch) {
+  const url = new URL(euEndpoint);
+  url.search = new URLSearchParams({
+    kwgg: query.trim().slice(0, 200),
+    type: "PHOTO",
+    hasMedia: "1",
+    wt: "json",
+    index: "1",
+    pagesize: "10",
+    fl: "ref,type,titles_json,summary_json,copyright_json,cc_by_json,cooperator_json,media_json"
+  }).toString();
+  const data = await json(url, request);
+  if (!Array.isArray(data.response?.docs)) throw new Error("Invalid EU photo search response.");
+  const images = [];
+  for (const item of data.response.docs) {
+    const holders = item.copyright_json?.holders?.EN, terms = item.cc_by_json;
+    if (item.type !== "PHOTO" || !/^P-\d+\/\d+-\d+$/.test(item.ref || "") || !holders?.length || !holders.every((holder) => ["European Union", "European Commission", "Commission of the European Communities"].includes(holder)) || !terms?.length || terms.some((term) => term.cc_by !== "0" || Object.keys(term.titles || {}).length || Object.keys(term.links || {}).length)) continue;
+    const path = item.media_json?.LOW?.PATH || item.media_json?.MED?.PATH;
+    if (!path || !/^\/\d+\/\d+\/\d+\/[\w-]+\.jpg$/.test(path) || !/^\d{4}$/.test(item.copyright_json?.year || "")) continue;
+    const creator = item.cooperator_json?.PHOTOGRAPHER?.EN?.coop?.map(plain2).filter(Boolean).join(", ");
+    if (!creator) continue;
+    const page = `https://audiovisual.ec.europa.eu/en/photo/${item.ref.replace("/", "~2F")}`;
+    const agencies = item.cooperator_json?.AGENCY?.EN?.coop?.map(plain2).filter(Boolean).join(", ");
+    try {
+      images.push(readIllustration({
+        version: 1,
+        source: "eu",
+        sourceName: "European Commission audiovisual library",
+        sourceUrl: page,
+        filePage: page,
+        url: `https://ec.europa.eu/avservices/repository/photo${path}`,
+        title: plain2(item.titles_json?.EN),
+        alt: plain2(item.summary_json?.EN) || plain2(item.titles_json?.EN),
+        creator,
+        attribution: `\xA9 European Union, ${item.copyright_json.year}${agencies ? ` \xB7 ${agencies}` : ""}. Thumbnail display.`,
+        license: "CC-BY-4.0",
+        licenseUrl: "https://creativecommons.org/licenses/by/4.0/"
+      }));
+    } catch {
+    }
+    if (images.length >= 5) break;
+  }
+  return images;
+}
+var cache = /* @__PURE__ */ new Map();
+async function searchImages(query, source = "all", suggest = false, request = fetch) {
+  if (!query.trim()) throw new Error("Enter a person, place or subject to search for.");
+  const issues = [];
+  const run = async (id) => {
+    const key = JSON.stringify([id, query.trim(), suggest]), cached = cache.get(key);
+    if (request === fetch && cached && cached.until > Date.now()) return cached.images;
+    try {
+      const images2 = id === "commons" ? await searchCommons(query, request, suggest) : id === "eu" ? await searchEuPhotos(query, request) : await searchOpenverse(query, request, id === "flickr");
+      if (request === fetch) {
+        if (cache.size >= 200) cache.delete(cache.keys().next().value);
+        cache.set(key, { until: Date.now() + 10 * 60 * 1e3, images: images2 });
+      }
+      return images2;
+    } catch (error) {
+      issues.push(`${sources[id]}: ${error instanceof Error ? error.message : "Search is unavailable. Please retry."}`);
+      return [];
+    }
+  };
+  if (source !== "all") return { images: await run(source), issues };
+  const commons = await run("commons");
+  if (suggest && commons.length) return { images: commons, issues };
+  const [openverse, eu] = await Promise.all([run("openverse"), run("eu")]);
+  const images = [];
+  for (let i3 = 0; i3 < 5; i3++) for (const group of [commons, openverse, eu]) {
+    const image = group[i3];
+    if (image && !images.some((other) => other.filePage === image.filePage || other.url === image.url)) images.push(image);
+  }
+  return { images: images.slice(0, 9), issues };
+}
+
 // node_modules/nostr-tools/lib/esm/nip19.js
 var utf8Decoder3 = new TextDecoder("utf-8");
 var utf8Encoder4 = new TextEncoder();
@@ -8524,7 +8668,10 @@ export {
   npubEncode2 as npubEncode,
   readIdentity,
   readRelaySnapshot,
-  searchCommons
+  searchCommons,
+  searchEuPhotos,
+  searchImages,
+  searchOpenverse
 };
 /*! Bundled license information:
 
