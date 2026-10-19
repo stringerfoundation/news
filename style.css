@@ -203,12 +203,13 @@
 .image-toolbar { margin-bottom: 16px; }
 .image-toolbar[hidden] { display: none; }
 .image-toolbar p { font-size: 13px; margin: 6px 0; }
-.image-toolbar button, .image-review button { font: inherit; font-size: 13px; padding: 6px 10px; cursor: pointer; }
+.image-toolbar button, .image-review button, .suggested-image-approve { font: inherit; font-size: 13px; padding: 6px 10px; cursor: pointer; }
 .image-review { margin-top: 10px; font-size: 13px; }
 .image-review summary { cursor: pointer; }
 .image-review figure { margin: 12px 0; }
 .image-review img { display: block; width: 120px; height: 80px; object-fit: contain; }
 .image-review figcaption { margin: 5px 0; font-size: 12px; overflow-wrap: anywhere; }
+.image-approval-status { font-weight: 700; border-left: 3px solid currentColor; padding-left: 8px; }
 #global-newswire .wire-thumbnail > figcaption { font-size: 12px; }
 .commons-search { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .commons-search label { display: grid; gap: 4px; width: 100%; }
