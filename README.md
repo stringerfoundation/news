@@ -17,10 +17,15 @@ Use Node 24 or newer:
 ```sh
 npm ci
 npm run check
+npm run lint
+npm run typecheck
 npm test
+npm run test:relay
 npm run build
+npm run test:artifact
 npx playwright install chromium
 npm run test:browser
+npm run test:relay-browser
 ```
 
 The reader loads verified news from the configured Nostr relays. CI uses synthetic fixtures; it does not publish or collect news. Global publishers supply headlines, attribution, dates and original links; Stringer reporting and photos remain separate. See `LEGAL.md` for the publication policy. Source availability does not grant reuse rights to publisher material or photographs.
@@ -36,3 +41,11 @@ To roll back the Pages origin, restore the previous `PAGES_ORIGIN` in private op
 ## License
 
 Original project code is licensed under the [MIT License](LICENSE). This license does not grant rights to Stringer names, trademarks, logos, reporting, photographs, or third-party content. Those materials retain their respective rights and permissions; see `LEGAL.md`. Dependency licenses remain applicable.
+
+## Continuous integration
+
+Every pull request and push to `main` runs syntax and lint checks, strict relay TypeScript checks, unit tests on Node 24 and 26, signed-event security tests, workflow lint, a redacted Git history secret scan, dependency auditing, and CodeQL security analysis. A separate browser job builds the public artifact and verifies its exact allowlist, relative assets, content versions, and noindex controls before running desktop/mobile browser regressions, including relay streaming, a silent relay, missing notes, and offline cache recovery. Test fixtures are synthetic and never publish events.
+
+GitHub Pages deployment waits for every CI job to succeed, and only publishes the browser job's checked `_site` artifact from `main`. Pull requests have no deployment permissions. CI actions use immutable commit pins, and checkout does not persist credentials. There is no Cloudflare deployment in these workflows.
+
+Dependabot opens weekly npm and GitHub Action update pull requests. A weekly audit checks for newly disclosed dependency vulnerabilities even without source changes. Repository admins can require the CI jobs in a branch protection rule; workflows alone do not prevent direct pushes.
