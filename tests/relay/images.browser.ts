@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { finalizeEvent, generateSecretKey, getPublicKey, type Event, type EventTemplate } from 'nostr-tools';
+import { npubEncode } from 'nostr-tools/nip19';
 import type { WebSocketRoute, Page } from '@playwright/test';
 import { launchBrowser } from '../../scripts/browser.mjs';
 import { publicBatch } from './fixture.js';
@@ -21,7 +22,8 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
   const manifest = JSON.parse(batch.manifest.content); manifest.imageCandidates = { [storyId]: [candidate.id] };
   batch.manifest = finalizeEvent({ ...batch.manifest, content: JSON.stringify(manifest) }, owner);
   const follows = (include: boolean, at: number) => finalizeEvent({ kind: 3, created_at: at, content: '', tags: include ? [['p', voterKey]] : [] }, owner);
-  const events = [batch.manifest, ...batch.events, candidate, follows(true, created_at)];
+  const profiles = [finalizeEvent({ kind: 0, created_at, tags: [], content: JSON.stringify({ nip05: '_@identity.test' }) }, owner), finalizeEvent({ kind: 0, created_at, tags: [], content: JSON.stringify({ nip05: 'reporter@identity.test' }) }, voter)];
+  const events = [batch.manifest, ...batch.events, candidate, follows(true, created_at), ...profiles];
   const subscriptions = new Map<WebSocketRoute, Map<string, Record<string, unknown>[]>>();
   const matches = (event: Event, filter: Record<string, unknown>) => Object.entries(filter).every(([key, values]) => {
     const list = values as (string | number)[];
@@ -35,7 +37,7 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
   let rejectPublish = false, rejectSign = false, tamperSign = false, offline = false, brokenImage = false;
   const browser = await launchBrowser();
   const errors: string[] = [];
-  async function setup(page: Page, signer: boolean | 'owner') {
+  async function setup(page: Page, signer: boolean | 'owner', denied = false) {
     page.on('pageerror', error => errors.push(error.message));
     await page.route('**/*', async route => {
       const url = new URL(route.request().url());
@@ -46,6 +48,7 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
         if (query === 'Unavailable') { await route.fulfill({ status: 503 }); return; }
         await route.fulfill({ json: { query: { pages: query !== 'Lisbon' ? [] : [{ title: 'File:Found.png', imageinfo: [{ mime: 'image/png', thumburl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ab/Found.png/320px-Found.png?utm_source=commons', descriptionurl: 'https://commons.wikimedia.org/wiki/File:Found.png', extmetadata: { Artist: { value: '<a href="https://example.org/">Found photographer</a>' }, Credit: { value: '<b>Own work</b>' }, LicenseUrl: { value: 'https://creativecommons.org/licenses/by-sa/4.0' }, ImageDescription: { value: 'Found illustration' } } }] }] } } }); return;
       }
+      if (url.hostname === 'identity.test') { await route.fulfill({ json: { names: { _: pubkey, reporter: voterKey } } }); return; }
       if (url.hostname !== 'reader.test') { await route.abort(); return; }
       const file = url.pathname.slice(1) || 'index.html';
       if (file === 'relay-config.js') { await route.fulfill({ contentType: 'text/javascript', body: `export default ${JSON.stringify({ enabled: true, pubkey, relays: ['wss://relay.test'] })}` }); return; }
@@ -86,14 +89,19 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     }
     await page.goto('https://reader.test/');
     await page.getByRole('heading', { name: 'Synthetic headline' }).waitFor();
-    await page.getByRole('button', { name: 'Connect Nostr', exact: true }).waitFor();
+    if (signer) {
+      await page.getByText(npubEncode(signer === 'owner' ? pubkey : voterKey), { exact: true }).waitFor();
+      await page.locator('.account-nip05').filter({ hasText: signer === 'owner' ? /^identity.test$/ : /^reporter@identity.test$/ }).waitFor();
+    } else if (!denied) {
+      assert.equal(await page.locator('.image-toolbar').isVisible(), false);
+      assert.equal(await page.getByRole('button', { name: 'Connect Nostr', exact: true }).count(), 0);
+    }
   }
   try {
     const editor = await browser.newPage({ viewport: { width: 375, height: 1000 } });
     const reader = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
     await setup(editor, true); await setup(reader, false);
     assert.equal(await reader.locator('#world-news img').count(), 0);
-    await editor.getByRole('button', { name: 'Connect Nostr', exact: true }).click();
     await editor.getByText('Review illustrative images', { exact: true }).click();
     rejectSign = true;
     await editor.getByRole('button', { name: 'Upvote image (0)', exact: true }).click();
@@ -149,18 +157,16 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     await reader.waitForFunction(() => !document.querySelector('#world-news .wire-thumbnail'));
     await editor.getByText('This account is not followed by Stringer and cannot approve images.', { exact: true }).waitFor();
     assert.equal(await editor.getByText('Review illustrative images', { exact: true }).count(), 0);
-    await reader.getByRole('button', { name: 'Connect Nostr', exact: true }).click();
-    await reader.getByText('Install a NIP-07 Nostr signer to approve images.', { exact: true }).waitFor();
+    assert.equal(await reader.locator('.image-toolbar').isVisible(), false);
     const noImages = finalizeEvent({ ...batch.manifest, content: JSON.stringify({ ...manifest, imageCandidates: {} }), created_at: batch.manifest.created_at + 1 }, owner);
     broadcast(noImages);
     await reader.reload();
     await reader.getByRole('heading', { name: 'Synthetic headline' }).waitFor();
     assert.equal(await reader.locator('#world-news img').count(), 0);
-    assert.equal(await reader.locator('.image-toolbar').isVisible(), true);
+    assert.equal(await reader.locator('.image-toolbar').isVisible(), false);
     // Reproduce the live preview: no manifest candidates and no self-follow.
     const ownerPage = await browser.newPage({ viewport: { width: 375, height: 1000 } });
     await setup(ownerPage, 'owner');
-    await ownerPage.getByRole('button', { name: 'Connect Nostr', exact: true }).click();
     await ownerPage.getByText('Review illustrative images', { exact: true }).click();
     await ownerPage.getByRole('searchbox').fill('Lisbon');
     await ownerPage.getByRole('button', { name: 'Search Commons', exact: true }).click();
@@ -180,6 +186,21 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     await ownerPage.getByRole('searchbox').fill('Unavailable');
     await ownerPage.getByRole('button', { name: 'Search Commons', exact: true }).click();
     await ownerPage.getByText('Commons search is unavailable. Please retry.', { exact: true }).waitFor();
+    const late = await browser.newPage();
+    await setup(late, false);
+    await late.evaluate(key => { window.nostr = { async getPublicKey() { return key; }, async signEvent() { throw new Error('No signing in identity test'); } }; }, voterKey);
+    await late.getByText(npubEncode(voterKey), { exact: true }).waitFor();
+    await late.getByText('reporter@identity.test', { exact: true }).waitFor();
+    await late.getByRole('button', { name: 'Disconnect Nostr', exact: true }).click();
+    assert.equal(await late.locator('.account-npub').count(), 0);
+    await late.getByRole('button', { name: 'Connect Nostr', exact: true }).click();
+    await late.getByText(npubEncode(voterKey), { exact: true }).waitFor();
+    const denied = await browser.newPage();
+    await denied.addInitScript(() => { window.nostr = { async getPublicKey() { throw new Error('Signer access denied'); }, async signEvent() { throw new Error('No signing'); } }; });
+    await setup(denied, false, true);
+    await denied.getByText('Signer access denied', { exact: true }).waitFor();
+    await denied.getByRole('button', { name: 'Connect Nostr', exact: true }).waitFor();
+    assert.equal(await denied.locator('.account-npub').count(), 0);
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 });

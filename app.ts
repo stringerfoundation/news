@@ -50,6 +50,12 @@ const commonsSearches = new Map<string, CommonsSearch>();
 let imageSession: ImageSession | null = null;
 let imageRefsKey = '';
 let voter: string | null = null;
+let accountNpub = '';
+let accountNip05: string | null = null;
+let identityPending = false;
+let connectingSigner = false;
+let accountRevision = 0;
+let attemptedSigner: Window['nostr'];
 let voteBusy = false;
 let voteMessage = '';
 const openImageReviews = new Set<string>();
@@ -66,27 +72,82 @@ function syncImages() {
     imageRefsKey = key;
     if (storyIds.length) imageSession = new ImageSessionClass(relayConfig, refs, () => renderWorld(), storyIds);
   }
+  renderNostrAccount();
+}
+function hasSigner() {
+  return typeof window.nostr?.getPublicKey === 'function' && typeof window.nostr?.signEvent === 'function';
+}
+function refreshAccount() {
+  if (snapshot) renderWorld(); else renderNostrAccount();
+}
+async function connectNostr() {
+  if (!hasSigner() || connectingSigner) return;
+  const signer = window.nostr!, revision = ++accountRevision;
+  connectingSigner = true; voteMessage = ''; renderNostrAccount();
+  try {
+    const key = await signer.getPublicKey();
+    if (!/^[0-9a-f]{64}$/.test(key)) throw new Error('The signer returned an invalid account.');
+    const identity = await import('./relay-reader.js');
+    if (revision !== accountRevision || window.nostr !== signer) return;
+    voter = key; accountNpub = identity.npubEncode(key); accountNip05 = null; identityPending = true;
+    connectingSigner = false; refreshAccount();
+    // The public Stringer root identifier is also checked when profile metadata
+    // is missing. Every address must resolve back to the connected public key.
+    const address = await identity.readIdentity(key, relayConfig.relays, key === relayConfig.pubkey ? '_@stringerjournalism.org' : undefined);
+    if (revision !== accountRevision || voter !== key || window.nostr !== signer) return;
+    accountNip05 = address; identityPending = false; refreshAccount();
+  } catch (error) {
+    if (revision !== accountRevision) return;
+    if (voter) { identityPending = false; accountNip05 = null; }
+    else voteMessage = error instanceof Error ? error.message : 'Could not connect to your signer.';
+  } finally {
+    if (revision === accountRevision) { connectingSigner = false; refreshAccount(); }
+  }
+}
+function renderNostrAccount() {
   imageToolbar.replaceChildren();
-  imageToolbar.hidden = !imageSession;
-  if (!imageSession) return;
-  const connect = element('button', voter ? 'Disconnect Nostr' : 'Connect Nostr');
-  connect.type = 'button'; connect.disabled = voteBusy;
-  connect.addEventListener('click', async () => {
-    if (voter) { voter = null; voteMessage = ''; renderWorld(); return; }
-    try {
-      if (!window.nostr?.getPublicKey || !window.nostr?.signEvent) throw new Error('Install a NIP-07 Nostr signer to approve images.');
-      const key = await window.nostr.getPublicKey();
-      if (!/^[0-9a-f]{64}$/.test(key)) throw new Error('The signer returned an invalid account.');
-      voter = key; voteMessage = ''; renderWorld();
-    } catch (error) { voteMessage = error instanceof Error ? error.message : 'Could not connect to your signer.'; renderWorld(); }
+  imageToolbar.hidden = !hasSigner();
+  if (imageToolbar.hidden) return;
+  if (voter) {
+    const identity = element('div', '', 'nostr-identity');
+    const npub = element('code', accountNpub); npub.className = 'account-npub';
+    identity.append(npub, element('span', identityPending ? 'Looking up NIP-05…' : accountNip05 || 'NIP-05 unavailable', 'account-nip05'));
+    imageToolbar.append(identity);
+  }
+  const connect = element('button', connectingSigner ? 'Connecting Nostr…' : voter ? 'Disconnect Nostr' : 'Connect Nostr');
+  connect.type = 'button'; connect.disabled = voteBusy || connectingSigner;
+  connect.addEventListener('click', () => {
+    if (voter) {
+      ++accountRevision; voter = null; accountNpub = ''; accountNip05 = null; identityPending = false; voteMessage = ''; refreshAccount();
+    } else void connectNostr();
   });
   imageToolbar.append(connect);
-  let status = voter && imageSession.trustLive && !imageSession.canVote(voter)
+  let status = voter && imageSession?.trustLive && !imageSession.canVote(voter)
     ? 'This account is not followed by Stringer and cannot approve images.' : voteMessage;
-  if (!status && voter) status = imageSession.canVote(voter) ? 'You can approve illustrative images.' : !imageSession.trustLive
+  if (!status && voter && imageSession) status = imageSession.canVote(voter) ? 'You can approve illustrative images.' : !imageSession.trustLive
     ? 'Waiting for Stringer’s follow list.' : 'This account is not followed by Stringer and cannot approve images.';
   const message = element('p', status); message.setAttribute('role', 'status'); imageToolbar.append(message);
 }
+function detectNostr() {
+  if (!hasSigner()) {
+    if (voter) { ++accountRevision; voter = null; accountNpub = ''; accountNip05 = null; identityPending = false; refreshAccount(); }
+    else renderNostrAccount();
+    return;
+  }
+  if (attemptedSigner === window.nostr) return;
+  attemptedSigner = window.nostr;
+  void connectNostr();
+}
+// Extensions can inject at document_end or shortly after the reader starts.
+let signerChecks = 0;
+const signerTimer = setInterval(() => {
+  detectNostr();
+  if (++signerChecks >= 40 || attemptedSigner) clearInterval(signerTimer);
+}, 250);
+window.addEventListener('load', detectNostr);
+window.addEventListener('nostr:ready', detectNostr);
+detectNostr();
+
 function commonsCaption(candidate: CommonsImage) {
   const caption = element('figcaption');
   caption.append(document.createTextNode(`Illustrative image · ${candidate.creator} · ${candidate.attribution} · `));
@@ -97,7 +158,7 @@ function commonsCaption(candidate: CommonsImage) {
   return caption;
 }
 function imageReview(storyId: string, title: string) {
-  if (!voter || !imageSession?.canVote(voter)) return null;
+  if (!hasSigner() || !voter || !imageSession?.canVote(voter)) return null;
   const selection = imageSession.selection(storyId);
   if (voter === relayConfig.pubkey && !commonsSearches.has(storyId))
     commonsSearches.set(storyId, { query: title, loading: false, results: [], error: '', searched: false });
