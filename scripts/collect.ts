@@ -1,6 +1,8 @@
 import { load } from 'cheerio';
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
-import { VERIFIED_PUBLICATIONS } from './verified-publications.ts';
+import { publicationFallback } from '../publications.ts';
+import { readResponseText } from '../response.ts';
+import { publicFetch, publicUrl } from './public-fetch.ts';
 import { SOURCES, ARTICLE_IMAGE_HOSTS, CONTENT_PERMISSIONS, applyContentPermissions, NEWSWIRE_LIMIT, safeUrl, safeImageUrl, urlIdentity, uniqueStories, newestFirst, validateSnapshot } from '../news-model.ts';
 import type { ContentPermissions } from '../news-model.ts';
 import type { Snapshot, SourceState, Story } from '../relay/types.js';
@@ -180,14 +182,8 @@ export async function enrichPublications(stories: Story[], previous: readonly St
       let publication: Publication | undefined;
       try { publication = parsePublication(await request(story.url, {attempts:1})); } catch { /* Keep reporting available if metadata cannot be fetched. */ }
       if (!publication?.publishedAt && !publication?.publicationDate) {
-        const verified = VERIFIED_PUBLICATIONS.get(story.url);
-        const old = previous.find(item=>item.url === story.url && item.publicationSource === story.url);
-        // A reviewed calendar date should not erase a confirmed timestamp on that date.
-        // A conflicting reviewed date still takes precedence over retained metadata.
-        const retainInstant = verified?.publicationDate && old?.publishedAt &&
-          old.publishedAt.slice(0, 10) === verified.publicationDate;
-        const fallback = retainInstant ? old : verified || old;
-        publication = { publishedAt: fallback?.publishedAt || null, publicationDate: fallback?.publicationDate || null };
+        const old = previous.find(item => item.url === story.url && item.publicationSource === story.url);
+        publication = publicationFallback(story.url, old);
       }
       result[index] = { ...story, ...publication, publicationSource: publication.publishedAt || publication.publicationDate ? story.url : null };
     }
@@ -198,26 +194,30 @@ export function checkBaseline(stories: Story[], previous?: readonly Story[], res
   if (!reset && previous?.length && stories.length < previous.length * 0.75) throw new Error('Stringer count fell by over 25%; a reviewed baseline reset is required');
   return stories;
 }
-export async function fetchText(url: string, { fetchImpl = fetch, sleep = ms => new Promise<void>(resolve => setTimeout(resolve, ms)), attempts = 3, allowedHosts = null }: FetchTextOptions = {}): Promise<string> {
+export async function fetchText(url: string, { fetchImpl = publicFetch, sleep = ms => new Promise<void>(resolve => setTimeout(resolve, ms)), attempts = 3, allowedHosts = null }: FetchTextOptions = {}): Promise<string> {
   if (!Number.isInteger(attempts) || attempts < 1) throw new Error('Request attempts must be a positive integer');
   let error: unknown;
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
+      const signal = AbortSignal.timeout(15000);
       let target = url;
       let response: Response | undefined;
       for (let redirects = 0; redirects <= 3; redirects++) {
+        publicUrl(target);
         if (allowedHosts && (!safeImageUrl(target) || !allowedHosts.includes(new URL(target).hostname))) throw new Error('Article host not configured');
-        response = await fetchImpl(target, { signal: AbortSignal.timeout(15000), headers: { 'User-Agent': 'StringerNewsPortal/1.0', 'Accept': 'application/rss+xml, application/xml, text/html, application/json' }, cache: 'no-cache', redirect: allowedHosts ? 'manual' : 'follow' });
-        if (!allowedHosts || ![301, 302, 303, 307, 308].includes(response.status)) break;
+        response = await fetchImpl(target, { signal, headers: { 'User-Agent': 'StringerNewsPortal/1.0', 'Accept': 'application/rss+xml, application/xml, text/html, application/json' }, cache: 'no-cache', redirect: 'manual' });
+        if (![301, 302, 303, 307, 308].includes(response.status)) break;
+        await response.body?.cancel();
         const location = response.headers.get('location');
         if (redirects === 3 || !location) throw new Error('Article redirect blocked');
         target = new URL(location, target).href;
       }
       if (!response) throw new Error('Source response unavailable');
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const body = await response.text();
-      if (body.length > 5_000_000) throw new Error('Source response too large');
-      return body;
+      if (!response.ok) {
+        await response.body?.cancel();
+        throw new Error(`HTTP ${response.status}`);
+      }
+      return await readResponseText(response);
     } catch (failure) { error = failure; if (attempt < attempts - 1) await sleep(500 * 2 ** attempt); }
   }
   throw error;
