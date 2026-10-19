@@ -260,8 +260,17 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
         }] }] } }));
         counts.push((await searchCommons('Example', async () => response)).length);
       }
-      return counts;
-    }, '/relay-reader.js'), [1, 0, 0, 0]);
+      const matches = await searchCommons('Emmanuel Macron', async input => new Response(JSON.stringify(
+        new URL(String(input)).hostname === 'en.wikipedia.org' ? { query: { pages: [] } } : { query: { pages:
+          ['Unrelated portrait', 'Emmanuel Macron portrait'].map(title => ({ title: `File:${title}.png`, imageinfo: [{
+            mime: 'image/png', thumburl: 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Example.png',
+            descriptionurl: `https://commons.wikimedia.org/wiki/File:${title.replaceAll(' ', '_')}.png`,
+            extmetadata: { Artist: { value: 'Example creator' }, LicenseUrl: { value: 'https://creativecommons.org/publicdomain/zero/1.0/' } },
+          }] })),
+        } },
+      )), true);
+      return { counts, titles: matches.map(image => image.title) };
+    }, '/relay-reader.js'), { counts: [1, 0, 0, 0], titles: ['Emmanuel Macron portrait.png'] });
     await multi.getByRole('button', { name: 'Disconnect Nostr', exact: true }).click();
     assert.equal(await multi.locator('#world-news img').count(), 0);
     assert.deepEqual(errors, []);

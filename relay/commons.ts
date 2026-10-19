@@ -8,10 +8,12 @@ const places: Record<string, string> = {
 
 /** A search hint, never a claim that the returned file depicts the subject. */
 export function commonsSubject(title: string): string {
-  const names = [...title.matchAll(/\p{Lu}[\p{L}\p{M}'’.-]*(?:\s+(?:(?:de|del|der|van|von|le)\s+)*\p{Lu}[\p{L}\p{M}'’.-]*)*/gu)].map(match => match[0]);
+  const names = [...title.matchAll(/\p{Lu}[\p{L}\p{M}'’.-]*(?:\s+(?:(?:de|del|der|van|von|le)\s+)*\p{Lu}[\p{L}\p{M}'’.-]*)*/gu)].map(match => match[0]
+    .replace(/^(?:Ex-|Former\s+)/, '')
+    .split(/\s+(?:Prompt|Prompts|Says|Say|Hits|Warns|Faces|Under|Over|Will|Would|Could|May|Must|As|Has|Have|Is|Are|Was|Were|Sparks|Questions)\b/)[0]!);
   // Title-style introductions such as "The Failures of" describe the article,
   // rather than the person/place that follows them.
-  const subject = names.find(name => !/^(The|A|An)\b/.test(name) && !/^(How|Why|What|After|Before|Flooding|Talks)$/.test(name));
+  const subject = names.find(name => !/^(The|A|An)\b/.test(name) && !/^(How|Why|What|After|Before|Flooding|Talks|Deaths|Death|New|Latest|Live|Breaking|Opinion|Analysis|Watch|Photos)$/.test(name));
   return (places[subject || ''] || subject || title).trim().slice(0, 200);
 }
 
@@ -59,7 +61,11 @@ export async function searchCommons(query: string, request: typeof fetch = fetch
   if (!response.ok) throw new Error('Commons search is unavailable. Please retry.');
   const data = await response.json() as CommonsResponse;
   if (data.error) throw new Error('Commons search is unavailable. Please retry.');
-  const images = [...await preferred, ...readImages(data)];
+  const normalize = (value: string) => value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const words = normalize(query).split(' ');
+  const alternatives = readImages(data).filter(image => !suggest || words.every(word =>
+    normalize(`${image.title} ${decodeURIComponent(new URL(image.filePage).pathname)}`).split(' ').includes(word)));
+  const images = [...await preferred, ...alternatives];
   return images.filter((image, index) => images.findIndex(other => other.filePage === image.filePage) === index).slice(0, 5);
 }
 function readImages(data: CommonsResponse): CommonsImage[] {

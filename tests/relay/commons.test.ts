@@ -10,5 +10,7 @@ test('Commons suggestions search the named subject instead of the entire headlin
   assert.equal(commonsSubject('talks with Emmanuel Macron resume'), 'Emmanuel Macron');
   assert.equal(commonsSubject('Saudi flagship investment conference pushed to 2027 after Houthi attacks'), 'Saudi Arabia');
   assert.equal(commonsSubject('Kenya convicts cult leader over the murder of 190 children'), 'Kenya');
+  assert.equal(commonsSubject('Deaths at Danjiri Float Festival Prompt Questions in Japan'), 'Danjiri Float Festival');
+  assert.equal(commonsSubject('Ex-OpenAI worker accused of planting device had Saudi support, says court filing'), 'OpenAI');
   assert.equal(commonsSubject('no named subject'), 'no named subject');
 });
