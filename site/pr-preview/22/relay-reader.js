@@ -2294,23 +2294,23 @@ function isHex32(input) {
 }
 var verifiedSymbol = /* @__PURE__ */ Symbol("verified");
 var isRecord = (obj) => obj instanceof Object;
-function validateEvent(event) {
-  if (!isRecord(event))
+function validateEvent(event2) {
+  if (!isRecord(event2))
     return false;
-  if (typeof event.kind !== "number")
+  if (typeof event2.kind !== "number")
     return false;
-  if (typeof event.content !== "string")
+  if (typeof event2.content !== "string")
     return false;
-  if (typeof event.created_at !== "number")
+  if (typeof event2.created_at !== "number")
     return false;
-  if (typeof event.pubkey !== "string")
+  if (typeof event2.pubkey !== "string")
     return false;
-  if (!isHex32(event.pubkey))
+  if (!isHex32(event2.pubkey))
     return false;
-  if (!Array.isArray(event.tags))
+  if (!Array.isArray(event2.tags))
     return false;
-  for (let i22 = 0; i22 < event.tags.length; i22++) {
-    let tag = event.tags[i22];
+  for (let i22 = 0; i22 < event2.tags.length; i22++) {
+    let tag = event2.tags[i22];
     if (!Array.isArray(tag))
       return false;
     for (let j = 0; j < tag.length; j++) {
@@ -2328,27 +2328,27 @@ var JS = class {
     return bytesToHex(schnorr.getPublicKey(secretKey));
   }
   finalizeEvent(t, secretKey) {
-    const event = t;
-    event.pubkey = bytesToHex(schnorr.getPublicKey(secretKey));
-    event.id = getEventHash(event);
-    event.sig = bytesToHex(schnorr.sign(hexToBytes(getEventHash(event)), secretKey));
-    event[verifiedSymbol] = true;
-    return event;
+    const event2 = t;
+    event2.pubkey = bytesToHex(schnorr.getPublicKey(secretKey));
+    event2.id = getEventHash(event2);
+    event2.sig = bytesToHex(schnorr.sign(hexToBytes(getEventHash(event2)), secretKey));
+    event2[verifiedSymbol] = true;
+    return event2;
   }
-  verifyEvent(event) {
-    if (typeof event[verifiedSymbol] === "boolean")
-      return event[verifiedSymbol];
+  verifyEvent(event2) {
+    if (typeof event2[verifiedSymbol] === "boolean")
+      return event2[verifiedSymbol];
     try {
-      const hash = getEventHash(event);
-      if (hash !== event.id) {
-        event[verifiedSymbol] = false;
+      const hash = getEventHash(event2);
+      if (hash !== event2.id) {
+        event2[verifiedSymbol] = false;
         return false;
       }
-      const valid = schnorr.verify(hexToBytes(event.sig), hexToBytes(hash), hexToBytes(event.pubkey));
-      event[verifiedSymbol] = valid;
+      const valid = schnorr.verify(hexToBytes(event2.sig), hexToBytes(hash), hexToBytes(event2.pubkey));
+      event2[verifiedSymbol] = valid;
       return valid;
     } catch (err) {
-      event[verifiedSymbol] = false;
+      event2[verifiedSymbol] = false;
       return false;
     }
   }
@@ -2358,8 +2358,8 @@ function serializeEvent(evt) {
     throw new Error("can't serialize event with wrong or missing properties");
   return JSON.stringify([0, evt.pubkey, evt.created_at, evt.kind, evt.tags, evt.content]);
 }
-function getEventHash(event) {
-  let eventHash = sha256(utf8Encoder.encode(serializeEvent(event)));
+function getEventHash(event2) {
+  let eventHash = sha256(utf8Encoder.encode(serializeEvent(event2)));
   return bytesToHex(eventHash);
 }
 var i = new JS();
@@ -2368,33 +2368,33 @@ var getPublicKey = i.getPublicKey;
 var finalizeEvent = i.finalizeEvent;
 var verifyEvent = i.verifyEvent;
 var ClientAuth = 22242;
-function matchFilter(filter, event) {
-  if (filter.ids && filter.ids.indexOf(event.id) === -1) {
+function matchFilter(filter, event2) {
+  if (filter.ids && filter.ids.indexOf(event2.id) === -1) {
     return false;
   }
-  if (filter.kinds && filter.kinds.indexOf(event.kind) === -1) {
+  if (filter.kinds && filter.kinds.indexOf(event2.kind) === -1) {
     return false;
   }
-  if (filter.authors && filter.authors.indexOf(event.pubkey) === -1) {
+  if (filter.authors && filter.authors.indexOf(event2.pubkey) === -1) {
     return false;
   }
   for (let f in filter) {
     if (f[0] === "#") {
       let tagName = f.slice(1);
       let values = filter[`#${tagName}`];
-      if (values && !event.tags.find(([t, v]) => t === f.slice(1) && values.indexOf(v) !== -1))
+      if (values && !event2.tags.find(([t, v]) => t === f.slice(1) && values.indexOf(v) !== -1))
         return false;
     }
   }
-  if (filter.since && event.created_at < filter.since)
+  if (filter.since && event2.created_at < filter.since)
     return false;
-  if (filter.until && event.created_at > filter.until)
+  if (filter.until && event2.created_at > filter.until)
     return false;
   return true;
 }
-function matchFilters(filters, event) {
+function matchFilters(filters, event2) {
   for (let i22 = 0; i22 < filters.length; i22++) {
-    if (matchFilter(filters[i22], event)) {
+    if (matchFilter(filters[i22], event2)) {
       return true;
     }
   }
@@ -2694,27 +2694,27 @@ var AbstractRelay = class {
     });
     return this.authPromise;
   }
-  async publish(event) {
+  async publish(event2) {
     this.idleSince = void 0;
     this.clearIdleTimeout();
     this.ongoingOperations++;
     const ret = new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        const ep = this.openEventPublishes.get(event.id);
+        const ep = this.openEventPublishes.get(event2.id);
         if (ep) {
           ep.reject(new Error("publish timed out"));
-          this.openEventPublishes.delete(event.id);
+          this.openEventPublishes.delete(event2.id);
         }
       }, this.publishTimeout);
-      this.openEventPublishes.set(event.id, { resolve, reject, timeout });
+      this.openEventPublishes.set(event2.id, { resolve, reject, timeout });
     });
     try {
-      await this.send('["EVENT",' + JSON.stringify(event) + "]");
+      await this.send('["EVENT",' + JSON.stringify(event2) + "]");
     } catch (err) {
-      const ep = this.openEventPublishes.get(event.id);
+      const ep = this.openEventPublishes.get(event2.id);
       if (ep) {
         ep.reject(err);
-        this.openEventPublishes.delete(event.id);
+        this.openEventPublishes.delete(event2.id);
       }
     }
     this.ongoingOperations--;
@@ -2812,14 +2812,14 @@ var AbstractRelay = class {
       switch (data[0]) {
         case "EVENT": {
           const so = this.openSubs.get(data[1]);
-          const event = data[2];
-          if (matchFilters(so.filters, event) && this.verifyEvent(event, this.url)) {
-            so.onevent(event);
+          const event2 = data[2];
+          if (matchFilters(so.filters, event2) && this.verifyEvent(event2, this.url)) {
+            so.onevent(event2);
           } else {
-            so.oninvalidevent?.(event);
+            so.oninvalidevent?.(event2);
           }
-          if (!so.lastEmitted || so.lastEmitted < event.created_at)
-            so.lastEmitted = event.created_at;
+          if (!so.lastEmitted || so.lastEmitted < event2.created_at)
+            so.lastEmitted = event2.created_at;
           return;
         }
         case "COUNT": {
@@ -2892,8 +2892,8 @@ var AbstractRelay = class {
       }
     } catch (err) {
       try {
-        const [_, __, event] = JSON.parse(json);
-        console.warn(`[nostr] relay ${this.url} error processing message:`, err, event);
+        const [_, __, event2] = JSON.parse(json);
+        console.warn(`[nostr] relay ${this.url} error processing message:`, err, event2);
       } catch (_) {
         console.warn(`[nostr] relay ${this.url} error processing message:`, err);
       }
@@ -2929,10 +2929,10 @@ var Subscription = class {
     this.oneose = params.oneose;
     this.onclose = params.onclose;
     this.oninvalidevent = params.oninvalidevent;
-    this.onevent = params.onevent || ((event) => {
+    this.onevent = params.onevent || ((event2) => {
       console.warn(
         `onevent() callback not defined for subscription '${this.id}' in relay ${this.relay.url}. event received:`,
-        event
+        event2
       );
     });
   }
@@ -3237,8 +3237,8 @@ var AbstractSimplePool = class {
       const events = [];
       this.subscribeEose(relays, filter, {
         ...params,
-        onevent(event) {
-          events.push(event);
+        onevent(event2) {
+          events.push(event2);
         },
         onclose(_) {
           resolve(events);
@@ -3294,12 +3294,12 @@ var AbstractSimplePool = class {
     }
     return hll ? { count, hll: hllEncode(hll) } : { count };
   }
-  publish(relays, event, params) {
+  publish(relays, event2, params) {
     return relays.map(normalizeURL).map(async (url, i22, arr) => {
       if (arr.indexOf(url) !== i22) {
         return Promise.reject("duplicate url");
       }
-      if (this.allowConnectingToRelay?.(url, ["write", event]) === false) {
+      if (this.allowConnectingToRelay?.(url, ["write", event2]) === false) {
         return Promise.reject("connection skipped by allowConnectingToRelay");
       }
       let r;
@@ -3312,18 +3312,18 @@ var AbstractSimplePool = class {
         this.onRelayConnectionFailure?.(url);
         return Promise.reject("connection failure: " + String(err));
       }
-      return r.publish(event).catch(async (err) => {
+      return r.publish(event2).catch(async (err) => {
         if (err instanceof Error && err.message.startsWith("auth-required: ") && params?.onauth) {
           await r.auth(params.onauth);
-          return r.publish(event);
+          return r.publish(event2);
         }
         throw err;
       }).then((reason) => {
         if (this.trackRelays) {
-          let set = this.seenOn.get(event.id);
+          let set = this.seenOn.get(event2.id);
           if (!set) {
             set = /* @__PURE__ */ new Set();
-            this.seenOn.set(event.id, set);
+            this.seenOn.set(event2.id, set);
           }
           set.add(r);
         }
@@ -4840,29 +4840,29 @@ function normalizeURL2(url) {
     throw new Error(`Invalid URL: ${url}`);
   }
 }
-function insertEventIntoDescendingList(sortedArray, event) {
+function insertEventIntoDescendingList(sortedArray, event2) {
   const [idx, found] = binarySearch(sortedArray, (b) => {
-    if (event.id === b.id)
+    if (event2.id === b.id)
       return 0;
-    if (event.created_at === b.created_at)
+    if (event2.created_at === b.created_at)
       return -1;
-    return b.created_at - event.created_at;
+    return b.created_at - event2.created_at;
   });
   if (!found) {
-    sortedArray.splice(idx, 0, event);
+    sortedArray.splice(idx, 0, event2);
   }
   return sortedArray;
 }
-function insertEventIntoAscendingList(sortedArray, event) {
+function insertEventIntoAscendingList(sortedArray, event2) {
   const [idx, found] = binarySearch(sortedArray, (b) => {
-    if (event.id === b.id)
+    if (event2.id === b.id)
       return 0;
-    if (event.created_at === b.created_at)
+    if (event2.created_at === b.created_at)
       return -1;
-    return event.created_at - b.created_at;
+    return event2.created_at - b.created_at;
   });
   if (!found) {
-    sortedArray.splice(idx, 0, event);
+    sortedArray.splice(idx, 0, event2);
   }
   return sortedArray;
 }
@@ -4946,23 +4946,23 @@ function isHex322(input) {
 }
 var verifiedSymbol2 = /* @__PURE__ */ Symbol("verified");
 var isRecord2 = (obj) => obj instanceof Object;
-function validateEvent2(event) {
-  if (!isRecord2(event))
+function validateEvent2(event2) {
+  if (!isRecord2(event2))
     return false;
-  if (typeof event.kind !== "number")
+  if (typeof event2.kind !== "number")
     return false;
-  if (typeof event.content !== "string")
+  if (typeof event2.content !== "string")
     return false;
-  if (typeof event.created_at !== "number")
+  if (typeof event2.created_at !== "number")
     return false;
-  if (typeof event.pubkey !== "string")
+  if (typeof event2.pubkey !== "string")
     return false;
-  if (!isHex322(event.pubkey))
+  if (!isHex322(event2.pubkey))
     return false;
-  if (!Array.isArray(event.tags))
+  if (!Array.isArray(event2.tags))
     return false;
-  for (let i22 = 0; i22 < event.tags.length; i22++) {
-    let tag = event.tags[i22];
+  for (let i22 = 0; i22 < event2.tags.length; i22++) {
+    let tag = event2.tags[i22];
     if (!Array.isArray(tag))
       return false;
     for (let j = 0; j < tag.length; j++) {
@@ -4980,27 +4980,27 @@ var JS2 = class {
     return bytesToHex(schnorr.getPublicKey(secretKey));
   }
   finalizeEvent(t, secretKey) {
-    const event = t;
-    event.pubkey = bytesToHex(schnorr.getPublicKey(secretKey));
-    event.id = getEventHash2(event);
-    event.sig = bytesToHex(schnorr.sign(hexToBytes(getEventHash2(event)), secretKey));
-    event[verifiedSymbol2] = true;
-    return event;
+    const event2 = t;
+    event2.pubkey = bytesToHex(schnorr.getPublicKey(secretKey));
+    event2.id = getEventHash2(event2);
+    event2.sig = bytesToHex(schnorr.sign(hexToBytes(getEventHash2(event2)), secretKey));
+    event2[verifiedSymbol2] = true;
+    return event2;
   }
-  verifyEvent(event) {
-    if (typeof event[verifiedSymbol2] === "boolean")
-      return event[verifiedSymbol2];
+  verifyEvent(event2) {
+    if (typeof event2[verifiedSymbol2] === "boolean")
+      return event2[verifiedSymbol2];
     try {
-      const hash = getEventHash2(event);
-      if (hash !== event.id) {
-        event[verifiedSymbol2] = false;
+      const hash = getEventHash2(event2);
+      if (hash !== event2.id) {
+        event2[verifiedSymbol2] = false;
         return false;
       }
-      const valid = schnorr.verify(hexToBytes(event.sig), hexToBytes(hash), hexToBytes(event.pubkey));
-      event[verifiedSymbol2] = valid;
+      const valid = schnorr.verify(hexToBytes(event2.sig), hexToBytes(hash), hexToBytes(event2.pubkey));
+      event2[verifiedSymbol2] = valid;
       return valid;
     } catch (err) {
-      event[verifiedSymbol2] = false;
+      event2[verifiedSymbol2] = false;
       return false;
     }
   }
@@ -5010,8 +5010,8 @@ function serializeEvent2(evt) {
     throw new Error("can't serialize event with wrong or missing properties");
   return JSON.stringify([0, evt.pubkey, evt.created_at, evt.kind, evt.tags, evt.content]);
 }
-function getEventHash2(event) {
-  let eventHash = sha256(utf8Encoder3.encode(serializeEvent2(event)));
+function getEventHash2(event2) {
+  let eventHash = sha256(utf8Encoder3.encode(serializeEvent2(event2)));
   return bytesToHex(eventHash);
 }
 var i2 = new JS2();
@@ -5240,9 +5240,9 @@ function classifyKind(kind) {
     return "parameterized";
   return "unknown";
 }
-function isKind(event, kind) {
+function isKind(event2, kind) {
   const kindAsArray = kind instanceof Array ? kind : [kind];
-  return validateEvent2(event) && kindAsArray.includes(event.kind) || false;
+  return validateEvent2(event2) && kindAsArray.includes(event2.kind) || false;
 }
 var Metadata = 0;
 var ShortTextNote = 1;
@@ -5658,15 +5658,15 @@ function nprofileEncode(profile) {
   });
   return encodeBech32("nprofile", data);
 }
-function neventEncode(event) {
+function neventEncode(event2) {
   let kindArray;
-  if (event.kind !== void 0) {
-    kindArray = integerToUint8Array(event.kind);
+  if (event2.kind !== void 0) {
+    kindArray = integerToUint8Array(event2.kind);
   }
   let data = encodeTLV({
-    0: [hexToBytes(event.id)],
-    1: (event.relays || []).map((url) => utf8Encoder3.encode(url)),
-    2: event.author ? [hexToBytes(event.author)] : [],
+    0: [hexToBytes(event2.id)],
+    1: (event2.relays || []).map((url) => utf8Encoder3.encode(url)),
+    2: event2.author ? [hexToBytes(event2.author)] : [],
     3: kindArray ? [new Uint8Array(kindArray)] : []
   });
   return encodeBech32("nevent", data);
@@ -5783,7 +5783,7 @@ var nip10_exports = {};
 __export(nip10_exports, {
   parse: () => parse
 });
-function parse(event) {
+function parse(event2) {
   const result = {
     reply: void 0,
     root: void 0,
@@ -5793,8 +5793,8 @@ function parse(event) {
   };
   let maybeParent;
   let maybeRoot;
-  for (let i22 = event.tags.length - 1; i22 >= 0; i22--) {
-    const tag = event.tags[i22];
+  for (let i22 = event2.tags.length - 1; i22 >= 0; i22--) {
+    const tag = event2.tags[i22];
     if (tag[0] === "e" && tag[1] && isHex322(tag[1])) {
       const [_, eTagEventId, eTagRelayUrl, eTagMarker, eTagAuthor] = tag;
       const eventPointer = {
@@ -5933,25 +5933,25 @@ function getPowFromBytes(hash) {
 }
 function minePow(unsigned, difficulty) {
   let count = 0;
-  const event = unsigned;
+  const event2 = unsigned;
   const tag = ["nonce", count.toString(), difficulty.toString()];
-  event.tags.push(tag);
+  event2.tags.push(tag);
   while (true) {
     const now2 = Math.floor((/* @__PURE__ */ new Date()).getTime() / 1e3);
-    if (now2 !== event.created_at) {
+    if (now2 !== event2.created_at) {
       count = 0;
-      event.created_at = now2;
+      event2.created_at = now2;
     }
     tag[1] = (++count).toString();
     const hash = sha256(
-      utf8Encoder3.encode(JSON.stringify([0, event.pubkey, event.created_at, event.kind, event.tags, event.content]))
+      utf8Encoder3.encode(JSON.stringify([0, event2.pubkey, event2.created_at, event2.kind, event2.tags, event2.content]))
     );
     if (getPowFromBytes(hash) >= difficulty) {
-      event.id = bytesToHex(hash);
+      event2.id = bytesToHex(hash);
       break;
     }
   }
-  return event;
+  return event2;
 }
 var nip17_exports = {};
 __export(nip17_exports, {
@@ -6107,12 +6107,12 @@ var randomNow = () => Math.round(now() - Math.random() * TWO_DAYS);
 var nip44ConversationKey = (privateKey, publicKey) => getConversationKey(privateKey, publicKey);
 var nip44Encrypt = (data, privateKey, publicKey) => encrypt22(JSON.stringify(data), nip44ConversationKey(privateKey, publicKey));
 var nip44Decrypt = (data, privateKey) => JSON.parse(decrypt22(data.content, nip44ConversationKey(privateKey, data.pubkey)));
-function createRumor(event, privateKey) {
+function createRumor(event2, privateKey) {
   const rumor = {
     created_at: now(),
     content: "",
     tags: [],
-    ...event,
+    ...event2,
     pubkey: getPublicKey2(privateKey)
   };
   rumor.id = getEventHash2(rumor);
@@ -6141,19 +6141,19 @@ function createWrap(seal, recipientPublicKey) {
     randomKey
   );
 }
-function wrapEvent(event, senderPrivateKey, recipientPublicKey) {
-  const rumor = createRumor(event, senderPrivateKey);
+function wrapEvent(event2, senderPrivateKey, recipientPublicKey) {
+  const rumor = createRumor(event2, senderPrivateKey);
   const seal = createSeal(rumor, senderPrivateKey, recipientPublicKey);
   return createWrap(seal, recipientPublicKey);
 }
-function wrapManyEvents(event, senderPrivateKey, recipientsPublicKeys) {
+function wrapManyEvents(event2, senderPrivateKey, recipientsPublicKeys) {
   if (!recipientsPublicKeys || recipientsPublicKeys.length === 0) {
     throw new Error("At least one recipient is required.");
   }
   const senderPublicKey = getPublicKey2(senderPrivateKey);
-  const wrappeds = [wrapEvent(event, senderPrivateKey, senderPublicKey)];
+  const wrappeds = [wrapEvent(event2, senderPrivateKey, senderPublicKey)];
   recipientsPublicKeys.forEach((recipientPublicKey) => {
-    wrappeds.push(wrapEvent(event, senderPrivateKey, recipientPublicKey));
+    wrappeds.push(wrapEvent(event2, senderPrivateKey, recipientPublicKey));
   });
   return wrappeds;
 }
@@ -6205,8 +6205,8 @@ function createEvent(recipients, message, conversationTitle, replyTo) {
   return baseEvent;
 }
 function wrapEvent2(senderPrivateKey, recipient, message, conversationTitle, replyTo) {
-  const event = createEvent(recipient, message, conversationTitle, replyTo);
-  return wrapEvent(event, senderPrivateKey, recipient.publicKey);
+  const event2 = createEvent(recipient, message, conversationTitle, replyTo);
+  return wrapEvent(event2, senderPrivateKey, recipient.publicKey);
 }
 function wrapManyEvents2(senderPrivateKey, recipients, message, conversationTitle, replyTo) {
   if (!recipients || recipients.length === 0) {
@@ -6244,14 +6244,14 @@ function finishRepostEvent(t, reposted, relayUrl, privateKey) {
     privateKey
   );
 }
-function getRepostedEventPointer(event) {
-  if (![Repost, GenericRepost].includes(event.kind)) {
+function getRepostedEventPointer(event2) {
+  if (![Repost, GenericRepost].includes(event2.kind)) {
     return void 0;
   }
   let lastETag;
   let lastPTag;
-  for (let i22 = event.tags.length - 1; i22 >= 0 && (lastETag === void 0 || lastPTag === void 0); i22--) {
-    const tag = event.tags[i22];
+  for (let i22 = event2.tags.length - 1; i22 >= 0 && (lastETag === void 0 || lastPTag === void 0); i22--) {
+    const tag = event2.tags[i22];
     if (tag.length >= 2) {
       if (tag[0] === "e" && lastETag === void 0) {
         lastETag = tag;
@@ -6269,14 +6269,14 @@ function getRepostedEventPointer(event) {
     author: lastPTag?.[1]
   };
 }
-function getRepostedEvent(event, { skipVerification } = {}) {
-  const pointer = getRepostedEventPointer(event);
-  if (pointer === void 0 || event.content === "") {
+function getRepostedEvent(event2, { skipVerification } = {}) {
+  const pointer = getRepostedEventPointer(event2);
+  if (pointer === void 0 || event2.content === "") {
     return void 0;
   }
   let repostedEvent;
   try {
-    repostedEvent = JSON.parse(event.content);
+    repostedEvent = JSON.parse(event2.content);
   } catch (error) {
     return void 0;
   }
@@ -6393,7 +6393,7 @@ function inheritRelayHints(pointer, profiles) {
   });
   author.relays = pointer.relays;
 }
-function parse3(event) {
+function parse3(event2) {
   const result = {
     root: void 0,
     rootKind: void 0,
@@ -6405,7 +6405,7 @@ function parse3(event) {
   };
   const rootCandidates = [];
   const replyCandidates = [];
-  for (const tag of event.tags) {
+  for (const tag of event2.tags) {
     if ((tag[0] === "E" || tag[0] === "A" || tag[0] === "I") && tag[1]) {
       const pointer = parsePointer(tag);
       if (pointer)
@@ -6463,14 +6463,14 @@ function finishReactionEvent(t, reacted, privateKey) {
     privateKey
   );
 }
-function getReactedEventPointer(event) {
-  if (event.kind !== Reaction) {
+function getReactedEventPointer(event2) {
+  if (event2.kind !== Reaction) {
     return void 0;
   }
   let lastETag;
   let lastPTag;
-  for (let i22 = event.tags.length - 1; i22 >= 0 && (lastETag === void 0 || lastPTag === void 0); i22--) {
-    const tag = event.tags[i22];
+  for (let i22 = event2.tags.length - 1; i22 >= 0 && (lastETag === void 0 || lastPTag === void 0); i22--) {
+    const tag = event2.tags[i22];
     if (tag.length >= 2) {
       if (tag[0] === "e" && lastETag === void 0) {
         lastETag = tag;
@@ -7507,7 +7507,7 @@ __export(nip98_exports, {
 });
 var _authorizationScheme = "Nostr ";
 async function getToken(loginUrl, httpMethod, sign, includeAuthorizationScheme = false, payload2) {
-  const event = {
+  const event2 = {
     kind: HTTPAuth,
     tags: [
       ["u", loginUrl],
@@ -7517,17 +7517,17 @@ async function getToken(loginUrl, httpMethod, sign, includeAuthorizationScheme =
     content: ""
   };
   if (payload2) {
-    event.tags.push(["payload", hashPayload(payload2)]);
+    event2.tags.push(["payload", hashPayload(payload2)]);
   }
-  const signedEvent = await sign(event);
+  const signedEvent = await sign(event2);
   const authorizationScheme = includeAuthorizationScheme ? _authorizationScheme : "";
   return authorizationScheme + base64.encode(utf8Encoder3.encode(JSON.stringify(signedEvent)));
 }
 async function validateToken(token, url, method) {
-  const event = await unpackEventFromToken(token).catch((error) => {
+  const event2 = await unpackEventFromToken(token).catch((error) => {
     throw error;
   });
-  const valid = await validateEvent22(event, url, method).catch((error) => {
+  const valid = await validateEvent22(event2, url, method).catch((error) => {
     throw error;
   });
   return valid;
@@ -7541,27 +7541,27 @@ async function unpackEventFromToken(token) {
   if (!eventB64 || eventB64.length === 0 || !eventB64.startsWith("{")) {
     throw new Error("Invalid token");
   }
-  const event = JSON.parse(eventB64);
-  return event;
+  const event2 = JSON.parse(eventB64);
+  return event2;
 }
-function validateEventTimestamp(event) {
-  if (!event.created_at) {
+function validateEventTimestamp(event2) {
+  if (!event2.created_at) {
     return false;
   }
-  return Math.abs(Math.round((/* @__PURE__ */ new Date()).getTime() / 1e3) - event.created_at) < 60;
+  return Math.abs(Math.round((/* @__PURE__ */ new Date()).getTime() / 1e3) - event2.created_at) < 60;
 }
-function validateEventKind(event) {
-  return event.kind === HTTPAuth;
+function validateEventKind(event2) {
+  return event2.kind === HTTPAuth;
 }
-function validateEventUrlTag(event, url) {
-  const urlTag = event.tags.find((t) => t[0] === "u");
+function validateEventUrlTag(event2, url) {
+  const urlTag = event2.tags.find((t) => t[0] === "u");
   if (!urlTag) {
     return false;
   }
   return urlTag.length > 0 && urlTag[1] === url;
 }
-function validateEventMethodTag(event, method) {
-  const methodTag = event.tags.find((t) => t[0] === "method");
+function validateEventMethodTag(event2, method) {
+  const methodTag = event2.tags.find((t) => t[0] === "method");
   if (!methodTag) {
     return false;
   }
@@ -7571,32 +7571,32 @@ function hashPayload(payload2) {
   const hash = sha256(utf8Encoder3.encode(JSON.stringify(payload2)));
   return bytesToHex(hash);
 }
-function validateEventPayloadTag(event, payload2) {
-  const payloadTag = event.tags.find((t) => t[0] === "payload");
+function validateEventPayloadTag(event2, payload2) {
+  const payloadTag = event2.tags.find((t) => t[0] === "payload");
   if (!payloadTag) {
     return false;
   }
   const payloadHash = hashPayload(payload2);
   return payloadTag.length > 0 && payloadTag[1] === payloadHash;
 }
-async function validateEvent22(event, url, method, body) {
-  if (!verifyEvent2(event)) {
+async function validateEvent22(event2, url, method, body) {
+  if (!verifyEvent2(event2)) {
     throw new Error("Invalid nostr event, signature invalid");
   }
-  if (!validateEventKind(event)) {
+  if (!validateEventKind(event2)) {
     throw new Error("Invalid nostr event, kind invalid");
   }
-  if (!validateEventTimestamp(event)) {
+  if (!validateEventTimestamp(event2)) {
     throw new Error("Invalid nostr event, created_at timestamp invalid");
   }
-  if (!validateEventUrlTag(event, url)) {
+  if (!validateEventUrlTag(event2, url)) {
     throw new Error("Invalid nostr event, url tag invalid");
   }
-  if (!validateEventMethodTag(event, method)) {
+  if (!validateEventMethodTag(event2, method)) {
     throw new Error("Invalid nostr event, method tag invalid");
   }
   if (Boolean(body) && typeof body === "object" && Object.keys(body).length > 0) {
-    if (!validateEventPayloadTag(event, body)) {
+    if (!validateEventPayloadTag(event2, body)) {
       throw new Error("Invalid nostr event, payload tag does not match request body hash");
     }
   }
@@ -7703,23 +7703,23 @@ function validateSnapshot(input) {
 var MANIFEST_KIND = 30078;
 var MANIFEST_KEY = "stringer-news-v1";
 var GROUP_MARKER = "stringer-group-v1";
-function checkedEvent(event, pubkey, kind) {
-  if (JSON.stringify(event).length > 5e5 || event.pubkey !== pubkey || event.kind !== kind || !verifyEvent2({
-    id: event.id,
-    pubkey: event.pubkey,
-    sig: event.sig,
-    kind: event.kind,
-    created_at: event.created_at,
-    content: event.content,
-    tags: event.tags
-  }) || event.created_at > Date.now() / 1e3 + 60)
+function checkedEvent(event2, pubkey, kind) {
+  if (JSON.stringify(event2).length > 5e5 || event2.pubkey !== pubkey || event2.kind !== kind || !verifyEvent2({
+    id: event2.id,
+    pubkey: event2.pubkey,
+    sig: event2.sig,
+    kind: event2.kind,
+    created_at: event2.created_at,
+    content: event2.content,
+    tags: event2.tags
+  }) || event2.created_at > Date.now() / 1e3 + 60)
     throw new Error("Invalid relay event");
 }
-function readManifest(event, pubkey) {
-  checkedEvent(event, pubkey, MANIFEST_KIND);
-  if (event.tags.filter((t) => t[0] === "d").length !== 1 || !event.tags.some((t) => t[0] === "d" && t[1] === MANIFEST_KEY))
+function readManifest(event2, pubkey) {
+  checkedEvent(event2, pubkey, MANIFEST_KIND);
+  if (event2.tags.filter((t) => t[0] === "d").length !== 1 || !event2.tags.some((t) => t[0] === "d" && t[1] === MANIFEST_KEY))
     throw new Error("Invalid manifest tag");
-  const value = JSON.parse(event.content);
+  const value = JSON.parse(event2.content);
   if (value.version !== 1 || typeof value.generatedAt !== "string" || !Number.isFinite(Date.parse(value.generatedAt)) || Date.parse(value.generatedAt) > Date.now() + 6e4 || !value.sources)
     throw new Error("Invalid manifest");
   value.sources = normalizeSourceSet(value.sources, value.generatedAt, true);
@@ -7754,31 +7754,31 @@ function readManifest(event, pubkey) {
   }
   return value;
 }
-function readAssignment(event, pubkey, noteId) {
-  checkedEvent(event, pubkey, 1);
-  const markers = event.tags.filter((t) => t[0] === GROUP_MARKER);
-  const roots = event.tags.filter((t) => t[0] === "e");
+function readAssignment(event2, pubkey, noteId) {
+  checkedEvent(event2, pubkey, 1);
+  const markers = event2.tags.filter((t) => t[0] === GROUP_MARKER);
+  const roots = event2.tags.filter((t) => t[0] === "e");
   const cluster = markers[0]?.[1];
-  if (markers.length !== 1 || !cluster || !/^[0-9a-f]{64}$/.test(cluster) || roots.length !== 1 || roots[0]?.[1] !== noteId || roots[0]?.[3] !== "root" || !event.tags.some((t) => t[0] === "t" && t[1] === `stringer-event-${cluster.slice(0, 16)}`))
+  if (markers.length !== 1 || !cluster || !/^[0-9a-f]{64}$/.test(cluster) || roots.length !== 1 || roots[0]?.[1] !== noteId || roots[0]?.[3] !== "root" || !event2.tags.some((t) => t[0] === "t" && t[1] === `stringer-event-${cluster.slice(0, 16)}`))
     throw new Error("Invalid grouping assignment");
   return cluster;
 }
 function assemble(manifestEvent, events, pubkey, allowPartial = false) {
   const manifest = readManifest(manifestEvent, pubkey);
-  const byId = new Map(events.map((event) => [event.id, event]));
+  const byId = new Map(events.map((event2) => [event2.id, event2]));
   const sources = {};
   for (const source of SOURCES) {
     const entry = manifest.sources[source.id];
     const missing = entry.ids.filter((id) => !byId.has(id));
     const stories = entry.ids.filter((id) => !allowPartial || byId.has(id)).map((id) => {
-      const event = byId.get(id);
-      if (!event) throw new Error("Incomplete relay collection");
-      checkedEvent(event, pubkey, 1);
-      const tags = event.tags.filter((t) => t[0] === "stringer");
+      const event2 = byId.get(id);
+      if (!event2) throw new Error("Incomplete relay collection");
+      checkedEvent(event2, pubkey, 1);
+      const tags = event2.tags.filter((t) => t[0] === "stringer");
       if (tags.length !== 1 || tags[0][1] !== source.id || !tags[0][2])
         throw new Error("Invalid story tag");
       const story = JSON.parse(tags[0][2]);
-      if (!event.tags.some((t) => t[0] === "r" && t[1] === story.url))
+      if (!event2.tags.some((t) => t[0] === "r" && t[1] === story.url))
         throw new Error("Story URL mismatch");
       let clusterId = source.id !== "stringer" ? manifest.groups?.[id] : void 0;
       const reply = byId.get(manifest.assignments?.[id] || "");
@@ -7818,19 +7818,47 @@ function assemble(manifestEvent, events, pubkey, allowPartial = false) {
   return clean3;
 }
 
+// relay/cache.ts
+var MAX_CACHE_LENGTH = 5e6;
+var MAX_CACHE_EVENTS = 700;
+function record(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+function event(value) {
+  return record(value) && typeof value.id === "string" && typeof value.sig === "string" && validateEvent2(value);
+}
+function parseCachedCollection(raw, pubkey) {
+  if (!raw || raw.length > MAX_CACHE_LENGTH) return null;
+  try {
+    const value = JSON.parse(raw);
+    if (!record(value) || !event(value.manifest) || !Array.isArray(value.stories) || value.stories.length > MAX_CACHE_EVENTS || !value.stories.every(event)) return null;
+    const snapshot = assemble(value.manifest, value.stories, pubkey, true);
+    return { manifest: value.manifest, stories: value.stories, snapshot };
+  } catch {
+    return null;
+  }
+}
+function readCachedCollection(pubkey) {
+  try {
+    return parseCachedCollection(localStorage.getItem(`stringer-relay:${pubkey}`), pubkey);
+  } catch {
+    return null;
+  }
+}
+
 // relay/images.ts
 var IMAGE_MARKER = "stringer-image-v1";
 var VOTE_MARKER = "stringer-image-vote-v1";
 var hex = (value) => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
 var text = (value) => typeof value === "string" && !!value.trim() && value.length <= 2e3;
 var newest = (a, b) => b.created_at - a.created_at || a.id.localeCompare(b.id);
-function root(event) {
-  const tags = event.tags.filter((tag) => tag[0] === "e");
+function root(event2) {
+  const tags = event2.tags.filter((tag) => tag[0] === "e");
   if (tags.length !== 1 || !hex(tags[0]?.[1]) || tags[0]?.[3] !== "root") throw new Error("Invalid image story reference");
   return tags[0][1];
 }
-function payload(event, marker) {
-  const tags = event.tags.filter((tag) => tag[0] === marker);
+function payload(event2, marker) {
+  const tags = event2.tags.filter((tag) => tag[0] === marker);
   if (tags.length !== 1 || tags[0]?.length !== 2) throw new Error("Invalid image metadata");
   const value = JSON.parse(tags[0][1]);
   if (!value || typeof value !== "object" || Array.isArray(value) || value.version !== 1)
@@ -7864,12 +7892,12 @@ function readCommonsImage(data) {
     licenseUrl: license.href
   };
 }
-function readCandidate(event, pubkey, refs, discover = false) {
-  checkedEvent(event, pubkey, 1);
-  const storyId = root(event);
-  const indexed = discover && Object.hasOwn(refs, storyId) && event.tags.some((t) => t[0] === "t" && t[1] === IMAGE_MARKER);
-  if (!refs[storyId]?.includes(event.id) && !indexed) throw new Error("Unlisted candidate");
-  return { ...readCommonsImage(payload(event, IMAGE_MARKER)), id: event.id, storyId };
+function readCandidate(event2, pubkey, refs, discover = false) {
+  checkedEvent(event2, pubkey, 1);
+  const storyId = root(event2);
+  const indexed = discover && Object.hasOwn(refs, storyId) && event2.tags.some((t) => t[0] === "t" && t[1] === IMAGE_MARKER);
+  if (!refs[storyId]?.includes(event2.id) && !indexed) throw new Error("Unlisted candidate");
+  return { ...readCommonsImage(payload(event2, IMAGE_MARKER)), id: event2.id, storyId };
 }
 function candidateTemplate(storyId, image) {
   return {
@@ -7880,26 +7908,26 @@ ${image.filePage}`,
     tags: [["e", storyId, "", "root"], ["t", IMAGE_MARKER], [IMAGE_MARKER, JSON.stringify(image)]]
   };
 }
-function readVote(event, refs) {
-  checkedEvent(event, event.pubkey, 1);
-  if (!event.tags.some((tag) => tag[0] === "t" && tag[1] === VOTE_MARKER)) throw new Error("Not an image vote");
-  const storyId = root(event), data = payload(event, VOTE_MARKER);
+function readVote(event2, refs) {
+  checkedEvent(event2, event2.pubkey, 1);
+  if (!event2.tags.some((tag) => tag[0] === "t" && tag[1] === VOTE_MARKER)) throw new Error("Not an image vote");
+  const storyId = root(event2), data = payload(event2, VOTE_MARKER);
   if (!Object.hasOwn(refs, storyId) || data.candidateId !== null && !hex(data.candidateId))
     throw new Error("Invalid image choice");
   return { storyId, candidateId: data.candidateId };
 }
-function readFollows(event, pubkey) {
-  checkedEvent(event, pubkey, 3);
-  const follows = new Set(event.tags.filter((tag) => tag[0] === "p" && hex(tag[1])).map((tag) => tag[1]));
+function readFollows(event2, pubkey) {
+  checkedEvent(event2, pubkey, 3);
+  const follows = new Set(event2.tags.filter((tag) => tag[0] === "p" && hex(tag[1])).map((tag) => tag[1]));
   return follows;
 }
 function selectImage(storyId, candidates, votes, follows, refs) {
   const latest = /* @__PURE__ */ new Map();
-  for (const event of [...votes].sort(newest)) {
-    if (!follows.has(event.pubkey) || latest.has(event.pubkey) || !event.tags.some((tag) => tag[0] === "e" && tag[1] === storyId)) continue;
+  for (const event2 of [...votes].sort(newest)) {
+    if (!follows.has(event2.pubkey) || latest.has(event2.pubkey) || !event2.tags.some((tag) => tag[0] === "e" && tag[1] === storyId)) continue;
     try {
-      const vote = readVote(event, refs);
-      if (vote.storyId === storyId) latest.set(event.pubkey, { event, vote });
+      const vote = readVote(event2, refs);
+      if (vote.storyId === storyId) latest.set(event2.pubkey, { event: event2, vote });
     } catch {
     }
   }
@@ -7929,16 +7957,16 @@ var ImageSession = class {
       const cached = JSON.parse(localStorage.getItem(this.cacheKey) || "[]");
       if (Array.isArray(cached)) {
         const events = cached.slice(0, 2e4).sort(newest);
-        for (const event of events.filter((e) => e.kind === 3)) this.receive(event, false);
-        for (const event of events.filter((e) => e.kind !== 3)) this.receive(event, false);
+        for (const event2 of events.filter((e) => e.kind === 3)) this.receive(event2, false);
+        for (const event2 of events.filter((e) => e.kind !== 3)) this.receive(event2, false);
       }
     } catch {
     }
-    this.subscribe({ kinds: [3], authors: [config.pubkey], limit: 1 }, false, (event) => {
+    this.subscribe({ kinds: [3], authors: [config.pubkey], limit: 1 }, false, (event2) => {
       try {
-        readFollows(event, config.pubkey);
-        if (!this.follow || newest(event, this.follow) <= 0) this.trustLive = true;
-        this.receive(event, true);
+        readFollows(event2, config.pubkey);
+        if (!this.follow || newest(event2, this.follow) <= 0) this.trustLive = true;
+        this.receive(event2, true);
       } catch {
       }
     });
@@ -7966,7 +7994,7 @@ var ImageSession = class {
   canVote(pubkey) {
     return pubkey === this.config.pubkey || this.trustLive && this.follows.has(pubkey);
   }
-  subscribe(filter, vote = false, receive = (event) => this.receive(event, true)) {
+  subscribe(filter, vote = false, receive = (event2) => this.receive(event2, true)) {
     const sub = this.pool.subscribeMany(this.config.relays, filter, { onevent: receive });
     const close = async () => {
       await sub.close();
@@ -8005,7 +8033,7 @@ var ImageSession = class {
               resolve();
             };
             const timer = setTimeout(finish, 6e3);
-            const sub = relay.subscribe(job.filters, { onevent: (event) => this.receive(event, true), oneose: finish, onclose: finish });
+            const sub = relay.subscribe(job.filters, { onevent: (event2) => this.receive(event2, true), oneose: finish, onclose: finish });
             this.voteClosers.push(finish);
           });
         } catch {
@@ -8014,35 +8042,35 @@ var ImageSession = class {
     };
     for (let i3 = 0; i3 < 3; i3++) void worker();
   }
-  receive(event, live) {
+  receive(event2, live) {
     if (this.stopped) return;
     try {
-      if (event.kind === 3) {
-        const follows = readFollows(event, this.config.pubkey);
-        if (this.follow && newest(this.follow, event) <= 0) {
+      if (event2.kind === 3) {
+        const follows = readFollows(event2, this.config.pubkey);
+        if (this.follow && newest(this.follow, event2) <= 0) {
           this.notify();
           return;
         }
-        this.follow = event;
+        this.follow = event2;
         this.follows = /* @__PURE__ */ new Set([this.config.pubkey, ...follows]);
         for (const [id, old] of this.events) if (old.kind === 3) this.events.delete(id);
         if (live) this.listenVotes();
-      } else if (event.tags.some((t) => t[0] === IMAGE_MARKER)) {
-        const candidate = readCandidate(event, this.config.pubkey, this.refs, true);
-        if (!this.refs[candidate.storyId].includes(event.id)) this.refs[candidate.storyId].push(event.id);
-        this.candidates.set(event.id, candidate);
+      } else if (event2.tags.some((t) => t[0] === IMAGE_MARKER)) {
+        const candidate = readCandidate(event2, this.config.pubkey, this.refs, true);
+        if (!this.refs[candidate.storyId].includes(event2.id)) this.refs[candidate.storyId].push(event2.id);
+        this.candidates.set(event2.id, candidate);
       } else {
-        const vote = readVote(event, this.refs);
-        if (!this.follows.has(event.pubkey)) return;
+        const vote = readVote(event2, this.refs);
+        if (!this.follows.has(event2.pubkey)) return;
         for (const [id, old] of this.events) {
-          if (old.kind !== 1 || old.pubkey !== event.pubkey || !old.tags.some((t) => t[0] === VOTE_MARKER)) continue;
+          if (old.kind !== 1 || old.pubkey !== event2.pubkey || !old.tags.some((t) => t[0] === VOTE_MARKER)) continue;
           const prior = readVote(old, this.refs);
           if (prior.storyId !== vote.storyId) continue;
-          if (newest(old, event) <= 0) return;
+          if (newest(old, event2) <= 0) return;
           this.events.delete(id);
         }
       }
-      this.events.set(event.id, event);
+      this.events.set(event2.id, event2);
       this.selections.clear();
       this.notify();
     } catch {
@@ -8075,30 +8103,30 @@ var ImageSession = class {
     const prior = this.selection(storyId).latest.get(pubkey)?.event;
     if (prior && prior.created_at >= Math.floor(Date.now() / 1e3)) throw new Error("Please wait a second before changing your vote.");
     const template = voteTemplate(storyId, candidateId);
-    const event = await signer.signEvent(structuredClone(template));
-    checkedEvent(event, pubkey, 1);
-    if (JSON.stringify({ kind: event.kind, created_at: event.created_at, content: event.content, tags: event.tags }) !== JSON.stringify({ kind: template.kind, created_at: template.created_at, content: template.content, tags: template.tags })) throw new Error("Signer changed the requested vote.");
-    const choice = readVote(event, this.refs);
+    const event2 = await signer.signEvent(structuredClone(template));
+    checkedEvent(event2, pubkey, 1);
+    if (JSON.stringify({ kind: event2.kind, created_at: event2.created_at, content: event2.content, tags: event2.tags }) !== JSON.stringify({ kind: template.kind, created_at: template.created_at, content: template.content, tags: template.tags })) throw new Error("Signer changed the requested vote.");
+    const choice = readVote(event2, this.refs);
     if (choice.candidateId !== null && !this.refs[storyId]?.includes(choice.candidateId)) throw new Error("Image candidate unavailable.");
     if (this.stopped || !this.canVote(pubkey)) throw new Error("Voting eligibility changed. Please reconnect.");
-    await this.publish(event);
+    await this.publish(event2);
   }
   async propose(signer, pubkey, storyId, image) {
     if (pubkey !== this.config.pubkey || await signer.getPublicKey() !== pubkey) throw new Error("Connect Stringer\u2019s account to publish image candidates.");
     if (this.stopped || !Object.hasOwn(this.refs, storyId)) throw new Error("This headline is no longer available.");
     const template = candidateTemplate(storyId, readCommonsImage(image));
-    const event = await signer.signEvent(structuredClone(template));
-    checkedEvent(event, pubkey, 1);
-    if (event.created_at !== template.created_at || event.content !== template.content || JSON.stringify(event.tags) !== JSON.stringify(template.tags)) throw new Error("Signer changed the requested image candidate.");
-    readCandidate(event, pubkey, this.refs, true);
+    const event2 = await signer.signEvent(structuredClone(template));
+    checkedEvent(event2, pubkey, 1);
+    if (event2.created_at !== template.created_at || event2.content !== template.content || JSON.stringify(event2.tags) !== JSON.stringify(template.tags)) throw new Error("Signer changed the requested image candidate.");
+    readCandidate(event2, pubkey, this.refs, true);
     if (this.stopped) throw new Error("This headline is no longer available.");
-    await this.publish(event);
-    return event.id;
+    await this.publish(event2);
+    return event2.id;
   }
-  async publish(event) {
+  async publish(event2) {
     let timeout;
     try {
-      await Promise.race([Promise.any(this.pool.publish(this.config.relays, event)), new Promise((_, reject) => {
+      await Promise.race([Promise.any(this.pool.publish(this.config.relays, event2)), new Promise((_, reject) => {
         timeout = setTimeout(() => reject(new Error("Relays did not acknowledge this event. Please retry.")), 6e3);
       })]);
     } catch {
@@ -8107,7 +8135,7 @@ var ImageSession = class {
       clearTimeout(timeout);
     }
     if (this.stopped) throw new Error("The news collection changed. Please reconnect.");
-    this.receive(event, true);
+    this.receive(event2, true);
   }
   close() {
     this.stopped = true;
@@ -8119,12 +8147,79 @@ var ImageSession = class {
 };
 
 // relay/commons.ts
+var places = {
+  Saudi: "Saudi Arabia",
+  British: "United Kingdom",
+  French: "France",
+  German: "Germany",
+  American: "United States",
+  Chinese: "China",
+  Indian: "India",
+  Pakistani: "Pakistan",
+  Russian: "Russia",
+  Ukrainian: "Ukraine",
+  Iranian: "Iran",
+  Israeli: "Israel",
+  Palestinian: "Palestine"
+};
+function commonsSubject(title) {
+  const names = [...title.matchAll(/\p{Lu}[\p{L}\p{M}'’.-]*(?:\s+(?:(?:de|del|der|van|von|le)\s+)*\p{Lu}[\p{L}\p{M}'’.-]*)*/gu)].map((match) => match[0]);
+  const subject = names.find((name) => !/^(The|A|An)\b/.test(name) && !/^(How|Why|What|After|Before|Flooding|Talks)$/.test(name));
+  return (places[subject || ""] || subject || title).trim().slice(0, 200);
+}
 function plain(value) {
   if (typeof value !== "string") return "";
   return new DOMParser().parseFromString(value, "text/html").body.textContent?.replace(/\s+/g, " ").trim().slice(0, 2e3) || "";
 }
-async function searchCommons(query, request = fetch) {
+async function representativeImages(query, request) {
+  try {
+    const wiki = new URL("https://en.wikipedia.org/w/api.php");
+    wiki.search = new URLSearchParams({
+      action: "query",
+      format: "json",
+      formatversion: "2",
+      origin: "*",
+      generator: "search",
+      gsrnamespace: "0",
+      gsrlimit: "1",
+      gsrsearch: query,
+      prop: "pageimages|images",
+      piprop: "name",
+      pilicense: "free",
+      imlimit: "100"
+    }).toString();
+    const response = await request(wiki, { credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(8e3) });
+    if (!response.ok) return [];
+    const data = await response.json();
+    const page = data.query?.pages?.[0];
+    if (!page) return [];
+    const subject = page.title?.toLocaleLowerCase() || query.toLocaleLowerCase();
+    const maps = (page.images || []).map((image) => image.title || "").filter((title) => title.toLocaleLowerCase().includes(subject) && /map|orthographic|location/i.test(title));
+    const titles = [.../* @__PURE__ */ new Set([...page.pageimage ? [`File:${page.pageimage}`] : [], ...maps])].slice(0, 4);
+    if (!titles.length) return [];
+    const commons = new URL("https://commons.wikimedia.org/w/api.php");
+    commons.search = new URLSearchParams({
+      action: "query",
+      format: "json",
+      formatversion: "2",
+      origin: "*",
+      titles: titles.join("|"),
+      prop: "imageinfo",
+      iiprop: "url|extmetadata|mime",
+      iiurlwidth: "320"
+    }).toString();
+    const files = await request(commons, { credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(8e3) });
+    if (!files.ok) return [];
+    const result = await files.json();
+    for (const image of result.query?.pages || []) image.index = titles.findIndex((title) => title.replaceAll("_", " ") === image.title);
+    return readImages(result);
+  } catch {
+    return [];
+  }
+}
+async function searchCommons(query, request = fetch, suggest = false) {
   if (!query.trim()) throw new Error("Enter a person, place or subject to search for.");
+  const preferred = suggest ? representativeImages(query.trim().slice(0, 200), request) : Promise.resolve([]);
   const url = new URL("https://commons.wikimedia.org/w/api.php");
   url.search = new URLSearchParams({
     action: "query",
@@ -8134,7 +8229,7 @@ async function searchCommons(query, request = fetch) {
     generator: "search",
     gsrnamespace: "6",
     gsrlimit: "10",
-    gsrsearch: query.trim().slice(0, 200),
+    gsrsearch: `${query.trim().slice(0, 200)} filetype:bitmap`,
     prop: "imageinfo",
     iiprop: "url|extmetadata|mime",
     iiurlwidth: "320"
@@ -8143,11 +8238,18 @@ async function searchCommons(query, request = fetch) {
   if (!response.ok) throw new Error("Commons search is unavailable. Please retry.");
   const data = await response.json();
   if (data.error) throw new Error("Commons search is unavailable. Please retry.");
+  const images = [...await preferred, ...readImages(data)];
+  return images.filter((image, index) => images.findIndex((other) => other.filePage === image.filePage) === index).slice(0, 5);
+}
+function readImages(data) {
+  if (data.error) return [];
   const results = [];
   for (const page of [...data.query?.pages || []].sort((a, b) => (a.index || 0) - (b.index || 0))) {
     const info = page.imageinfo?.[0], meta = info?.extmetadata;
-    if (!info || !meta || !/^image\/(jpeg|png|webp)$/.test(info.mime || "") || plain(meta.Restrictions?.value)) continue;
-    const licenseUrl = plain(meta.LicenseUrl?.value).replace(/^http:/, "https:").replace(/\/deed\.[a-z-]+$/, "/").replace(/\/?$/, "/");
+    const rasterThumbnail = info?.mime === "image/svg+xml" && /\.png(?:\?|$)/.test(info.thumburl || "");
+    if (!info || !meta || !/^image\/(jpeg|png|webp)$/.test(info.mime || "") && !rasterThumbnail || plain(meta.Restrictions?.value)) continue;
+    const publicDomain = plain(meta.License?.value) === "pd" && plain(meta.Copyrighted?.value).toLowerCase() === "false" && plain(meta.UsageTerms?.value).toLowerCase() === "public domain";
+    const licenseUrl = (plain(meta.LicenseUrl?.value) || (publicDomain ? "https://creativecommons.org/publicdomain/mark/1.0/" : "")).replace(/^http:/, "https:").replace(/\/deed\.[a-z-]+$/, "/").replace(/\/?$/, "/");
     const license = /^https:\/\/creativecommons\.org\/licenses\/(by|by-sa)\/(1\.0|2\.0|2\.5|3\.0|4\.0)\/$/.exec(licenseUrl);
     const identifier = license ? `CC-${license[1].toUpperCase()}-${license[2]}` : licenseUrl === "https://creativecommons.org/publicdomain/zero/1.0/" ? "CC0-1.0" : licenseUrl === "https://creativecommons.org/publicdomain/mark/1.0/" ? "PDM-1.0" : "";
     try {
@@ -8176,7 +8278,12 @@ async function searchCommons(query, request = fetch) {
 
 // relay/reader.ts
 async function readRelaySnapshot(config, report = () => {
-}, onSnapshot, onFeedTiming) {
+}, onSnapshot, onFeedTiming, options = {}) {
+  const timeoutMs = options.timeoutMs ?? 15e3;
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > 15e3)
+    throw new Error("Invalid reader loading budget");
+  const deadline = performance.now() + timeoutMs;
+  const cached = readCachedCollection(config.pubkey);
   if (!/^[0-9a-f]{64}$/.test(config.pubkey) || !config.relays.length || config.relays.length > 5)
     throw new Error("Relay reader not configured");
   for (const relay of config.relays) {
@@ -8187,6 +8294,11 @@ async function readRelaySnapshot(config, report = () => {
   let progressTimer;
   try {
     const query = (filter, onEvent) => new Promise((resolve) => {
+      const remaining = deadline - performance.now();
+      if (remaining <= 0) {
+        resolve([]);
+        return;
+      }
       const events = /* @__PURE__ */ new Map();
       let settled = false;
       let manifestTimer;
@@ -8200,22 +8312,22 @@ async function readRelaySnapshot(config, report = () => {
         void subscription.close();
         resolve([...events.values()]);
       };
-      const timer = setTimeout(finish, 6e3);
+      const timer = setTimeout(finish, Math.min(6e3, remaining));
       const subscription = pool.subscribeMany(config.relays, filter, {
         maxWait: 5e3,
         abort: abort.signal,
-        onevent(event2) {
+        onevent(event3) {
           if (settled) return;
           if (filter.kinds?.includes(MANIFEST_KIND)) {
             try {
-              readManifest(event2, config.pubkey);
+              readManifest(event3, config.pubkey);
             } catch {
               return;
             }
             manifestTimer ??= setTimeout(finish, 600);
           }
-          events.set(event2.id, event2);
-          onEvent?.(event2);
+          events.set(event3.id, event3);
+          onEvent?.(event3);
           if (filter.ids?.every((id) => events.has(id))) finish();
         },
         oneose: finish,
@@ -8229,18 +8341,21 @@ async function readRelaySnapshot(config, report = () => {
       "#d": [MANIFEST_KEY],
       limit: 5
     });
-    const valid = manifests.filter((event2) => {
+    const valid = manifests.filter((event3) => {
       try {
-        readManifest(event2, config.pubkey);
+        readManifest(event3, config.pubkey);
         return true;
       } catch {
         return false;
       }
     }).sort((a, b) => b.created_at - a.created_at || a.id.localeCompare(b.id));
-    const event = valid[0];
-    if (!event) throw new Error("No valid collection");
+    const event2 = valid[0];
+    if (!event2) throw new Error("No valid collection");
+    const manifest = readManifest(event2, config.pubkey);
+    if (cached && Date.parse(cached.snapshot.generatedAt) > Date.parse(manifest.generatedAt))
+      throw new Error("Older collection");
     report("Verified collection. Loading published stories\u2026");
-    const manifest = readManifest(event, config.pubkey), ids = Object.values(manifest.sources).flatMap((source) => source.ids);
+    const ids = Object.values(manifest.sources).flatMap((source) => source.ids);
     const requestedIds = [
       .../* @__PURE__ */ new Set([
         ...ids,
@@ -8265,7 +8380,7 @@ async function readRelaySnapshot(config, report = () => {
       progressTimer = void 0;
       let partial;
       try {
-        partial = assemble(event, [...arriving.values()], config.pubkey, true);
+        partial = assemble(event2, [...arriving.values()], config.pubkey, true);
       } catch {
         return;
       }
@@ -8289,7 +8404,7 @@ async function readRelaySnapshot(config, report = () => {
     stories.push(...(await Promise.all(batches)).flat());
     const received = new Set(stories.map((story) => story.id));
     const missing = ids.filter((id) => !received.has(id));
-    if (missing.length) {
+    if (missing.length && performance.now() < deadline) {
       report(`Received ${received.size} published notes. Retrying ${missing.length} missing notes\u2026`);
       const retries = [];
       for (let i3 = 0; i3 < missing.length; i3 += 100)
@@ -8297,30 +8412,18 @@ async function readRelaySnapshot(config, report = () => {
       stories.push(...(await Promise.all(retries)).flat());
     }
     const cacheKey = `stringer-relay:${config.pubkey}`;
-    try {
-      const cached = JSON.parse(localStorage.getItem(cacheKey) || "null");
-      if (cached) {
-        assemble(cached.manifest, cached.stories, config.pubkey, true);
-        const have = new Set(stories.map((story) => story.id));
-        stories.push(
-          ...cached.stories.filter(
-            (story) => requestedIds.includes(story.id) && !have.has(story.id)
-          )
-        );
-      }
-    } catch {
+    const latestCache = readCachedCollection(config.pubkey) ?? cached;
+    if (latestCache && Date.parse(latestCache.snapshot.generatedAt) > Date.parse(manifest.generatedAt))
+      throw new Error("Older collection");
+    if (latestCache) {
+      const have = new Set(stories.map((story) => story.id));
+      const requested = new Set(requestedIds);
+      stories.push(...latestCache.stories.filter((story) => requested.has(story.id) && !have.has(story.id)));
     }
-    const snapshot = assemble(event, stories, config.pubkey, true);
-    try {
-      const cached = JSON.parse(localStorage.getItem(cacheKey) || "null");
-      if (cached && Date.parse(cached.manifest.content && JSON.parse(cached.manifest.content).generatedAt) > Date.parse(snapshot.generatedAt))
-        throw new Error("Older collection");
-    } catch (error) {
-      if (error instanceof Error && error.message === "Older collection") throw error;
-    }
+    const snapshot = assemble(event2, stories, config.pubkey, true);
     updateTimings(true);
     try {
-      localStorage.setItem(cacheKey, JSON.stringify({ manifest: event, stories }));
+      localStorage.setItem(cacheKey, JSON.stringify({ manifest: event2, stories }));
     } catch {
     }
     return snapshot;
@@ -8330,12 +8433,7 @@ async function readRelaySnapshot(config, report = () => {
   }
 }
 function cachedRelaySnapshot(config) {
-  try {
-    const cached = JSON.parse(localStorage.getItem(`stringer-relay:${config.pubkey}`) || "null");
-    return cached ? assemble(cached.manifest, cached.stories, config.pubkey, true) : null;
-  } catch {
-    return null;
-  }
+  return readCachedCollection(config.pubkey)?.snapshot ?? null;
 }
 
 // node_modules/nostr-tools/lib/esm/nip19.js
@@ -8355,9 +8453,9 @@ function encodeBytes2(prefix, bytes) {
 
 // relay/identity.ts
 function profileAddress(events, pubkey) {
-  const valid = events.filter((event) => {
+  const valid = events.filter((event2) => {
     try {
-      checkedEvent(event, pubkey, 0);
+      checkedEvent(event2, pubkey, 0);
       return true;
     } catch {
       return false;
@@ -8403,8 +8501,8 @@ async function readIdentity(pubkey, relays, fallback) {
       timer = setTimeout(resolve, 4500);
       subscription = pool.subscribeMany(relays, { kinds: [0], authors: [pubkey], limit: 3 }, {
         maxWait: 3500,
-        onevent: (event) => {
-          events.push(event);
+        onevent: (event2) => {
+          events.push(event2);
         },
         oneose: resolve,
         onclose: () => resolve()
@@ -8422,6 +8520,7 @@ async function readIdentity(pubkey, relays, fallback) {
 export {
   ImageSession,
   cachedRelaySnapshot,
+  commonsSubject,
   npubEncode2 as npubEncode,
   readIdentity,
   readRelaySnapshot,

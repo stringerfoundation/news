@@ -1,6 +1,6 @@
-import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=5bedf6816537af85";
-import relayConfig from "./relay-config.js?v=5bedf6816537af85";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=5bedf6816537af85";
+import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=2adc61cd81534aa3";
+import relayConfig from "./relay-config.js?v=2adc61cd81534aa3";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=2adc61cd81534aa3";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -35,7 +35,35 @@ let loadStage = "";
 let feedTimings = {};
 let ImageSessionClass = null;
 let searchCommons = null;
+let commonsSubject = (title) => title;
 const commonsSearches = /* @__PURE__ */ new Map();
+const suggestionQueue = /* @__PURE__ */ new Set();
+let activeSuggestions = 0;
+const suggestionObserver = new IntersectionObserver((entries) => {
+  for (const entry of entries) if (entry.isIntersecting) {
+    suggestionObserver.unobserve(entry.target);
+    const id = entry.target.dataset.storyId;
+    if (id) suggestionQueue.add(id);
+  }
+  loadSuggestions();
+}, { rootMargin: "100px" });
+function loadSuggestions() {
+  if (!voter || !imageSession?.canVote(voter)) {
+    suggestionQueue.clear();
+    return;
+  }
+  for (const id of suggestionQueue) {
+    if (activeSuggestions >= 2) break;
+    suggestionQueue.delete(id);
+    const state = commonsSearches.get(id);
+    if (!state || state.loading || state.searched || !imageSession.refs[id]) continue;
+    activeSuggestions++;
+    void findCommons(id, state.query, true).finally(() => {
+      activeSuggestions--;
+      loadSuggestions();
+    });
+  }
+}
 let imageSession = null;
 let imageRefsKey = "";
 let voter = null;
@@ -79,7 +107,7 @@ async function connectNostr() {
   try {
     const key = await signer.getPublicKey();
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=5bedf6816537af85");
+    const identity = await import("./relay-reader.js?v=2adc61cd81534aa3");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -177,21 +205,28 @@ function commonsCaption(candidate) {
 function imageReview(storyId, title) {
   if (!hasSigner() || !voter || !imageSession?.canVote(voter)) return null;
   const selection = imageSession.selection(storyId);
-  if (voter === relayConfig.pubkey && !commonsSearches.has(storyId))
-    commonsSearches.set(storyId, { query: title, loading: false, results: [], error: "", searched: false });
+  if (!commonsSearches.has(storyId)) {
+    commonsSearches.set(storyId, { query: commonsSubject(title), loading: false, results: [], error: "", searched: false });
+  }
+  const needsSuggestion = !selection.winner && !selection.scores.length;
   const details = element("details", "", "image-review");
   details.open = openImageReviews.has(storyId);
+  details.dataset.storyId = storyId;
+  if (needsSuggestion) suggestionObserver.observe(details);
   details.append(element("summary", "Review illustrative images"));
   details.addEventListener("toggle", () => {
     if (details.open) {
       openImageReviews.add(storyId);
       const state = commonsSearches.get(storyId);
-      if (voter === relayConfig.pubkey && state && !state.searched && !state.loading) void findCommons(storyId, state.query);
+      if (state && !state.searched && !state.loading) {
+        suggestionObserver.observe(details);
+      }
     } else openImageReviews.delete(storyId);
   });
   const current = selection.latest.get(voter)?.vote.candidateId;
   for (const { candidate, count } of selection.scores) {
     const figure = element("figure");
+    if (!selection.winner) figure.append(element("p", "Needs approval \u2014 only visible to trusted accounts.", "image-approval-status"));
     const img = element("img");
     img.src = candidate.url;
     img.alt = candidate.alt;
@@ -224,7 +259,7 @@ function imageReview(storyId, title) {
     figure.append(button);
     details.append(figure);
   }
-  if (voter === relayConfig.pubkey) {
+  {
     const state = commonsSearches.get(storyId);
     const form = element("form", "", "commons-search");
     const label = element("label", "Search Commons for a person, place or subject");
@@ -246,13 +281,14 @@ function imageReview(storyId, title) {
     });
     form.append(label, submit);
     details.append(form);
-    details.append(element("p", "Choose a relevant illustration. Publishing and upvoting requests two signatures."));
+    details.append(element("p", voter === relayConfig.pubkey ? "Suggested images need approval before other readers can see them. Publishing and upvoting requests two signatures." : "Suggested images need approval before other readers can see them. Stringer\u2019s account must publish new candidates first."));
     if (state?.error) details.append(element("p", state.error, "warning"));
     if (state?.searched && !state.loading && !state.error && !state.results.length)
       details.append(element("p", "No reusable images found. Try a specific person, place or subject."));
     for (const image of state?.results || []) {
       if (selection.scores.some((score) => score.candidate.filePage === image.filePage)) continue;
       const figure = element("figure");
+      figure.append(element("p", "Needs approval \u2014 only visible to trusted accounts.", "image-approval-status"));
       const preview = element("img");
       preview.src = image.url;
       preview.alt = image.alt;
@@ -262,38 +298,39 @@ function imageReview(storyId, title) {
       preview.referrerPolicy = "no-referrer";
       const publish = element("button", "Publish and upvote image");
       publish.type = "button";
-      publish.disabled = voteBusy;
-      publish.addEventListener("click", async () => {
-        const session = imageSession, account = voter, signer = window.nostr;
-        if (!session || !account || !signer) return;
-        voteBusy = true;
-        voteMessage = "Approve two signer requests: the image candidate, then your vote.";
-        renderWorld();
-        try {
-          const id = await session.propose(signer, account, storyId, image);
-          await session.vote(signer, account, storyId, id);
-          voteMessage = "Image and approval published.";
-        } catch (error) {
-          voteMessage = error instanceof Error ? error.message : "Could not publish the image. Please retry.";
-        } finally {
-          voteBusy = false;
-          renderWorld();
-        }
-      });
+      publish.disabled = voteBusy || voter !== relayConfig.pubkey;
+      publish.addEventListener("click", () => void publishCommons(storyId, image));
       figure.append(preview, commonsCaption(image), publish);
       details.append(figure);
     }
-  } else if (!selection.scores.length) details.append(element("p", "No candidate images have been published for this headline yet."));
+  }
   return details;
 }
-async function findCommons(storyId, query) {
+async function publishCommons(storyId, image) {
+  const session = imageSession, account = voter, signer = window.nostr;
+  if (!session || !account || !signer) return;
+  voteBusy = true;
+  voteMessage = "Approve two signer requests: the image candidate, then your vote.";
+  renderWorld();
+  try {
+    const id = await session.propose(signer, account, storyId, image);
+    await session.vote(signer, account, storyId, id);
+    voteMessage = "Image and approval published.";
+  } catch (error) {
+    voteMessage = error instanceof Error ? error.message : "Could not publish the image. Please retry.";
+  } finally {
+    voteBusy = false;
+    renderWorld();
+  }
+}
+async function findCommons(storyId, query, suggest = false) {
   if (!searchCommons || commonsSearches.get(storyId)?.loading) return;
   const state = commonsSearches.get(storyId) || { query, loading: false, results: [], error: "", searched: false };
   Object.assign(state, { query, loading: true, results: [], error: "", searched: false });
   commonsSearches.set(storyId, state);
   renderWorld();
   try {
-    state.results = await searchCommons(query);
+    state.results = await searchCommons(query, fetch, suggest);
   } catch (error) {
     state.error = error instanceof Error ? error.message : "Commons search is unavailable. Please retry.";
   } finally {
@@ -323,6 +360,7 @@ function element(tag, text, className) {
   return node;
 }
 function renderStories(target, stories, emptyMessage) {
+  for (const review of target.querySelectorAll(".image-review")) suggestionObserver.unobserve(review);
   target.replaceChildren();
   const usePlaceholder = target.id === "stringer-news";
   const wire = target.id === "world-news";
@@ -339,7 +377,10 @@ function renderStories(target, stories, emptyMessage) {
       article.classList.add("with-image");
       article.prepend(placeholder);
     };
-    const commons = wire && story.noteId ? imageSession?.selection(story.noteId).winner : null;
+    const selection = wire && story.noteId ? imageSession?.selection(story.noteId) : null;
+    const trusted = hasSigner() && voter && imageSession?.canVote(voter);
+    const suggested = wire && story.noteId && trusted && !selection?.winner ? selection?.scores[0]?.candidate || commonsSearches.get(story.noteId)?.results[0] : null;
+    const commons = selection?.winner || suggested;
     const imageData = wire ? commons : story.image;
     const imageUrl = wire ? commons?.url : safeImageUrl(imageData?.url) || localImage;
     if (imageUrl) {
@@ -417,6 +458,20 @@ function renderStories(target, stories, emptyMessage) {
       meta.firstElementChild.after(separator);
     }
     body.append(meta);
+    if (suggested && story.noteId) {
+      body.append(element("p", "Needs approval \u2014 only visible to trusted accounts.", "image-approval-status"));
+      if (!("id" in suggested) && voter === relayConfig.pubkey) {
+        const approve = element("button", "Publish and upvote image", "suggested-image-approve");
+        approve.type = "button";
+        approve.disabled = voteBusy;
+        const storyId = story.noteId;
+        approve.addEventListener("click", () => void publishCommons(storyId, suggested));
+        body.append(approve);
+      }
+    } else if (wire && story.noteId && trusted && !selection?.winner) {
+      const state = commonsSearches.get(story.noteId);
+      body.append(element("p", state?.error || (state?.searched ? "No reusable Commons image found. Open image review to refine the search." : "Finding a suggested Commons image\u2026"), state?.error ? "warning" : "image-search-status"));
+    }
     if (wire && story.noteId) {
       const review = imageReview(story.noteId, story.title);
       if (review) body.append(review);
@@ -536,6 +591,14 @@ function render() {
   renderStories(requiredElement("#stringer-news"), shuffledStringerStories(snapshot.sources.stringer.stories), loading ? "" : "Courageous stories are currently unavailable. Visit the Stringer collection below.");
   renderWorld();
 }
+function preserveStoriesDuringRefresh(previous, current) {
+  if (!previous || current.status === "paused" || !(previous.stories.length > current.stories.length || !current.stories.length)) return current;
+  return {
+    ...current,
+    stories: previous.stories,
+    lastSuccessAt: current.lastSuccessAt || previous.lastSuccessAt
+  };
+}
 async function load() {
   if (loading) return;
   loading = true;
@@ -551,9 +614,10 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=5bedf6816537af85");
+      const reader = await import("./relay-reader.js?v=2adc61cd81534aa3");
       ImageSessionClass = reader.ImageSession;
       searchCommons = reader.searchCommons;
+      commonsSubject = reader.commonsSubject;
       if (!snapshot) {
         snapshot = reader.cachedRelaySnapshot(relayConfig);
         if (snapshot) render();
@@ -565,10 +629,10 @@ async function load() {
       }, (partial) => {
         if (snapshot && Date.parse(partial.generatedAt) < Date.parse(snapshot.generatedAt)) return;
         for (const source of SOURCES) {
-          const old = snapshot?.sources[source.id];
-          const nextSource = partial.sources[source.id];
-          if (old && (old.stories.length > nextSource.stories.length || !nextSource.stories.length))
-            partial.sources[source.id] = old;
+          partial.sources[source.id] = preserveStoriesDuringRefresh(
+            snapshot?.sources[source.id],
+            partial.sources[source.id]
+          );
         }
         snapshot = partial;
         render();
