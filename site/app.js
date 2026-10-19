@@ -1,6 +1,6 @@
-import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=8e3e68fbf6a13dd9";
-import relayConfig from "./relay-config.js?v=8e3e68fbf6a13dd9";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=8e3e68fbf6a13dd9";
+import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=8920269827586dc2";
+import relayConfig from "./relay-config.js?v=8920269827586dc2";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=8920269827586dc2";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -248,6 +248,14 @@ function render() {
   renderStories(requiredElement("#stringer-news"), shuffledStringerStories(snapshot.sources.stringer.stories), loading ? "" : "Courageous stories are currently unavailable. Visit the Stringer collection below.");
   renderWorld();
 }
+function preserveStoriesDuringRefresh(previous, current) {
+  if (!previous || current.status === "paused" || !(previous.stories.length > current.stories.length || !current.stories.length)) return current;
+  return {
+    ...current,
+    stories: previous.stories,
+    lastSuccessAt: current.lastSuccessAt || previous.lastSuccessAt
+  };
+}
 async function load() {
   if (loading) return;
   loading = true;
@@ -263,7 +271,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=8e3e68fbf6a13dd9");
+      const reader = await import("./relay-reader.js?v=8920269827586dc2");
       if (!snapshot) {
         snapshot = reader.cachedRelaySnapshot(relayConfig);
         if (snapshot) render();
@@ -275,10 +283,10 @@ async function load() {
       }, (partial) => {
         if (snapshot && Date.parse(partial.generatedAt) < Date.parse(snapshot.generatedAt)) return;
         for (const source of SOURCES) {
-          const old = snapshot?.sources[source.id];
-          const nextSource = partial.sources[source.id];
-          if (old && (old.stories.length > nextSource.stories.length || !nextSource.stories.length))
-            partial.sources[source.id] = old;
+          partial.sources[source.id] = preserveStoriesDuringRefresh(
+            snapshot?.sources[source.id],
+            partial.sources[source.id]
+          );
         }
         snapshot = partial;
         render();
