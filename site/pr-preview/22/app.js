@@ -1,6 +1,6 @@
-import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=3f701ac7d468f5b8";
-import relayConfig from "./relay-config.js?v=3f701ac7d468f5b8";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=3f701ac7d468f5b8";
+import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=b1dba1364bc18929";
+import relayConfig from "./relay-config.js?v=b1dba1364bc18929";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=b1dba1364bc18929";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -33,6 +33,125 @@ let loadDuration = 0;
 let loadOutcome = "";
 let loadStage = "";
 let feedTimings = {};
+let ImageSessionClass = null;
+let imageSession = null;
+let imageRefsKey = "";
+let voter = null;
+let voteBusy = false;
+let voteMessage = "";
+const openImageReviews = /* @__PURE__ */ new Set();
+const imageToolbar = element("div", "", "image-toolbar");
+imageToolbar.hidden = true;
+requiredElement("#world-news").before(imageToolbar);
+function syncImages() {
+  const refs = snapshot?.imageCandidates || {};
+  const key = JSON.stringify(refs);
+  if (key !== imageRefsKey && ImageSessionClass) {
+    imageSession?.close();
+    imageSession = null;
+    imageRefsKey = key;
+    if (Object.keys(refs).length) imageSession = new ImageSessionClass(relayConfig, refs, () => renderWorld());
+  }
+  imageToolbar.replaceChildren();
+  imageToolbar.hidden = !imageSession;
+  if (!imageSession) return;
+  const connect = element("button", voter ? "Disconnect Nostr" : "Connect Nostr");
+  connect.type = "button";
+  connect.disabled = voteBusy;
+  connect.addEventListener("click", async () => {
+    if (voter) {
+      voter = null;
+      voteMessage = "";
+      renderWorld();
+      return;
+    }
+    try {
+      if (!window.nostr?.getPublicKey || !window.nostr?.signEvent) throw new Error("Install a NIP-07 Nostr signer to approve images.");
+      const key2 = await window.nostr.getPublicKey();
+      if (!/^[0-9a-f]{64}$/.test(key2)) throw new Error("The signer returned an invalid account.");
+      voter = key2;
+      voteMessage = "";
+      renderWorld();
+    } catch (error) {
+      voteMessage = error instanceof Error ? error.message : "Could not connect to your signer.";
+      renderWorld();
+    }
+  });
+  imageToolbar.append(connect);
+  let status = voter && imageSession.trustLive && !imageSession.follows.has(voter) ? "This account is not followed by Stringer and cannot approve images." : voteMessage;
+  if (!status && voter) status = !imageSession.trustLive ? "Waiting for Stringer\u2019s follow list." : imageSession.follows.has(voter) ? "You can approve illustrative images." : "This account is not followed by Stringer and cannot approve images.";
+  const message = element("p", status);
+  message.setAttribute("role", "status");
+  imageToolbar.append(message);
+}
+function commonsCaption(candidate) {
+  const caption = element("figcaption");
+  caption.append(document.createTextNode(`Illustrative image \xB7 ${candidate.creator} \xB7 ${candidate.attribution} \xB7 `));
+  for (const [label, url] of [[candidate.title, candidate.filePage], [candidate.license, candidate.licenseUrl]]) {
+    if (caption.lastChild?.nodeType === Node.ELEMENT_NODE) caption.append(document.createTextNode(" \xB7 "));
+    const link = element("a", label);
+    link.href = url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    caption.append(link);
+  }
+  return caption;
+}
+function imageReview(storyId) {
+  if (!voter || !imageSession?.trustLive || !imageSession.follows.has(voter)) return null;
+  const selection = imageSession.selection(storyId);
+  if (!selection.scores.length) return null;
+  const details = element("details", "", "image-review");
+  details.open = openImageReviews.has(storyId);
+  details.append(element("summary", "Review illustrative images"));
+  details.addEventListener("toggle", () => {
+    if (details.open) openImageReviews.add(storyId);
+    else openImageReviews.delete(storyId);
+  });
+  const current = selection.latest.get(voter)?.vote.candidateId;
+  for (const { candidate, count } of selection.scores) {
+    const figure = element("figure");
+    const img = element("img");
+    img.src = candidate.url;
+    img.alt = candidate.alt;
+    img.width = 120;
+    img.height = 80;
+    img.loading = "lazy";
+    img.referrerPolicy = "no-referrer";
+    figure.append(img, commonsCaption(candidate));
+    const selected = current === candidate.id;
+    const button = element("button", selected ? "Withdraw approval" : `Upvote image (${count})`);
+    button.type = "button";
+    button.disabled = voteBusy;
+    button.setAttribute("aria-pressed", String(selected));
+    button.addEventListener("click", async () => {
+      const session = imageSession, account = voter;
+      voteBusy = true;
+      voteMessage = "Waiting for your signer and relay confirmation\u2026";
+      renderWorld();
+      try {
+        if (!session || !account || !window.nostr) throw new Error("Reconnect your Nostr signer to approve images.");
+        await session.vote(window.nostr, account, storyId, selected ? null : candidate.id);
+        voteMessage = "Vote published.";
+      } catch (error) {
+        voteMessage = error instanceof Error ? error.message : "Could not publish your vote. Please retry.";
+      } finally {
+        voteBusy = false;
+        renderWorld();
+      }
+    });
+    figure.append(button);
+    details.append(figure);
+  }
+  return details;
+}
+window.addEventListener("pagehide", () => imageSession?.close());
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted && snapshot) {
+    imageRefsKey = "";
+    renderWorld();
+  }
+});
 const stringerOrder = /* @__PURE__ */ new Map();
 function shuffledStringerStories(stories) {
   for (const story of stories) {
@@ -63,8 +182,9 @@ function renderStories(target, stories, emptyMessage) {
       article.classList.add("with-image");
       article.prepend(placeholder);
     };
-    const imageData = wire ? null : story.image;
-    const imageUrl = wire ? null : safeImageUrl(imageData?.url) || localImage;
+    const commons = wire && story.noteId ? imageSession?.selection(story.noteId).winner : null;
+    const imageData = wire ? commons : story.image;
+    const imageUrl = wire ? commons?.url : safeImageUrl(imageData?.url) || localImage;
     if (imageUrl) {
       const figure = element("figure", "", "story-media");
       const image = element("img");
@@ -81,22 +201,28 @@ function renderStories(target, stories, emptyMessage) {
           image.src = localImage;
           return;
         }
+        if (wire) {
+          figure.remove();
+          article.classList.remove("with-image");
+          return;
+        }
         const placeholder = element("div", "", "story-placeholder");
         placeholder.setAttribute("aria-hidden", "true");
         image.replaceWith(placeholder);
       });
       image.src = imageUrl;
-      if (wire) {
+      if (wire && commons) {
         figure.classList.add("wire-thumbnail");
         const imageLink = element("a");
-        imageLink.href = url;
+        imageLink.href = commons.filePage;
         imageLink.target = "_blank";
         imageLink.rel = "noopener noreferrer";
-        imageLink.setAttribute("aria-label", `Read ${story.title} at the original source`);
+        imageLink.setAttribute("aria-label", `View ${commons.title} on Wikimedia Commons`);
         imageLink.append(image);
         figure.append(imageLink);
       } else figure.append(image);
-      if (imageData?.credit) figure.append(element("figcaption", imageData.credit));
+      if (commons) figure.append(commonsCaption(commons));
+      if (!wire && story.image?.credit) figure.append(element("figcaption", story.image.credit));
       article.classList.add("with-image");
       article.append(figure);
     } else if (usePlaceholder) {
@@ -134,6 +260,10 @@ function renderStories(target, stories, emptyMessage) {
       meta.firstElementChild.after(separator);
     }
     body.append(meta);
+    if (wire && story.noteId) {
+      const review = imageReview(story.noteId);
+      if (review) body.append(review);
+    }
     article.append(body);
     target.append(article);
   }
@@ -154,16 +284,6 @@ function updateStoryVisibility() {
     section.button.setAttribute("aria-expanded", String(section.expanded));
     section.button.textContent = `Show ${section.expanded ? "fewer" : "more"} ${section.label}`;
     section.button.setAttribute("aria-label", section.button.textContent);
-  }
-  if (!mobileLayout.matches) {
-    const stringer = requiredElement("#stringer-news");
-    if (!stringer.querySelector("article")) return;
-    const bottom = stringer.getBoundingClientRect().bottom;
-    let reachedEnd = false;
-    for (const card of requiredElement("#world-news").querySelectorAll("article")) {
-      card.hidden = reachedEnd;
-      if (!reachedEnd && card.getBoundingClientRect().bottom >= bottom) reachedEnd = true;
-    }
   }
 }
 for (const section of sections) {
@@ -217,6 +337,7 @@ function renderStatuses() {
 function renderWorld() {
   if (!snapshot) return;
   const current = snapshot;
+  syncImages();
   const selected = selectedSources();
   const worldPaused = selected.length > 0 && selected.every((id) => current.sources[id].status === "paused");
   const list = requiredElement("#world-news");
@@ -263,7 +384,8 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=3f701ac7d468f5b8");
+      const reader = await import("./relay-reader.js?v=b1dba1364bc18929");
+      ImageSessionClass = reader.ImageSession;
       if (!snapshot) {
         snapshot = reader.cachedRelaySnapshot(relayConfig);
         if (snapshot) render();
@@ -319,10 +441,6 @@ async function load() {
     else renderStatuses();
   }
 }
-const layoutObserver = new ResizeObserver(updateStoryVisibility);
-layoutObserver.observe(requiredElement("#stringer-news"));
-window.addEventListener("resize", updateStoryVisibility);
-document.fonts.ready.then(updateStoryVisibility);
 setInterval(() => {
   renderStatuses();
   if (!document.hidden && Date.now() - lastAttempt >= interval) load();

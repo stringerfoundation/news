@@ -59,11 +59,11 @@ function bytesToHex(bytes) {
   abytes(bytes);
   if (hasHexBuiltin)
     return bytes.toHex();
-  let hex = "";
+  let hex2 = "";
   for (let i3 = 0; i3 < bytes.length; i3++) {
-    hex += hexes[bytes[i3]];
+    hex2 += hexes[bytes[i3]];
   }
-  return hex;
+  return hex2;
 }
 var asciis = { _0: 48, _9: 57, A: 65, F: 70, a: 97, f: 102 };
 function asciiToBase16(ch) {
@@ -75,21 +75,21 @@ function asciiToBase16(ch) {
     return ch - (asciis.a - 10);
   return;
 }
-function hexToBytes(hex) {
-  if (typeof hex !== "string")
-    throw new Error("hex string expected, got " + typeof hex);
+function hexToBytes(hex2) {
+  if (typeof hex2 !== "string")
+    throw new Error("hex string expected, got " + typeof hex2);
   if (hasHexBuiltin)
-    return Uint8Array.fromHex(hex);
-  const hl = hex.length;
+    return Uint8Array.fromHex(hex2);
+  const hl = hex2.length;
   const al = hl / 2;
   if (hl % 2)
     throw new Error("hex string expected, got unpadded hex of length " + hl);
   const array = new Uint8Array(al);
   for (let ai = 0, hi = 0; ai < al; ai++, hi += 2) {
-    const n1 = asciiToBase16(hex.charCodeAt(hi));
-    const n2 = asciiToBase16(hex.charCodeAt(hi + 1));
+    const n1 = asciiToBase16(hex2.charCodeAt(hi));
+    const n2 = asciiToBase16(hex2.charCodeAt(hi + 1));
     if (n1 === void 0 || n2 === void 0) {
-      const char = hex[hi] + hex[hi + 1];
+      const char = hex2[hi] + hex2[hi + 1];
       throw new Error('hex string expected, got non-hex character "' + char + '" at index ' + hi);
     }
     array[ai] = n1 * 16 + n2;
@@ -412,13 +412,13 @@ function abignumber(n) {
   return n;
 }
 function numberToHexUnpadded(num2) {
-  const hex = abignumber(num2).toString(16);
-  return hex.length & 1 ? "0" + hex : hex;
+  const hex2 = abignumber(num2).toString(16);
+  return hex2.length & 1 ? "0" + hex2 : hex2;
 }
-function hexToNumber(hex) {
-  if (typeof hex !== "string")
-    throw new Error("hex string expected, got " + typeof hex);
-  return hex === "" ? _0n : BigInt("0x" + hex);
+function hexToNumber(hex2) {
+  if (typeof hex2 !== "string")
+    throw new Error("hex string expected, got " + typeof hex2);
+  return hex2 === "" ? _0n : BigInt("0x" + hex2);
 }
 function bytesToNumberBE(bytes) {
   return hexToNumber(bytesToHex(bytes));
@@ -585,15 +585,15 @@ function invert(number, modulo) {
     throw new Error("invert: does not exist");
   return mod(x, modulo);
 }
-function assertIsSquare(Fp, root, n) {
-  if (!Fp.eql(Fp.sqr(root), n))
+function assertIsSquare(Fp, root2, n) {
+  if (!Fp.eql(Fp.sqr(root2), n))
     throw new Error("Cannot find square root");
 }
 function sqrt3mod4(Fp, n) {
   const p1div4 = (Fp.ORDER + _1n2) / _4n;
-  const root = Fp.pow(n, p1div4);
-  assertIsSquare(Fp, root, n);
-  return root;
+  const root2 = Fp.pow(n, p1div4);
+  assertIsSquare(Fp, root2, n);
+  return root2;
 }
 function sqrt5mod8(Fp, n) {
   const p5div8 = (Fp.ORDER - _5n) / _8n;
@@ -601,9 +601,9 @@ function sqrt5mod8(Fp, n) {
   const v = Fp.pow(n2, p5div8);
   const nv = Fp.mul(n, v);
   const i3 = Fp.mul(Fp.mul(nv, _2n), v);
-  const root = Fp.mul(nv, Fp.sub(i3, Fp.ONE));
-  assertIsSquare(Fp, root, n);
-  return root;
+  const root2 = Fp.mul(nv, Fp.sub(i3, Fp.ONE));
+  assertIsSquare(Fp, root2, n);
+  return root2;
 }
 function sqrt9mod16(P) {
   const Fp_ = Field(P);
@@ -622,9 +622,9 @@ function sqrt9mod16(P) {
     tv1 = Fp.cmov(tv1, tv2, e1);
     tv2 = Fp.cmov(tv4, tv3, e2);
     const e3 = Fp.eql(Fp.sqr(tv2), n);
-    const root = Fp.cmov(tv1, tv2, e3);
-    assertIsSquare(Fp, root, n);
-    return root;
+    const root2 = Fp.cmov(tv1, tv2, e3);
+    assertIsSquare(Fp, root2, n);
+    return root2;
   };
 }
 function tonelliShanks(P) {
@@ -1337,12 +1337,12 @@ var DER = {
       const { Err: E } = DER;
       if (num2 < _0n4)
         throw new E("integer: negative integers are not allowed");
-      let hex = numberToHexUnpadded(num2);
-      if (Number.parseInt(hex[0], 16) & 8)
-        hex = "00" + hex;
-      if (hex.length & 1)
+      let hex2 = numberToHexUnpadded(num2);
+      if (Number.parseInt(hex2[0], 16) & 8)
+        hex2 = "00" + hex2;
+      if (hex2.length & 1)
         throw new E("unexpected DER parsing assertion: unpadded hex");
-      return hex;
+      return hex2;
     },
     decode(data) {
       const { Err: E } = DER;
@@ -1557,8 +1557,8 @@ function weierstrass(params, extraOpts = {}) {
       P.assertValidity();
       return P;
     }
-    static fromHex(hex) {
-      return Point.fromBytes(hexToBytes(hex));
+    static fromHex(hex2) {
+      return Point.fromBytes(hexToBytes(hex2));
     }
     get x() {
       return this.toAffine().x;
@@ -1944,8 +1944,8 @@ function ecdsa(Point, hash, ecdsaOpts = {}) {
       const s = bytes.subarray(L, L * 2);
       return new Signature(Fn.fromBytes(r), Fn.fromBytes(s), recid);
     }
-    static fromHex(hex, format) {
-      return this.fromBytes(hexToBytes(hex), format);
+    static fromHex(hex2, format) {
+      return this.fromBytes(hexToBytes(hex2), format);
     }
     assertRecovery() {
       const { recovery } = this;
@@ -2140,10 +2140,10 @@ function sqrtMod(y) {
   const b223 = pow2(b220, _3n3, P) * b3 % P;
   const t1 = pow2(b223, _23n, P) * b22 % P;
   const t2 = pow2(t1, _6n, P) * b2 % P;
-  const root = pow2(t2, _2n3, P);
-  if (!Fpk1.eql(Fpk1.sqr(root), y))
+  const root2 = pow2(t2, _2n3, P);
+  if (!Fpk1.eql(Fpk1.sqr(root2), y))
     throw new Error("Cannot find square root");
-  return root;
+  return root2;
 }
 var Fpk1 = Field(secp256k1_CURVE.p, { sqrt: sqrtMod });
 var Pointk1 = /* @__PURE__ */ weierstrass(secp256k1_CURVE, {
@@ -2824,10 +2824,10 @@ var AbstractRelay = class {
         }
         case "COUNT": {
           const id = data[1];
-          const payload = data[2];
+          const payload2 = data[2];
           const cr = this.openCountRequests.get(id);
           if (cr) {
-            cr.resolve(payload);
+            cr.resolve(payload2);
             this.openCountRequests.delete(id);
           }
           return;
@@ -2992,23 +2992,23 @@ function getCountManyFilter(target, directive) {
 function newHll() {
   return new Uint8Array(M);
 }
-function hllDecode(hex) {
-  if (hex.length !== HLL_HEX_LENGTH || !/^[0-9a-f]+$/.test(hex))
+function hllDecode(hex2) {
+  if (hex2.length !== HLL_HEX_LENGTH || !/^[0-9a-f]+$/.test(hex2))
     return void 0;
   const registers = new Uint8Array(M);
   for (let i22 = 0; i22 < M; i22++) {
-    registers[i22] = parseInt(hex.slice(i22 * 2, i22 * 2 + 2), 16);
+    registers[i22] = parseInt(hex2.slice(i22 * 2, i22 * 2 + 2), 16);
   }
   return registers;
 }
 function hllEncode(registers) {
   if (registers.length !== M)
     throw new Error(`invalid number of registers ${registers.length}`);
-  let hex = "";
+  let hex2 = "";
   for (let i22 = 0; i22 < M; i22++) {
-    hex += registers[i22].toString(16).padStart(2, "0");
+    hex2 += registers[i22].toString(16).padStart(2, "0");
   }
-  return hex;
+  return hex2;
 }
 function mergeHll(target, source) {
   if (target.length === 0)
@@ -5638,11 +5638,11 @@ function parseTLV(data) {
 function nsecEncode(key) {
   return encodeBytes("nsec", key);
 }
-function npubEncode(hex) {
-  return encodeBytes("npub", hexToBytes(hex));
+function npubEncode(hex2) {
+  return encodeBytes("npub", hexToBytes(hex2));
 }
-function noteEncode(hex) {
-  return encodeBytes("note", hexToBytes(hex));
+function noteEncode(hex2) {
+  return encodeBytes("note", hexToBytes(hex2));
 }
 function encodeBech32(prefix, data) {
   let words = bech32.toWords(data);
@@ -5700,12 +5700,12 @@ __export(nip04_exports, {
   decrypt: () => decrypt2,
   encrypt: () => encrypt2
 });
-function encrypt2(secretKey, pubkey, text) {
+function encrypt2(secretKey, pubkey, text2) {
   const privkey = secretKey instanceof Uint8Array ? secretKey : hexToBytes(secretKey);
   const key = secp256k1.getSharedSecret(privkey, hexToBytes("02" + pubkey));
   const normalizedKey = getNormalizedX(key);
   let iv = Uint8Array.from(randomBytes(16));
-  let plaintext = utf8Encoder3.encode(text);
+  let plaintext = utf8Encoder3.encode(text2);
   let ciphertext = cbc(normalizedKey, iv).encrypt(plaintext);
   let ctb64 = base64.encode(new Uint8Array(ciphertext));
   let ivb64 = base64.encode(new Uint8Array(iv.buffer));
@@ -5905,10 +5905,10 @@ __export(nip13_exports, {
   getPow: () => getPow,
   minePow: () => minePow
 });
-function getPow(hex) {
+function getPow(hex2) {
   let count = 0;
   for (let i22 = 0; i22 < 64; i22 += 8) {
-    const nibble = parseInt(hex.substring(i22, i22 + 8), 16);
+    const nibble = parseInt(hex2.substring(i22, i22 + 8), 16);
     if (nibble === 0) {
       count += 32;
     } else {
@@ -6049,17 +6049,17 @@ function hmacAad(key, message, aad) {
   const combined = concatBytes(aad, message);
   return hmac(sha256, key, combined);
 }
-function decodePayload(payload) {
-  if (typeof payload !== "string")
+function decodePayload(payload2) {
+  if (typeof payload2 !== "string")
     throw new Error("payload must be a valid string");
-  const plen = payload.length;
+  const plen = payload2.length;
   if (plen < 132)
     throw new Error("invalid payload length: " + plen);
-  if (payload[0] === "#")
+  if (payload2[0] === "#")
     throw new Error("unknown encryption version");
   let data;
   try {
-    data = base64.decode(payload);
+    data = base64.decode(payload2);
   } catch (error) {
     throw new Error("invalid base64: " + error.message);
   }
@@ -6082,8 +6082,8 @@ function encrypt22(plaintext, conversationKey, nonce = randomBytes(32)) {
   const mac = hmacAad(hmac_key, ciphertext, nonce);
   return base64.encode(concatBytes(new Uint8Array([2]), nonce, ciphertext, mac));
 }
-function decrypt22(payload, conversationKey) {
-  const { nonce, ciphertext, mac } = decodePayload(payload);
+function decrypt22(payload2, conversationKey) {
+  const { nonce, ciphertext, mac } = decodePayload(payload2);
   const { chacha_key, chacha_nonce, hmac_key } = getMessageKeys(conversationKey, nonce);
   const calculatedMac = hmacAad(hmac_key, ciphertext, nonce);
   if (!equalBytes(calculatedMac, mac))
@@ -7506,7 +7506,7 @@ __export(nip98_exports, {
   validateToken: () => validateToken
 });
 var _authorizationScheme = "Nostr ";
-async function getToken(loginUrl, httpMethod, sign, includeAuthorizationScheme = false, payload) {
+async function getToken(loginUrl, httpMethod, sign, includeAuthorizationScheme = false, payload2) {
   const event = {
     kind: HTTPAuth,
     tags: [
@@ -7516,8 +7516,8 @@ async function getToken(loginUrl, httpMethod, sign, includeAuthorizationScheme =
     created_at: Math.round((/* @__PURE__ */ new Date()).getTime() / 1e3),
     content: ""
   };
-  if (payload) {
-    event.tags.push(["payload", hashPayload(payload)]);
+  if (payload2) {
+    event.tags.push(["payload", hashPayload(payload2)]);
   }
   const signedEvent = await sign(event);
   const authorizationScheme = includeAuthorizationScheme ? _authorizationScheme : "";
@@ -7567,16 +7567,16 @@ function validateEventMethodTag(event, method) {
   }
   return methodTag.length > 0 && methodTag[1].toLowerCase() === method.toLowerCase();
 }
-function hashPayload(payload) {
-  const hash = sha256(utf8Encoder3.encode(JSON.stringify(payload)));
+function hashPayload(payload2) {
+  const hash = sha256(utf8Encoder3.encode(JSON.stringify(payload2)));
   return bytesToHex(hash);
 }
-function validateEventPayloadTag(event, payload) {
+function validateEventPayloadTag(event, payload2) {
   const payloadTag = event.tags.find((t) => t[0] === "payload");
   if (!payloadTag) {
     return false;
   }
-  const payloadHash = hashPayload(payload);
+  const payloadHash = hashPayload(payload2);
   return payloadTag.length > 0 && payloadTag[1] === payloadHash;
 }
 async function validateEvent22(event, url, method, body) {
@@ -7704,7 +7704,15 @@ var MANIFEST_KIND = 30078;
 var MANIFEST_KEY = "stringer-news-v1";
 var GROUP_MARKER = "stringer-group-v1";
 function checkedEvent(event, pubkey, kind) {
-  if (JSON.stringify(event).length > 5e5 || event.pubkey !== pubkey || event.kind !== kind || !verifyEvent2(event) || event.created_at > Date.now() / 1e3 + 60)
+  if (JSON.stringify(event).length > 5e5 || event.pubkey !== pubkey || event.kind !== kind || !verifyEvent2({
+    id: event.id,
+    pubkey: event.pubkey,
+    sig: event.sig,
+    kind: event.kind,
+    created_at: event.created_at,
+    content: event.content,
+    tags: event.tags
+  }) || event.created_at > Date.now() / 1e3 + 60)
     throw new Error("Invalid relay event");
 }
 function readManifest(event, pubkey) {
@@ -7721,6 +7729,10 @@ function readManifest(event, pubkey) {
       throw new Error("Invalid story references");
     if (entry.pending !== void 0 && (!Number.isInteger(entry.pending) || entry.pending < 0 || entry.pending > 200))
       throw new Error("Invalid pending count");
+  }
+  if (value.imageCandidates !== void 0) {
+    const ids = SOURCES.filter((source) => source.id !== "stringer").flatMap((source) => value.sources[source.id].ids);
+    value.imageCandidates = value.imageCandidates && typeof value.imageCandidates === "object" && !Array.isArray(value.imageCandidates) ? Object.fromEntries(Object.entries(value.imageCandidates).filter(([note, candidates]) => ids.includes(note) && Array.isArray(candidates) && candidates.length > 0 && candidates.length <= 5 && new Set(candidates).size === candidates.length && candidates.every((id) => typeof id === "string" && /^[0-9a-f]{64}$/.test(id)))) : {};
   }
   if (value.groups !== void 0) {
     const ids = SOURCES.filter((source) => source.id !== "stringer").flatMap(
@@ -7802,8 +7814,275 @@ function assemble(manifestEvent, events, pubkey, allowPartial = false) {
       if (verified.clusterId) story.clusterId = verified.clusterId;
     });
   }
+  clean3.imageCandidates = manifest.imageCandidates || {};
   return clean3;
 }
+
+// relay/images.ts
+var IMAGE_MARKER = "stringer-image-v1";
+var VOTE_MARKER = "stringer-image-vote-v1";
+var hex = (value) => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+var text = (value) => typeof value === "string" && !!value.trim() && value.length <= 2e3;
+var newest = (a, b) => b.created_at - a.created_at || a.id.localeCompare(b.id);
+function root(event) {
+  const tags = event.tags.filter((tag) => tag[0] === "e");
+  if (tags.length !== 1 || !hex(tags[0]?.[1]) || tags[0]?.[3] !== "root") throw new Error("Invalid image story reference");
+  return tags[0][1];
+}
+function payload(event, marker) {
+  const tags = event.tags.filter((tag) => tag[0] === marker);
+  if (tags.length !== 1 || tags[0]?.length !== 2) throw new Error("Invalid image metadata");
+  const value = JSON.parse(tags[0][1]);
+  if (!value || typeof value !== "object" || Array.isArray(value) || value.version !== 1)
+    throw new Error("Invalid image metadata version");
+  return value;
+}
+function https(value) {
+  if (typeof value !== "string") throw new Error("Invalid image URL");
+  const url = new URL(value);
+  if (url.protocol !== "https:" || url.username || url.password || url.port || url.hash || url.search)
+    throw new Error("Invalid image URL");
+  return url;
+}
+function readCandidate(event, pubkey, refs) {
+  checkedEvent(event, pubkey, 1);
+  const storyId = root(event);
+  if (!refs[storyId]?.includes(event.id)) throw new Error("Unlisted candidate");
+  const data = payload(event, IMAGE_MARKER);
+  for (const field of ["title", "alt", "creator", "attribution", "license"]) if (!text(data[field])) throw new Error("Missing image attribution");
+  const image = https(data.url), page = https(data.filePage), license = https(data.licenseUrl);
+  if (image.hostname !== "upload.wikimedia.org" || !image.pathname.startsWith("/wikipedia/commons/") || page.hostname !== "commons.wikimedia.org" || !page.pathname.startsWith("/wiki/File:")) throw new Error("Not a Commons image");
+  const cc = /^(CC-BY|CC-BY-SA)-(1\.0|2\.0|2\.5|3\.0|4\.0)$/.exec(String(data.license));
+  const licensePath = cc ? `/licenses/${cc[1] === "CC-BY" ? "by" : "by-sa"}/${cc[2]}/` : data.license === "CC0-1.0" ? "/publicdomain/zero/1.0/" : data.license === "PDM-1.0" ? "/publicdomain/mark/1.0/" : null;
+  if (license.hostname !== "creativecommons.org" || !licensePath || license.pathname !== licensePath) throw new Error("Unsupported image license");
+  return {
+    version: 1,
+    id: event.id,
+    storyId,
+    url: image.href,
+    filePage: page.href,
+    title: data.title,
+    alt: data.alt,
+    creator: data.creator,
+    attribution: data.attribution,
+    license: data.license,
+    licenseUrl: license.href
+  };
+}
+function readVote(event, refs) {
+  checkedEvent(event, event.pubkey, 1);
+  if (!event.tags.some((tag) => tag[0] === "t" && tag[1] === VOTE_MARKER)) throw new Error("Not an image vote");
+  const storyId = root(event), data = payload(event, VOTE_MARKER);
+  if (!Object.hasOwn(refs, storyId) || data.candidateId !== null && !hex(data.candidateId))
+    throw new Error("Invalid image choice");
+  return { storyId, candidateId: data.candidateId };
+}
+function readFollows(event, pubkey) {
+  checkedEvent(event, pubkey, 3);
+  const follows = new Set(event.tags.filter((tag) => tag[0] === "p" && hex(tag[1])).map((tag) => tag[1]));
+  return follows;
+}
+function selectImage(storyId, candidates, votes, follows, refs) {
+  const latest = /* @__PURE__ */ new Map();
+  for (const event of [...votes].sort(newest)) {
+    if (!follows.has(event.pubkey) || latest.has(event.pubkey) || !event.tags.some((tag) => tag[0] === "e" && tag[1] === storyId)) continue;
+    try {
+      const vote = readVote(event, refs);
+      if (vote.storyId === storyId) latest.set(event.pubkey, { event, vote });
+    } catch {
+    }
+  }
+  const scores = candidates.filter((c) => c.storyId === storyId).map((candidate) => {
+    const approvals = [...latest.values()].filter((v) => v.vote.candidateId === candidate.id);
+    return { candidate, count: approvals.length, first: Math.min(...approvals.map((v) => v.event.created_at)) };
+  }).sort((a, b) => b.count - a.count || a.first - b.first || a.candidate.id.localeCompare(b.candidate.id));
+  return { winner: scores[0]?.count ? scores[0].candidate : null, scores, latest };
+}
+function voteTemplate(storyId, candidateId, created_at = Math.floor(Date.now() / 1e3)) {
+  return {
+    kind: 1,
+    created_at,
+    content: candidateId ? "Approve this illustrative Commons image." : "Withdraw my image approval.",
+    tags: [["e", storyId, "", "root"], ["t", VOTE_MARKER], [VOTE_MARKER, JSON.stringify({ version: 1, candidateId })]]
+  };
+}
+var ImageSession = class {
+  constructor(config, refs, changed) {
+    this.config = config;
+    this.refs = refs;
+    this.changed = changed;
+    this.cacheKey = `stringer-images:${config.pubkey}`;
+    try {
+      const cached = JSON.parse(localStorage.getItem(this.cacheKey) || "[]");
+      if (Array.isArray(cached)) {
+        const events = cached.slice(0, 2e4).sort(newest);
+        for (const event of events.filter((e) => e.kind === 3)) this.receive(event, false);
+        for (const event of events.filter((e) => e.kind !== 3)) this.receive(event, false);
+      }
+    } catch {
+    }
+    this.subscribe({ kinds: [3], authors: [config.pubkey], limit: 1 }, false, (event) => {
+      try {
+        readFollows(event, config.pubkey);
+        if (!this.follow || newest(event, this.follow) <= 0) this.trustLive = true;
+        this.receive(event, true);
+      } catch {
+      }
+    });
+    const ids = [...new Set(Object.values(refs).flat())];
+    for (let i3 = 0; i3 < ids.length; i3 += 100)
+      this.subscribe({ kinds: [1], authors: [config.pubkey], ids: ids.slice(i3, i3 + 100), limit: 100 }, false);
+    this.listenVotes();
+  }
+  config;
+  refs;
+  changed;
+  pool = new SimplePool();
+  closers = [];
+  voteClosers = [];
+  events = /* @__PURE__ */ new Map();
+  follow;
+  selections = /* @__PURE__ */ new Map();
+  stopped = false;
+  timer;
+  candidates = /* @__PURE__ */ new Map();
+  follows = /* @__PURE__ */ new Set();
+  trustLive = false;
+  cacheKey;
+  subscribe(filter, vote = false, receive = (event) => this.receive(event, true)) {
+    const sub = this.pool.subscribeMany(this.config.relays, filter, { onevent: receive });
+    const close = () => {
+      void sub.close();
+    };
+    (vote ? this.voteClosers : this.closers).push(close);
+  }
+  voteGeneration = 0;
+  listenVotes() {
+    this.voteClosers.splice(0).forEach((close) => close());
+    const generation = ++this.voteGeneration;
+    const authors = [...this.follows], stories = Object.keys(this.refs);
+    if (!authors.length || !stories.length) return;
+    this.subscribe({ kinds: [1], authors, "#e": stories, "#t": [VOTE_MARKER], limit: 0 }, true);
+    const total = stories.length * authors.length;
+    let cursor = 0;
+    const worker = async () => {
+      while (!this.stopped && generation === this.voteGeneration) {
+        const index = cursor++, offset = Math.floor(index / this.config.relays.length) * 50;
+        if (offset >= total) return;
+        const filters = Array.from({ length: Math.min(50, total - offset) }, (_, n) => {
+          const pair = offset + n;
+          return { kinds: [1], authors: [authors[pair % authors.length]], "#e": [stories[Math.floor(pair / authors.length)]], "#t": [VOTE_MARKER], limit: 1 };
+        });
+        const job = { url: this.config.relays[index % this.config.relays.length], filters };
+        try {
+          const relay = await this.pool.ensureRelay(job.url, { connectionTimeout: 5e3 });
+          if (this.stopped || generation !== this.voteGeneration) return;
+          await new Promise((resolve) => {
+            let done = false;
+            const finish = () => {
+              if (done) return;
+              done = true;
+              clearTimeout(timer);
+              sub.close();
+              this.voteClosers = this.voteClosers.filter((close) => close !== finish);
+              resolve();
+            };
+            const timer = setTimeout(finish, 6e3);
+            const sub = relay.subscribe(job.filters, { onevent: (event) => this.receive(event, true), oneose: finish, onclose: finish });
+            this.voteClosers.push(finish);
+          });
+        } catch {
+        }
+      }
+    };
+    for (let i3 = 0; i3 < 3; i3++) void worker();
+  }
+  receive(event, live) {
+    if (this.stopped) return;
+    try {
+      if (event.kind === 3) {
+        const follows = readFollows(event, this.config.pubkey);
+        if (this.follow && newest(this.follow, event) <= 0) {
+          this.notify();
+          return;
+        }
+        this.follow = event;
+        this.follows = follows;
+        for (const [id, old] of this.events) if (old.kind === 3) this.events.delete(id);
+        if (live) this.listenVotes();
+      } else if (event.tags.some((t) => t[0] === IMAGE_MARKER)) {
+        const candidate = readCandidate(event, this.config.pubkey, this.refs);
+        this.candidates.set(event.id, candidate);
+      } else {
+        const vote = readVote(event, this.refs);
+        if (!this.follows.has(event.pubkey)) return;
+        for (const [id, old] of this.events) {
+          if (old.kind !== 1 || old.pubkey !== event.pubkey || !old.tags.some((t) => t[0] === VOTE_MARKER)) continue;
+          const prior = readVote(old, this.refs);
+          if (prior.storyId !== vote.storyId) continue;
+          if (newest(old, event) <= 0) return;
+          this.events.delete(id);
+        }
+      }
+      this.events.set(event.id, event);
+      this.selections.clear();
+      this.notify();
+    } catch {
+    }
+  }
+  notify() {
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      if (this.stopped) return;
+      try {
+        const json = JSON.stringify([...this.events.values()]);
+        if (json.length <= 5e6) localStorage.setItem(this.cacheKey, json);
+        else localStorage.removeItem(this.cacheKey);
+      } catch {
+      }
+      this.changed();
+    }, 50);
+  }
+  selection(storyId) {
+    let result = this.selections.get(storyId);
+    if (!result) {
+      result = selectImage(storyId, [...this.candidates.values()], [...this.events.values()].filter((e) => e.kind === 1), this.follows, this.refs);
+      this.selections.set(storyId, result);
+    }
+    return result;
+  }
+  async vote(signer, pubkey, storyId, candidateId) {
+    if (!this.trustLive || !this.follows.has(pubkey) || await signer.getPublicKey() !== pubkey) throw new Error("This account is not currently eligible to approve images.");
+    if (candidateId !== null && !this.candidates.has(candidateId)) throw new Error("Image candidate unavailable.");
+    const prior = this.selection(storyId).latest.get(pubkey)?.event;
+    if (prior && prior.created_at >= Math.floor(Date.now() / 1e3)) throw new Error("Please wait a second before changing your vote.");
+    const template = voteTemplate(storyId, candidateId);
+    const event = await signer.signEvent(structuredClone(template));
+    checkedEvent(event, pubkey, 1);
+    if (JSON.stringify({ kind: event.kind, created_at: event.created_at, content: event.content, tags: event.tags }) !== JSON.stringify({ kind: template.kind, created_at: template.created_at, content: template.content, tags: template.tags })) throw new Error("Signer changed the requested vote.");
+    const choice = readVote(event, this.refs);
+    if (choice.candidateId !== null && !this.refs[storyId]?.includes(choice.candidateId)) throw new Error("Image candidate unavailable.");
+    if (this.stopped || !this.trustLive || !this.follows.has(pubkey)) throw new Error("Voting eligibility changed. Please reconnect.");
+    let timeout;
+    try {
+      await Promise.race([Promise.any(this.pool.publish(this.config.relays, event)), new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new Error("Relays did not acknowledge this vote. Please retry.")), 6e3);
+      })]);
+    } catch {
+      throw new Error("Could not publish your vote. Please retry.");
+    } finally {
+      clearTimeout(timeout);
+    }
+    this.receive(event, true);
+  }
+  close() {
+    this.stopped = true;
+    this.voteGeneration++;
+    clearTimeout(this.timer);
+    [...this.closers, ...this.voteClosers].forEach((close) => close());
+    this.pool.destroy();
+  }
+};
 
 // relay/reader.ts
 async function readRelaySnapshot(config, report = () => {
@@ -7969,6 +8248,7 @@ function cachedRelaySnapshot(config) {
   }
 }
 export {
+  ImageSession,
   cachedRelaySnapshot,
   readRelaySnapshot
 };
