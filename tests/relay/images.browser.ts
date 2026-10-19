@@ -35,12 +35,17 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
   let rejectPublish = false, rejectSign = false, tamperSign = false, offline = false, brokenImage = false;
   const browser = await launchBrowser();
   const errors: string[] = [];
-  async function setup(page: Page, signer: boolean) {
+  async function setup(page: Page, signer: boolean | 'owner') {
     page.on('pageerror', error => errors.push(error.message));
     await page.route('**/*', async route => {
       const url = new URL(route.request().url());
-      if (url.hostname === 'upload.wikimedia.org' && brokenImage) { await route.fulfill({ status: 404 }); return; }
-      if (url.hostname === 'upload.wikimedia.org') { await route.fulfill({ contentType: 'image/png', body: await readFile('assets/favicon-16.png') }); return; }
+      if (['upload.wikimedia.org', 'thumb.wikimedia.org'].includes(url.hostname) && brokenImage) { await route.fulfill({ status: 404 }); return; }
+      if (['upload.wikimedia.org', 'thumb.wikimedia.org'].includes(url.hostname)) { await route.fulfill({ contentType: 'image/png', body: await readFile('assets/favicon-16.png') }); return; }
+      if (url.hostname === 'commons.wikimedia.org') {
+        const query = url.searchParams.get('gsrsearch');
+        if (query === 'Unavailable') { await route.fulfill({ status: 503 }); return; }
+        await route.fulfill({ json: { query: { pages: query === 'No results' ? [] : [{ title: 'File:Found.png', imageinfo: [{ mime: 'image/png', thumburl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ab/Found.png/320px-Found.png?utm_source=commons', descriptionurl: 'https://commons.wikimedia.org/wiki/File:Found.png', extmetadata: { Artist: { value: '<a href="https://example.org/">Found photographer</a>' }, Credit: { value: '<b>Own work</b>' }, LicenseUrl: { value: 'https://creativecommons.org/licenses/by-sa/4.0' }, ImageDescription: { value: 'Found illustration' } } }] }] } } }); return;
+      }
       if (url.hostname !== 'reader.test') { await route.abort(); return; }
       const file = url.pathname.slice(1) || 'index.html';
       if (file === 'relay-config.js') { await route.fulfill({ contentType: 'text/javascript', body: `export default ${JSON.stringify({ enabled: true, pubkey, relays: ['wss://relay.test'] })}` }); return; }
@@ -48,6 +53,7 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
       await route.fulfill({ contentType: file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.png') ? 'image/png' : 'text/html', body: await readFile(file.endsWith('.js') ? `_site/${file}` : file) });
     });
     await page.routeWebSocket('wss://relay.test/', socket => {
+      if (offline) { socket.close(); return; }
       const subs = new Map<string, Record<string, unknown>[]>(); subscriptions.set(socket, subs);
       socket.onClose(() => subscriptions.delete(socket));
       socket.onMessage(raw => {
@@ -60,7 +66,6 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
           return;
         }
         if (type !== 'REQ') return;
-        if (offline) { socket.close(); return; }
         subs.set(id, filters);
         const found = new Map<string, Event>();
         for (const filter of filters) {
@@ -71,13 +76,13 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
       });
     });
     if (signer) {
-      await page.exposeFunction('fixtureSign', (event: EventTemplate) => { if (rejectSign) throw new Error('Signer rejected request'); return finalizeEvent(tamperSign ? { ...event, content: 'Signer changed payload' } : event, voter); });
+      await page.exposeFunction('fixtureSign', (event: EventTemplate) => { if (rejectSign) throw new Error('Signer rejected request'); return finalizeEvent(tamperSign ? { ...event, content: 'Signer changed payload' } : event, signer === 'owner' ? owner : voter); });
       await page.addInitScript(key => {
         window.nostr = {
           async getPublicKey() { return key; },
           signEvent(event) { return window.fixtureSign(event); },
         };
-      }, voterKey);
+      }, signer === 'owner' ? pubkey : voterKey);
     }
     await page.goto('https://reader.test/');
     await page.getByRole('heading', { name: 'Synthetic headline' }).waitFor();
@@ -151,7 +156,27 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     await reader.reload();
     await reader.getByRole('heading', { name: 'Synthetic headline' }).waitFor();
     assert.equal(await reader.locator('#world-news img').count(), 0);
-    assert.equal(await reader.locator('.image-toolbar').isVisible(), false);
+    assert.equal(await reader.locator('.image-toolbar').isVisible(), true);
+    // Reproduce the live preview: no manifest candidates and no self-follow.
+    const ownerPage = await browser.newPage({ viewport: { width: 375, height: 1000 } });
+    await setup(ownerPage, 'owner');
+    await ownerPage.getByRole('button', { name: 'Connect Nostr', exact: true }).click();
+    await ownerPage.getByText('Review illustrative images', { exact: true }).click();
+    await ownerPage.getByRole('button', { name: 'Publish and upvote image', exact: true }).waitFor();
+    await ownerPage.getByRole('button', { name: 'Publish and upvote image', exact: true }).click();
+    await ownerPage.getByText('Image and approval published.', { exact: true }).waitFor();
+    await reader.locator('#world-news .wire-thumbnail img').waitFor();
+    assert.match(await reader.locator('#world-news figcaption').textContent() || '', /Found photographer.*CC-BY-SA-4.0/);
+    assert.equal(await ownerPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await reader.reload();
+    await reader.locator('#world-news .wire-thumbnail img').waitFor();
+    const search = ownerPage.getByRole('searchbox');
+    await search.fill('No results');
+    await ownerPage.getByRole('button', { name: 'Search Commons', exact: true }).click();
+    await ownerPage.getByText('No reusable images found. Try a specific person, place or subject.', { exact: true }).waitFor();
+    await ownerPage.getByRole('searchbox').fill('Unavailable');
+    await ownerPage.getByRole('button', { name: 'Search Commons', exact: true }).click();
+    await ownerPage.getByText('Commons search is unavailable. Please retry.', { exact: true }).waitFor();
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 });

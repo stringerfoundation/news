@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { finalizeEvent, generateSecretKey, getPublicKey, type Event } from 'nostr-tools';
-import { IMAGE_MARKER, VOTE_MARKER, readCandidate, readVote, readFollows, selectImage, voteTemplate, newest } from '../../relay/images.js';
+import { IMAGE_MARKER, VOTE_MARKER, readCandidate, candidateTemplate, readVote, readFollows, selectImage, voteTemplate, newest } from '../../relay/images.js';
 const owner = generateSecretKey(), a = generateSecretKey(), b = generateSecretKey();
 const story = 'a'.repeat(64), other = 'b'.repeat(64), now = Math.floor(Date.now() / 1000) - 100;
 const image = { version: 1, url: 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Example.jpg', filePage: 'https://commons.wikimedia.org/wiki/File:Example.jpg', title: 'Example', alt: 'A synthetic fixture', creator: 'Example photographer', attribution: 'Example credit', license: 'CC-BY-SA-4.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/4.0/' };
@@ -66,4 +66,12 @@ test('only the configured Stringer key defines direct follows; empty lists remov
 
 test('a latest choice of an unavailable candidate never resurrects an earlier approval', () => {
   assert.equal(selection([vote(a, c1.id), vote(a, other, now + 2)]).winner, null);
+});
+
+test('independent candidates require Stringer’s signature, discovery tag, and a current news note', () => {
+  const event = finalizeEvent(candidateTemplate(story, image as Parameters<typeof candidateTemplate>[1]), owner);
+  assert.equal(readCandidate(event, getPublicKey(owner), { [story]: [] }, true).id, event.id);
+  assert.throws(() => readCandidate(event, getPublicKey(owner), {}, true));
+  assert.throws(() => readCandidate(event, getPublicKey(a), { [story]: [] }, true));
+  assert.throws(() => readCandidate(c1, getPublicKey(owner), { [story]: [] }, true));
 });

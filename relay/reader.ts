@@ -168,3 +168,4 @@ export function cachedRelaySnapshot(config: ReaderConfig) {
 }
 
 export { ImageSession } from './images.js';
+export { searchCommons } from './commons.js';
