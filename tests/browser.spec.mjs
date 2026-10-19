@@ -258,6 +258,36 @@ test('failed browser refresh retains displayed stories; first-load failure is vi
   assert.equal(await page.locator('#stringer-news article').count(),24);assert.equal(await page.locator('#world-news').getAttribute('aria-busy'),'false');
   await page.reload();await page.waitForFunction(()=>document.querySelector('#world-status').textContent==='Headlines unavailable.');assert.equal(await page.locator('#world-news article').count(),0);await page.close();
 });
+test('partial relay refresh preserves displayed stories and keeps source failures visible', async () => {
+  const cached = structuredClone(snapshot);
+  const partial = structuredClone(snapshot);
+  partial.generatedAt = new Date(Date.parse(snapshot.generatedAt) + 60_000).toISOString();
+  partial.sources.bbc.stories = partial.sources.bbc.stories.slice(0, 1);
+  partial.sources.bbc.unavailable = 2;
+  partial.sources.stringer.stories = [];
+  partial.sources.stringer.status = 'failure';
+  partial.sources.stringer.lastSuccessAt = null;
+  partial.sources.stringer.error = 'Published stories temporarily unavailable from relays';
+  partial.sources.stringer.unavailable = cached.sources.stringer.stories.length;
+  const page = await browser.newPage();
+  await mockStoryImages(page);
+  await page.route('**/relay-config.js*', route => route.fulfill({
+    contentType: 'text/javascript',
+    body: `export default { enabled: true, pubkey: "${'a'.repeat(64)}", relays: ["wss://relay.example"] };`,
+  }));
+  await page.route('**/relay-reader.js*', route => route.fulfill({
+    contentType: 'text/javascript',
+    body: `export function cachedRelaySnapshot() { return ${JSON.stringify(cached)}; }\n` +
+      `export async function readRelaySnapshot(_config, _report, onSnapshot) { onSnapshot(${JSON.stringify(partial)}); throw new Error('relay timeout'); }`,
+  }));
+  await page.goto(base);
+  await page.waitForFunction(() => document.querySelector('#world-news').getAttribute('aria-busy') === 'false');
+  assert.equal(await page.locator('#world-news article').count(), worldStories(cached).length);
+  assert.equal(await page.locator('#stringer-news article').count(), cached.sources.stringer.stories.length);
+  assert.match(await page.locator('#relay-status-details').textContent(), /BBC World · 2 unavailable/);
+  assert.match(await page.locator('#stringer-status').innerText(), /Stringer: refresh unavailable\. Showing previously collected stories/);
+  await page.close();
+});
 test('failures and empty news remain visible without collection timestamps',async()=>{
   const page=await browser.newPage();await mockStoryImages(page);await page.clock.install({time:new Date(Date.parse(snapshot.generatedAt)+3*60*60*1000)});let changed=structuredClone(snapshot);
   for(const s of SOURCES){changed.sources[s.id].status='failure';changed.sources[s.id].error='Unavailable';}

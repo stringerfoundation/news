@@ -33,6 +33,8 @@ The reader UI (`app.ts`), news model (`news-model.ts`), approved media catalogue
 
 The reader loads verified news from the configured Nostr relays. CI uses synthetic fixtures; it does not publish or collect news. Global publishers supply headlines, attribution, dates and original links; Stringer reporting and photos remain separate. See `LEGAL.md` for the publication policy. Source availability does not grant reuse rights to publisher material or photographs.
 
+Relay lookups, story downloads and retries share a 15-second network loading budget. Partial refreshes retain displayed stories while keeping unavailable-note counts and source failures visible. Browser storage is optional: malformed or oversized caches are ignored, and only a verified cached collection can supply fallback stories or prevent an older collection from replacing newer reporting.
+
 ## Worker configuration
 
 Keep Wrangler configuration and Cloudflare account/zone details outside tracked source. Set `PAGES_ORIGIN=https://stringerfoundation.github.io/news/`, `PUBLIC_HOST=stringerjournalism.org`, and `PUBLIC_INDEXING=true`. Deploy as a Worker Route over the existing Hostinger DNS origin. Hostinger passthrough preserves methods, headers, bodies and queries. Pages requests omit visitor cookies and credentials. The Worker preserves the repository path in the Pages origin.
