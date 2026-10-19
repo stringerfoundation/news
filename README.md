@@ -36,3 +36,11 @@ To roll back the Pages origin, restore the previous `PAGES_ORIGIN` in private op
 ## License
 
 Original project code is licensed under the [MIT License](LICENSE). This license does not grant rights to Stringer names, trademarks, logos, reporting, photographs, or third-party content. Those materials retain their respective rights and permissions; see `LEGAL.md`. Dependency licenses remain applicable.
+
+## Portuguese editions
+
+The Pages build includes `/br/` (Brazilian Portuguese) and `/pt/` (European Portuguese), sharing the pinned catalogue in `portuguese-sources.js`. On the project site these resolve beneath `/stringer-news/`. The edition links and shared assets remain relative. The locale pages preserve the same UTC build stamp as the English reader.
+
+These editions translate the interface only; headlines and Stringer reporting remain in their original languages. Portuguese headlines are read directly from the configured Atomstr relay and require both a pinned mirror signature and matching RSS provenance. Publisher summaries and photos are discarded. Mirror timestamps and social-feed fallbacks are labeled, and unavailable mirrors retain previously verified stories without claiming a successful refresh. BR and PT share source choices in browser storage; the English reader continues to enable every publisher.
+
+Run `npm run build`, `npm test`, and `npm run test:browser` to check the generated pages and browser behavior. Locale routes are available on GitHub Pages after merge and deployment. This change does not activate them through the live Cloudflare Worker; its routing remains an independent operator action.

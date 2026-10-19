@@ -1,4 +1,5 @@
 import { build } from 'esbuild';
+import { localizedReaderHtml } from './reader-html.mjs';
 import { mkdir, copyFile, readFile, writeFile, readdir, rm } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 const builtAt = new Date().toISOString();
@@ -7,7 +8,12 @@ await mkdir('_site/assets/stringer-thumbnails', { recursive: true });
 await mkdir('_site/.well-known', { recursive: true });
 await build({ entryPoints: ['relay/reader.ts'], outfile: '_site/relay-reader.js', bundle: true,
   platform: 'browser', format: 'esm', target: 'es2022' });
-const files = ['index.html', 'style.css', 'app.js', 'news-model.js', 'relay-config.js', 'stringer-media.js'];
+await build({ entryPoints: ['relay/portuguese-reader.js'], outfile: '_site/portuguese-reader.js', bundle: true,
+  platform: 'browser', format: 'esm', target: 'es2022' });
+await build({ entryPoints: ['app.js'], outfile: '_site/app.js', bundle: true,
+  platform: 'browser', format: 'esm', target: 'es2022',
+  external: ['./news-model.js', './relay-config.js', './stringer-media.js', './relay-reader.js', './portuguese-reader.js'] });
+const files = ['index.html', 'style.css', 'news-model.js', 'relay-config.js', 'stringer-media.js', 'reader-locales.js', 'portuguese-sources.js'];
 for (const file of files) await copyFile(file, `_site/${file}`);
 for (const file of ['stringer-logo.png', 'nostr-banner.png', 'favicon-16.png', 'favicon-32.png', 'favicon-192.png', 'favicon-180.png'])
   await copyFile(`assets/${file}`, `_site/assets/${file}`);
@@ -23,7 +29,7 @@ html = html.replace('<head>', '<head>\n  <meta name="robots" content="noindex, n
 html = html.replace('<p id="reader-build" class="build-info" hidden>Build <time></time></p>',
   `<p id="reader-build" class="build-info">Build <time datetime="${builtAt}">${builtAt.slice(0, 16).replace('T', ' ')} UTC</time></p>`);
 await writeFile('_site/index.html', html);
-const versioned = [...files, 'relay-reader.js'];
+const versioned = [...files, 'app.js', 'relay-reader.js', 'portuguese-reader.js'];
 const hash = createHash('sha256');
 for (const file of versioned) hash.update(file).update(await readFile(`_site/${file}`));
 const version = hash.digest('hex').slice(0, 16);
@@ -33,4 +39,10 @@ for (const file of versioned.filter(file => /\.(html|js)$/.test(file))) {
     /(["'])\.\/([a-zA-Z0-9-]+\.(?:js|css))(?:\?[^"']*)?\1/g,
     (_, quote, asset) => `${quote}./${asset}?v=${version}${quote}`,
   ));
+}
+
+// Generate locale pages after shared assets have been versioned. Keep the same build stamp.
+for (const [path, locale] of [['br', 'pt-BR'], ['pt', 'pt-PT']]) {
+  await mkdir(`_site/${path}`, { recursive: true });
+  await writeFile(`_site/${path}/index.html`, localizedReaderHtml(await readFile('_site/index.html', 'utf8'), locale));
 }

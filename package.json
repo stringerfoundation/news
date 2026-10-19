@@ -7,9 +7,9 @@
     "node": ">=24"
   },
   "scripts": {
-    "check": "node --check app.js && node --check news-model.js && node --check stringer-media.js && node --check deploy/homepage-worker/worker.mjs",
+    "check": "node --check app.js && node --check news-model.js && node --check stringer-media.js && node --check deploy/homepage-worker/worker.mjs && node --check reader-locales.js && node --check portuguese-sources.js && node --check relay/portuguese-reader.js && node --check scripts/reader-html.mjs",
     "test": "node --test tests/*.test.mjs deploy/homepage-worker/worker.test.mjs",
-    "test:browser": "node --test tests/browser.spec.mjs",
+    "test:browser": "node --test tests/browser.spec.mjs tests/portuguese.browser.mjs",
     "build": "node scripts/build.mjs"
   },
   "dependencies": {

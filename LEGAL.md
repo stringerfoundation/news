@@ -42,3 +42,7 @@ Checked 11 September 2026. These are discovery notes, not a live feed audit or r
 | DW | [@deutschewelle.dw.com](https://bsky.app/profile/deutschewelle.dw.com), corporate communications rather than a general English-language newswire. | [DW Innovation's announcement](https://innovation.dw.com/articles/dw-innovation-mastodon-fediverse) identifies `@dw_innovation@mastodon.social`; its scope is technology/R&D, not a general world-news feed. The announcement is historical and does not establish current posting activity. | No official account confirmed. |
 
 NYT and Al Jazeera on Bluesky are candidates for further evaluation, not enabled sources. Before implementation, recheck publisher ownership through domain verification or a publisher-site link, inspect current activity and original-story links, and evaluate how much of the desired coverage is actually posted. Domain ownership does not establish rights to every attached photograph. Unofficial mirrors must be identified as such and cannot grant rights they do not hold.
+
+## Portuguese-language editions
+
+The `/br/` and `/pt/` readers use the configured Atomstr mirrors for publisher headlines, attribution, mirror timestamps, and original HTTP(S) links only. These are third-party mirror identities, not official publisher Nostr accounts. Social-feed fallbacks are labeled. Publisher summaries and images remain disabled, and Stringer reporting and approved photos remain separate. Translating interface labels does not translate reporting or grant additional content rights.

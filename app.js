@@ -1,12 +1,19 @@
+import { localeForLanguage, translator } from './reader-locales.js';
+import { PORTUGUESE_SOURCES } from './portuguese-sources.js';
 import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldGroups, formatLocalDateTime, formatPublicationDate } from './news-model.js';
 import relayConfig from './relay-config.js';
 import { STRINGER_MEDIA } from './stringer-media.js';
+const locale = localeForLanguage(document.documentElement.lang);
+const portugueseEdition = locale.startsWith('pt-');
+const t = translator(locale);
+// The existing homepage proxy only exposes the English reader's asset allowlist.
+if (document.querySelector('base[href="/news-assets/"]')) document.querySelector('.edition-switcher').hidden = true;
 const menuToggle = document.querySelector('.header-menu-toggle');
 const headerMenu = document.querySelector('#header-menu');
 function setHeaderMenu(open) {
   headerMenu.classList.toggle('is-open', open);
   menuToggle.setAttribute('aria-expanded', String(open));
-  menuToggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+  menuToggle.setAttribute('aria-label', t(open ? 'Close menu' : 'Open menu'));
 }
 menuToggle.addEventListener('click', () => setHeaderMenu(menuToggle.getAttribute('aria-expanded') !== 'true'));
 document.addEventListener('keydown', event => {
@@ -16,8 +23,55 @@ document.addEventListener('keydown', event => {
 });
 matchMedia('(max-width: 920px)').addEventListener('change', () => setHeaderMenu(false));
 const feedback = document.querySelector('#refresh-status');
-const publisherSources = SOURCES.filter(source => source.id !== 'stringer');
-const selectedSources = () => publisherSources.map(source => source.id);
+const publisherSources = portugueseEdition ? PORTUGUESE_SOURCES : SOURCES.filter(source => source.id !== 'stringer');
+const sourcePreferenceKey = portugueseEdition ? 'stringer-disabled-sources-pt-v1' : 'stringer-disabled-sources-v1';
+let disabledSources = new Set();
+try {
+  const saved = portugueseEdition ? JSON.parse(localStorage.getItem(sourcePreferenceKey) || '[]') : [];
+  if (Array.isArray(saved) && saved.every(id => typeof id === 'string')) {
+    disabledSources = new Set(saved.filter(id => publisherSources.some(source => source.id === id)));
+  }
+} catch { /* Preferences are optional when storage is unavailable. */ }
+const selectedSources = () => publisherSources.filter(source => !disabledSources.has(source.id)).map(source => source.id);
+const sourceOptions = document.querySelector('#source-options');
+for (const source of portugueseEdition ? publisherSources : []) {
+  const label = element('label');
+  const checkbox = element('input');
+  checkbox.type = 'checkbox'; checkbox.value = source.id;
+  checkbox.checked = !disabledSources.has(source.id);
+  checkbox.addEventListener('change', () => {
+    if (checkbox.checked) disabledSources.delete(source.id); else disabledSources.add(source.id);
+    updateSourcePreferences();
+  });
+  label.append(checkbox, document.createTextNode(source.name)); sourceOptions.append(label);
+}
+function enableAllSources() { disabledSources.clear(); updateSourcePreferences(); }
+document.querySelector('#enable-all-sources')?.addEventListener('click', enableAllSources);
+function updateSourcePreferences() {
+  try { localStorage.setItem(sourcePreferenceKey, JSON.stringify([...disabledSources])); } catch { /* In-memory choices still work. */ }
+  updateSourceControls();
+  if (snapshot) renderWorld();
+}
+function updateSourceControls() {
+  if (!portugueseEdition) return;
+  document.querySelector('#source-count').textContent = t('{enabled} of {total} enabled', {enabled: selectedSources().length, total: publisherSources.length});
+  for (const checkbox of sourceOptions.querySelectorAll('input')) checkbox.checked = !disabledSources.has(checkbox.value);
+  document.querySelector('#enable-all-sources').disabled = disabledSources.size === 0;
+}
+updateSourceControls();
+const sourceSearch = document.querySelector('#source-search');
+if (sourceSearch) {
+sourceSearch.hidden = publisherSources.length <= 12;
+sourceSearch.setAttribute('aria-label', t('Search sources'));
+sourceSearch.placeholder = t('Search sources');
+sourceSearch.addEventListener('input', () => {
+  const query = sourceSearch.value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  for (const label of sourceOptions.children) {
+    label.hidden = !label.textContent.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(query);
+  }
+  document.querySelector('#no-matching-sources').hidden = [...sourceOptions.children].some(label => !label.hidden);
+});
+}
 const interval = 5 * 60 * 1000;
 let snapshot = null;
 let loading = false;
@@ -48,7 +102,7 @@ function renderStories(target, stories, emptyMessage) {
   for (const [index, story] of stories.entries()) {
     const url = safeUrl(story.url); if (!url) continue;
     const approvedMedia = usePlaceholder ? STRINGER_MEDIA.get(url) : null;
-    const localImage = CONTENT_PERMISSIONS.stringer.images ? approvedMedia?.image : null;
+    const localImage = CONTENT_PERMISSIONS.stringer.images && approvedMedia?.image ? (portugueseEdition ? new URL(approvedMedia.image, import.meta.url).href : approvedMedia.image) : null;
     const article = element('article', '', 'story');
     const body = element('div', '', 'story-body');
     const showPlaceholder = () => {
@@ -83,7 +137,7 @@ function renderStories(target, stories, emptyMessage) {
         figure.classList.add('wire-thumbnail');
         const imageLink = element('a');
         imageLink.href = url; imageLink.target = '_blank'; imageLink.rel = 'noopener noreferrer';
-        imageLink.setAttribute('aria-label', `Read ${story.title} at the original source`);
+        imageLink.setAttribute('aria-label', t('Read {title} at the original source', {title: story.title}));
         imageLink.append(image);
         figure.append(imageLink);
       } else figure.append(image);
@@ -98,21 +152,22 @@ function renderStories(target, stories, emptyMessage) {
     if (story.summary) body.append(element('p', story.summary, 'summary'));
     const meta = element('div', '', 'meta');
     const grouped = wire && story.articles?.length > 1;
-    if (wire && story.mayRequireSubscription) body.append(element('p', 'May require subscription', 'subscription-warning'));
-    meta.append(element('span', grouped ? `${story.articles.length} articles · ${[...new Set(story.articles.map(a => a.source))].join(', ')}` : story.source || new URL(url).hostname.replace(/^www\./, ''), 'source'));
+    if (wire && story.mayRequireSubscription) body.append(element('p', t('May require subscription'), 'subscription-warning'));
+    meta.append(element('span', grouped ? `${t('{count} articles', {count: story.articles.length})} · ${[...new Set(story.articles.map(a => a.source))].join(', ')}` : story.source || new URL(url).hostname.replace(/^www\./, ''), 'source'));
+    if (story.mirroredVia) meta.append(element('span', t('via {network} / Atomstr', {network: story.mirroredVia}), 'mirror-provenance'));
     // The publisher may still serve an older signed collection; the owner confirmed this exact reel's date.
     const reviewedDate = target.id === 'stringer-news' && story.url === 'https://www.instagram.com/reel/DMsRo8JNRY8/?igsh=MWc5aXJiZml4c2l4cA==' ? '2025-07-29' : null;
     const publishedAt = story.publishedAt || approvedMedia?.publishedAt;
     if (publishedAt) {
-      const time = element('time', formatLocalDateTime(publishedAt));
-      time.title = `Local time (${Intl.DateTimeFormat().resolvedOptions().timeZone})`;
+      const time = element('time', formatLocalDateTime(publishedAt, locale));
+      time.title = t(story.atomstr ? 'Atomstr mirror timestamp ({zone})' : 'Local time ({zone})', {zone: Intl.DateTimeFormat().resolvedOptions().timeZone});
       time.dateTime = publishedAt; meta.append(time);
     } else if (story.publicationDate || approvedMedia?.publicationDate || reviewedDate) {
       const publicationDate = story.publicationDate || approvedMedia?.publicationDate || reviewedDate;
-      const time = element('time', formatPublicationDate(publicationDate));
-      time.dateTime = publicationDate; time.title = 'Publication date; source does not provide a confirmed time zone and time'; meta.append(time);
+      const time = element('time', formatPublicationDate(publicationDate, locale));
+      time.dateTime = publicationDate; time.title = t('Publication date; source does not provide a confirmed time zone and time'); meta.append(time);
     } else if (story.credits) {
-      meta.append(element('span', 'Publication date unavailable'));
+      meta.append(element('span', t('Publication date unavailable')));
     }
     if (meta.querySelector('time')) {
       const separator = element('span', '·'); separator.setAttribute('aria-hidden', 'true');
@@ -121,7 +176,7 @@ function renderStories(target, stories, emptyMessage) {
     body.append(meta);
     if (grouped) {
       const details = element('details', '', 'group-articles');
-      details.append(element('summary', `View ${story.articles.length} articles`));
+      details.append(element('summary', t('View {count} articles', {count: story.articles.length})));
       const list = element('ul');
       for (const member of story.articles) {
         const memberUrl = safeUrl(member.url); if (!memberUrl) continue;
@@ -130,7 +185,7 @@ function renderStories(target, stories, emptyMessage) {
         const memberLink = element('a', member.title);
         memberLink.href = memberUrl; memberLink.target = '_blank'; memberLink.rel = 'noopener noreferrer';
         item.append(memberLink);
-        if (member.mayRequireSubscription) item.append(element('span', 'May require subscription', 'subscription-warning'));
+        if (member.mayRequireSubscription) item.append(element('span', t('May require subscription'), 'subscription-warning'));
         list.append(item);
       }
       details.append(list);
@@ -153,7 +208,7 @@ function arrangeMobileHeadlines(mobile) {
     if (card.parentElement !== destination) destination.append(card);
   });
   more.hidden = !mobile || remainder.children.length === 0;
-  const label = more.open ? 'Show fewer headlines' : `More headlines (${remainder.children.length})`;
+  const label = more.open ? t('Show fewer headlines') : t('More headlines ({count})', {count: remainder.children.length});
   if (more.querySelector('summary').textContent !== label) more.querySelector('summary').textContent = label;
   return cards;
 }
@@ -198,17 +253,26 @@ function renderStatuses() {
   }
   if (snapshot) for (const group of ['world', 'stringer']) {
     const target = document.querySelector(`#${group}-status`); target.replaceChildren();
-    const sources = SOURCES.filter(s => group === 'stringer' ? s.id === 'stringer' : s.id !== 'stringer');
+    const sources = group === 'stringer' ? SOURCES.filter(s => s.id === 'stringer') : publisherSources.filter(s => !disabledSources.has(s.id));
     for (const source of sources) {
       const entry = snapshot.sources[source.id];
-      if (entry.status === 'paused') continue;
+      if (entry.status === 'paused' || entry.status === 'loading') continue;
       if (relayConfig.enabled) {
         const counts = [];
-        if (entry.unavailable > 0 && !loading) counts.push(`${entry.unavailable} unavailable`);
-        if (entry.pending > 0) counts.push(`${entry.pending} queued`);
+        if (entry.unavailable > 0 && !loading) counts.push(t('{count} unavailable', {count: entry.unavailable}));
+        if (entry.pending > 0) counts.push(t('{count} queued', {count: entry.pending}));
         if (counts.length) notes.push(`${source.name} · ${counts.join(' · ')}`);
       }
-      if (entry.status === 'failure' && !(loading && entry.unavailable)) target.append(element('p', `${source.name}: refresh unavailable.${entry.stories.length ? ' Showing previously collected stories.' : ' No stories available.'}`, 'warning'));
+      if (entry.status === 'failure' && !(loading && entry.unavailable)) target.append(element('p', t('{source}: refresh unavailable.{retained}', {source: source.name, retained: t(entry.stories.length ? ' Showing previously collected stories.' : ' No stories available.')}), 'warning'));
+    }
+  }
+  if (portugueseEdition) {
+    const target = document.querySelector('#world-status');
+    const warnings = [...target.children];
+    if (warnings.length) {
+      const details = element('details');
+      details.append(element('summary', t('Unavailable sources ({count})', {count: warnings.length})), ...warnings);
+      target.replaceChildren(details);
     }
   }
   for (const note of notes) relayDetails.append(element('p', note));
@@ -222,8 +286,13 @@ function renderWorld() {
   const selected = selectedSources();
   const worldPaused = selected.length > 0 && selected.every(id => snapshot.sources[id].status === 'paused');
   const list = document.querySelector('#world-news');
-  renderStories(list, worldGroups(snapshot, selected), loading ? '' : worldPaused ? 'Global headlines are currently unavailable.' : 'No headlines available in this collection.');
-  if (worldPaused) {
+  const stories = worldGroups(snapshot, selected, publisherSources);
+  renderStories(list, portugueseEdition ? stories.slice(0, 300) : stories, !selected.length ? t('No sources selected.') : loading ? '' : worldPaused ? t('Global headlines are currently unavailable.') : t('No headlines available in this collection.'));
+  if (!selected.length) {
+    const button = element('button', t('Enable all'), 'enable-all-empty');
+    button.type = 'button'; button.addEventListener('click', enableAllSources); list.append(button);
+  }
+  if (worldPaused && !portugueseEdition) {
     const links = element('p', '', 'publisher-links');
     for (const [id, name, url] of [
       ['bbc', 'BBC News', 'https://www.bbc.com/news'],
@@ -243,10 +312,11 @@ function renderWorld() {
   balanceNewswire();
 }
 function render() {
-  renderStories(document.querySelector('#stringer-news'), shuffledStringerStories(snapshot.sources.stringer.stories), loading ? '' : 'Courageous stories are currently unavailable. Visit the Stringer collection below.');
+  renderStories(document.querySelector('#stringer-news'), shuffledStringerStories(snapshot.sources.stringer.stories), loading ? '' : t('Courageous stories are currently unavailable. Visit the Stringer collection below.'));
   renderWorld();
 }
 async function load() {
+  if (portugueseEdition) return loadPortuguese();
   if (loading) return;
   loading = true; lastAttempt = Date.now();
   loadStarted = performance.now();
@@ -285,7 +355,7 @@ async function load() {
         renderStatuses();
       });
     } else {
-      const response = await fetch('./data/news.json', { cache: 'no-cache', credentials: 'omit', signal: AbortSignal.timeout(15000) });
+      const response = await fetch(new URL('./data/news.json', import.meta.url), { cache: 'no-cache', credentials: 'omit', signal: AbortSignal.timeout(15000) });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       next = applyContentPermissions(validateSnapshot(await response.json()));
     }
@@ -296,10 +366,10 @@ async function load() {
   } catch (error) {
     loadOutcome = 'Failed';
     console.error('[Stringer reader] Collection refresh failed:', error);
-    feedback.textContent = snapshot ? 'Could not check for updates. Keeping the previously loaded collection.' : 'The news collection is unavailable. We’ll retry automatically.';
+    feedback.textContent = t(snapshot ? 'Could not check for updates. Keeping the previously loaded collection.' : 'The news collection is unavailable. We’ll retry automatically.');
     if (!snapshot) {
-      document.querySelector('#world-status').textContent = 'Headlines unavailable.';
-      document.querySelector('#stringer-status').textContent = 'Courageous stories unavailable. You can still visit the Stringer collection below.';
+      document.querySelector('#world-status').textContent = t('Headlines unavailable.');
+      document.querySelector('#stringer-status').textContent = t('Courageous stories unavailable. You can still visit the Stringer collection below.');
     }
   } finally {
     loadDuration = performance.now() - loadStarted;
@@ -315,6 +385,68 @@ async function load() {
     if (snapshot) render(); else renderStatuses();
   }
 }
+
+async function loadPortuguese() {
+  if (loading) return;
+  loading = true; lastAttempt = Date.now();
+  loadStarted = performance.now();
+  loadOutcome = '';
+  loadStage = t('Loading news…');
+  feedTimings = {};
+  feedback.textContent = t('Loading news…');
+  document.querySelectorAll('.story-list').forEach(list => list.setAttribute('aria-busy', 'true'));
+  let redraw;
+  try {
+    const reader = await import('./portuguese-reader.js');
+    if (!snapshot) {
+      const sources = reader.cachedPortugueseSources(publisherSources);
+      for (const source of Object.values(sources)) source.status = 'loading';
+      snapshot = { generatedAt: new Date().toISOString(), sources: {
+        ...sources, stringer: {stories: [], status: 'loading', lastSuccessAt: null},
+      } };
+      renderWorld();
+    }
+    const queueDraw = () => {
+      if (!redraw) redraw = setTimeout(() => { redraw = null; renderWorld(); }, 150);
+    };
+    await Promise.allSettled([
+      reader.readPortugueseSources({sources: publisherSources, previous: snapshot.sources, onUpdate(id, entry) {
+        snapshot.sources[id] = entry; queueDraw();
+      }}),
+      (async () => {
+        try {
+          let original;
+          if (relayConfig.enabled) {
+            const relay = await import('./relay-reader.js');
+            const cached = relay.cachedRelaySnapshot(relayConfig);
+            if (cached) { snapshot.sources.stringer = cached.sources.stringer; render(); }
+            original = await relay.readRelaySnapshot(relayConfig);
+          } else {
+            const response = await fetch(new URL('./data/news.json', import.meta.url), {cache: 'no-cache', credentials: 'omit', signal: AbortSignal.timeout(15000)});
+            if (!response.ok) throw new Error('Unavailable collection');
+            original = applyContentPermissions(validateSnapshot(await response.json()));
+          }
+          snapshot.sources.stringer = original.sources.stringer;
+        } catch {
+          snapshot.sources.stringer = {...snapshot.sources.stringer, status: 'failure'};
+        }
+        render();
+      })(),
+    ]);
+    feedback.textContent = '';
+  } catch {
+    loadOutcome = 'Failed';
+    feedback.textContent = t('The news collection is unavailable. We’ll retry automatically.');
+  } finally {
+    clearTimeout(redraw);
+    loadDuration = performance.now() - loadStarted;
+    loadOutcome ||= 'Loaded';
+    loading = false;
+    if (snapshot) renderWorld();
+    document.querySelectorAll('.story-list').forEach(list => list.setAttribute('aria-busy', 'false'));
+  }
+}
+
 const layoutObserver = new ResizeObserver(balanceNewswire);
 layoutObserver.observe(document.querySelector('#stringer-news'));
 window.addEventListener('resize', balanceNewswire);

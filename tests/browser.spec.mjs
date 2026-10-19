@@ -19,7 +19,7 @@ before(async()=>{
   server=createServer(async(req,res)=>{
     const pathname=new URL(req.url,'http://localhost').pathname.replace(/^\/stringer-news(?=\/)/,'');
     const file=pathname==='/'?'index.html':pathname.slice(1);
-    if(!['index.html','app.js','relay-config.js','news-model.js','stringer-media.js','style.css','assets/stringer-logo.png','assets/favicon-16.png','assets/favicon-32.png','assets/favicon-192.png','assets/favicon-180.png','data/news.json'].includes(file) && !/^assets\/stringer-thumbnails\/[a-zA-Z0-9-]+\.png$/.test(file)){res.writeHead(404);res.end();return;}
+    if(!['index.html','app.js','reader-locales.js','portuguese-sources.js','relay-config.js','news-model.js','stringer-media.js','style.css','assets/stringer-logo.png','assets/favicon-16.png','assets/favicon-32.png','assets/favicon-192.png','assets/favicon-180.png','data/news.json'].includes(file) && !/^assets\/stringer-thumbnails\/[a-zA-Z0-9-]+\.png$/.test(file)){res.writeHead(404);res.end();return;}
     try{let body=file==='data/news.json'?JSON.stringify(snapshot):await readFile(new URL('../'+file,import.meta.url));
     // These regression tests exercise the legacy static reader; relay coverage lives in public.browser.ts.
     if(file==='relay-config.js') body='export default {enabled:false};';
