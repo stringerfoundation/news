@@ -90,6 +90,7 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         with:
           path: _site
+          include-hidden-files: true
   codeql:
     name: CodeQL security analysis
     runs-on: ubuntu-latest
