@@ -46,6 +46,24 @@ async function poll(page) {
   await response;
   await page.waitForFunction(()=>document.querySelector('#world-news').getAttribute('aria-busy')==='false');
 }
+async function assertDesktopBalance(page) {
+  await page.waitForFunction(() => {
+    const cards = [...document.querySelectorAll('#world-news article')];
+    const visible = cards.filter(card => !card.hidden);
+    const last = visible.at(-1);
+    if (!last) return false;
+    const bottom = document.querySelector('#stringer-news').getBoundingClientRect().bottom;
+    const rect = last.getBoundingClientRect();
+    return rect.bottom <= bottom + rect.height + 1 && (visible.length === cards.length || rect.bottom >= bottom - 1);
+  });
+  const counts = await page.locator('#world-news article').evaluateAll(cards => ({
+    total: cards.length, visible: cards.filter(card => !card.hidden).length,
+    tailOnly: cards.every((card, index) => !card.hidden || cards.slice(index).every(next => next.hidden)),
+  }));
+  assert.ok(counts.visible > 0);
+  assert.equal(counts.tailOnly, true);
+  return counts;
+}
 test('all sources remain enabled without a source selector after polling and reload', async () => {
   for (const width of [375, 1280]) {
     const page = await pageAt('/', width);
@@ -172,7 +190,7 @@ test('mobile previews five stories per section and preserves independent choices
   assert.equal(await visibleCount('stringer-news'), 24);
   await page.setViewportSize({ width: 768, height: 1000 });
   await page.waitForFunction(() => document.querySelector('#world-more').hidden);
-  assert.equal(await visibleCount('world-news'), original.length);
+  await assertDesktopBalance(page);
   assert.equal(await visibleCount('stringer-news'), 24);
   assert.equal(await courageous.isVisible(), false);
   await page.setViewportSize({ width: 375, height: 667 });
@@ -355,7 +373,7 @@ test('header positions match the main site and the mobile menu preserves navigat
   }
 });
 
-test('desktop shows every individual headline without grouping or subscription labels', async () => {
+test('desktop balances individual headlines without grouping or subscription labels', async () => {
   const page = await pageAt('/', 1280);
   const data = structuredClone(snapshot);
   for (const source of SOURCES.filter(source => source.id !== 'stringer'))
@@ -368,7 +386,8 @@ test('desktop shows every individual headline without grouping or subscription l
     await page.setViewportSize({ width, height: 1000 });
     await page.waitForFunction(mobile => document.querySelector('#world-more').hidden === !mobile, width < 768);
     const cards = page.locator('#world-news article:visible');
-    assert.equal(await cards.count(), width < 768 ? 5 : worldStories(snapshot).length);
+    if (width < 768) assert.equal(await cards.count(), 5);
+    else await assertDesktopBalance(page);
     assert.equal(await page.locator('.group-articles,.subscription-warning').count(), 0);
     assert.doesNotMatch(await page.locator('body').innerText(), /May require subscription|View \d+ articles/);
     const links = await cards.locator('.story-body > a').evaluateAll(els => els.map(el => el.href));
@@ -376,6 +395,41 @@ test('desktop shows every individual headline without grouping or subscription l
   }
   await page.close();
 });
+test('desktop newswire tracks the reporting column through resize, content changes and refresh', async () => {
+  const page = await pageAt('/', 1280);
+  const data = structuredClone(snapshot);
+  for (const source of SOURCES.filter(source => source.id !== 'stringer')) {
+    const story = data.sources[source.id].stories[0];
+    data.sources[source.id].stories = Array.from({ length: 30 }, (_, index) => ({
+      ...story, title: `Synthetic ${source.id} fixture ${index}`, summary: '', image: null,
+      url: `https://example.test/${source.id}/${index}`,
+    }));
+  }
+  data.sources.stringer.stories = data.sources.stringer.stories.slice(0, 3);
+  await page.route('**/data/news.json', route => route.fulfill({ json: data }));
+  await page.reload();
+  await page.waitForSelector('#stringer-news article');
+  for (const width of [1280, 768, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    const counts = await assertDesktopBalance(page);
+    assert.equal(counts.total, 150);
+    assert.ok(counts.visible < counts.total);
+    assert.equal(await page.locator('#world-more').isVisible(), false);
+  }
+  const before = await page.locator('#world-news article:visible').count();
+  await page.locator('#stringer-news .summary').first().evaluate(node => { node.textContent += ' Synthetic longer reporting fixture.'.repeat(100); });
+  await page.waitForFunction(count => document.querySelectorAll('#world-news article:not([hidden])').length > count, before);
+  await assertDesktopBalance(page);
+  await poll(page);
+  await assertDesktopBalance(page);
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.waitForFunction(() => !document.querySelector('#world-more').hidden);
+  assert.equal(await page.locator('#world-news article:visible').count(), 5);
+  await page.locator('#world-more').click();
+  assert.equal(await page.locator('#world-news article:visible').count(), 150);
+  await page.close();
+});
+
 test('story images load lazily, preserve attribution, and fall back to a circle on failure', async () => {
   const page = await pageAt('/');
   assert.equal(await page.locator('#stringer-news .story-media img').count(), 24);

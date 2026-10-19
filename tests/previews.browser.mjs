@@ -46,7 +46,21 @@ test('built production and PR previews preserve relative assets, indexing and mo
       const robots = await page.locator('meta[name="robots"]').getAttribute('content');
       assert.equal(robots.includes('noindex'), preview);
       assert.equal(await page.locator('#world-news article').count(), 30);
-      assert.equal(await page.locator('#world-news article:not([hidden])').count(), width === 375 ? 5 : 30);
+      if (width === 375) assert.equal(await page.locator('#world-news article:not([hidden])').count(), 5);
+      else {
+        const bounds = await page.evaluate(() => {
+          const cards = [...document.querySelectorAll('#world-news article')].filter(card => !card.hidden);
+          const last = cards.at(-1).getBoundingClientRect();
+          return { bottom: last.bottom, height: last.height, reportingBottom: document.querySelector('#stringer-news').getBoundingClientRect().bottom };
+        });
+        assert.ok(bounds.bottom <= bounds.reportingBottom + bounds.height + 1);
+      }
+      const revision = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+      const commit = page.locator('#reader-build .build-commit');
+      assert.equal(await commit.getAttribute('href'), `https://github.com/stringerfoundation/news/commit/${revision}`);
+      await commit.focus();
+      assert.ok(await commit.evaluate(node => node === document.activeElement));
+      assert.ok(await page.locator('#reader-build .build-repository svg').isVisible());
       if (width === 375) {
         await page.locator('#world-more').click();
         assert.equal(await page.locator('#world-news article:not([hidden])').count(), 30);

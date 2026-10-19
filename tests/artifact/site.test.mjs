@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { execFileSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { readdir, readFile, lstat } from 'node:fs/promises';
 import { load } from 'cheerio';
@@ -43,4 +44,16 @@ test('built HTML, module imports and Stringer photos resolve under a GitHub proj
   }
   for (const value of $('script[src],link[rel="stylesheet"]').toArray().map(el => $(el).attr('src') || $(el).attr('href')))
     if (value.startsWith('./')) assert.match(value, /\?v=[a-f0-9]{16}$/, 'Versioned module and stylesheet URLs');
+});
+
+test('footer links the build timestamp to the exact source commit beside the GitHub icon', async () => {
+  const $ = load(await readFile('_site/index.html', 'utf8'));
+  const revision = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  const footer = $('#reader-build');
+  assert.equal(footer.attr('hidden'), undefined);
+  assert.equal(footer.find('.build-commit').attr('href'), `https://github.com/stringerfoundation/news/commit/${revision}`);
+  assert.match(footer.find('.build-commit').text(), /^Build \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC$/);
+  assert.ok(Number.isFinite(Date.parse(footer.find('.build-commit time').attr('datetime'))));
+  assert.equal(footer.find('.build-repository').attr('href'), 'https://github.com/stringerfoundation/news');
+  assert.equal(footer.find('.build-repository svg').length, 1);
 });
