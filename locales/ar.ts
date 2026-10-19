@@ -1,4 +1,5 @@
 const arabic: Readonly<Record<string, string>> = {
+  'Headlines from publishers in this language.': 'عناوين من وسائل إعلام باللغة العربية.',
   'Close menu': 'إغلاق القائمة', 'Open menu': 'فتح القائمة', 'Sources': 'المصادر',
   'Choose news sources': 'اختر مصادر الأخبار', 'Enable all': 'تفعيل الكل',
   'Your choices are saved in this browser.': 'تُحفَظ اختياراتك في هذا المتصفح.',
@@ -39,8 +40,8 @@ const arabic: Readonly<Record<string, string>> = {
   'Stringer on Instagram': 'Stringer على Instagram', 'Stringer on Facebook': 'Stringer على Facebook',
   'Stringer on LinkedIn': 'Stringer على LinkedIn', 'Stringer on YouTube': 'Stringer على YouTube',
   'Stringer World News': 'أخبار Stringer العالمية', 'Around the world': 'حول العالم',
-  'Global Newswire': 'وكالة الأخبار العالمية', 'Courageous Stories': 'قصص جريئة',
-  'Headlines from global publishers.': 'عناوين من ناشرين حول العالم.',
+  'Global Newswire': 'أخبار باللغة العربية', 'Courageous Stories': 'قصص جريئة',
+  'Headlines from global publishers.': 'عناوين من وسائل إعلام باللغة العربية.',
   'Beyond the headlines': 'ما وراء العناوين', "Stringer's Courageous Stories": 'قصص Stringer الجريئة',
   'Reporting selected by The Stringer Foundation.': 'تغطيات اختارتها مؤسسة Stringer.',
   'Explore the Stringer collection': 'استكشف مجموعة Stringer',
@@ -68,6 +69,10 @@ const arabic: Readonly<Record<string, string>> = {
   'Connecting to news relays…': 'جارٍ الاتصال بمرحّلات الأخبار…',
   'Verified collection. Loading published stories…': 'تم التحقق من المجموعة. جارٍ تحميل القصص المنشورة…',
   'Received {received} published notes. Retrying {missing} missing notes…': 'تم استلام {received} ملاحظة منشورة. جارٍ إعادة محاولة جلب {missing} ملاحظة مفقودة…',
+  'Show more headlines': 'عرض مزيد من العناوين',
+  'Show more courageous stories': 'عرض مزيد من القصص الجريئة',
+  'Show fewer courageous stories': 'عرض قصص جريئة أقل',
+  'View source for this build': 'عرض مصدر هذا الإصدار',
 };
 
 export default arabic;

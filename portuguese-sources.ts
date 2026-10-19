@@ -2,7 +2,7 @@ import type { AtomstrSource } from './relay/types.ts';
 // Portuguese-language sources identified in the public Atomstr catalogue on 2026-10-16.
 // Keys belong to Atomstr mirrors, not publisher-owned Nostr accounts.
 // RSS aliases and topic feeds are grouped by source; no feeds are registered remotely.
-export const ATOMSTR_RELAY = 'wss://nostr.data.haus';
+export { ATOMSTR_RELAY } from './atomstr-config.ts';
 export const PORTUGUESE_SOURCES: readonly AtomstrSource[] = Object.freeze([
   {"id":"pt-actualidadereligiosa","name":"Actualidade Religiosa","homepage":"https://actualidadereligiosa.blogspot.com","feeds":[{"url":"https://actualidadereligiosa.blogspot.com/feeds/posts/default?alt=rss","pubkey":"95cd1be28e3093719d9ea4cb18b9dafcaecb1c6113706cf38d9f99db44122558"}]},
   {"id":"pt-agenciabrasil","name":"Agência Brasil","homepage":"http://agenciabrasil.ebc.com.br","feeds":[{"url":"http://agenciabrasil.ebc.com.br/rss/economia/feed.xml","pubkey":"cd9b1e5666bc80aea18becf6cf0e42062f219d515f5ad880422613ef4498b8a2"},{"url":"http://agenciabrasil.ebc.com.br/rss/direitos-humanos/feed.xml","pubkey":"48ef2837462cfddb2eed727c11620868c7a48c111d618831c28c59a60e90e354"}]},

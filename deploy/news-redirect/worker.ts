@@ -1,5 +1,5 @@
 export default {
-  fetch(request: Request) {
+  fetch(request: Request): Response {
     const destination = new URL('https://stringerjournalism.org/');
     destination.search = new URL(request.url).search;
     return new Response(null, {

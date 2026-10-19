@@ -1,17 +1,24 @@
-import type { Story, Snapshot } from './relay/types.ts';
-import type { FeedLoadTiming } from './relay/reader.ts';
+import type { Snapshot } from './relay/types.js';
+import type { DisplayStory } from './news-model.js';
+import type { FeedLoadTiming } from './relay/reader.js';
 import { localeForLanguage, translator } from './reader-locales.ts';
-import { PORTUGUESE_SOURCES } from './portuguese-sources.ts';
-import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldGroups, formatLocalDateTime, formatPublicationDate } from './news-model.ts';
-import relayConfig from './relay-config.ts';
-import { STRINGER_MEDIA } from './stringer-media.ts';
+import { sourcesForLocale } from './edition-sources.ts';
+import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from './news-model.js';
+import relayConfig from './relay-config.js';
+import { STRINGER_MEDIA } from './stringer-media.js';
+function requiredElement<T extends HTMLElement = HTMLElement>(selector: string): T {
+  const node = document.querySelector<T>(selector);
+  if (!node) throw new Error(`Missing reader element: ${selector}`);
+  return node;
+}
 const locale = localeForLanguage(document.documentElement.lang);
-const portugueseEdition = locale.startsWith('pt-');
+const mirrorSources = sourcesForLocale(locale);
+const atomstrEdition = mirrorSources.length > 0;
 const t = translator(locale);
 // The existing homepage proxy only exposes the English reader's asset allowlist.
-if (document.querySelector('base[href="/news-assets/"]')) required('.edition-switcher').hidden = true;
-const menuToggle = required<HTMLButtonElement>('.header-menu-toggle');
-const headerMenu = required('#header-menu');
+if (document.querySelector('base[href="/news-assets/"]')) requiredElement('.edition-switcher').hidden = true;
+const menuToggle = requiredElement('.header-menu-toggle');
+const headerMenu = requiredElement('#header-menu');
 function setHeaderMenu(open: boolean) {
   headerMenu.classList.toggle('is-open', open);
   menuToggle.setAttribute('aria-expanded', String(open));
@@ -24,19 +31,19 @@ document.addEventListener('keydown', event => {
   }
 });
 matchMedia('(max-width: 920px)').addEventListener('change', () => setHeaderMenu(false));
-const feedback = required('#refresh-status');
-const publisherSources = portugueseEdition ? PORTUGUESE_SOURCES : SOURCES.filter(source => source.id !== 'stringer');
-const sourcePreferenceKey = portugueseEdition ? 'stringer-disabled-sources-pt-v1' : 'stringer-disabled-sources-v1';
+const feedback = requiredElement('#refresh-status');
+const publisherSources = atomstrEdition ? mirrorSources : SOURCES.filter(source => source.id !== 'stringer');
+const sourcePreferenceKey = `stringer-disabled-sources-${locale.startsWith('pt-') ? 'pt' : locale}-v1`;
 let disabledSources = new Set<string>();
 try {
-  const saved = portugueseEdition ? JSON.parse(localStorage.getItem(sourcePreferenceKey) || '[]') : [];
+  const saved = atomstrEdition ? JSON.parse(localStorage.getItem(sourcePreferenceKey) || '[]') : [];
   if (Array.isArray(saved) && saved.every(id => typeof id === 'string')) {
     disabledSources = new Set(saved.filter(id => publisherSources.some(source => source.id === id)));
   }
 } catch { /* Preferences are optional when storage is unavailable. */ }
-const selectedSources = () => publisherSources.filter(source => !disabledSources.has(source.id)).map(source => source.id);
+const selectedSources = (): readonly string[] => publisherSources.filter(source => !disabledSources.has(source.id)).map(source => source.id);
 const sourceOptions = document.querySelector<HTMLElement>('#source-options');
-for (const source of portugueseEdition ? publisherSources : []) {
+for (const source of atomstrEdition ? publisherSources : []) {
   const label = element('label');
   const checkbox = element('input');
   checkbox.type = 'checkbox'; checkbox.value = source.id;
@@ -55,24 +62,23 @@ function updateSourcePreferences() {
   if (snapshot) renderWorld();
 }
 function updateSourceControls() {
-  if (!portugueseEdition) return;
-  required('#source-count').textContent = t('{enabled} of {total} enabled', {enabled: selectedSources().length, total: publisherSources.length});
+  if (!atomstrEdition) return;
+  requiredElement('#source-count').textContent = t('{enabled} of {total} enabled', {enabled: selectedSources().length, total: publisherSources.length});
   for (const checkbox of sourceOptions?.querySelectorAll('input') || []) checkbox.checked = !disabledSources.has(checkbox.value);
-  required<HTMLButtonElement>('#enable-all-sources').disabled = disabledSources.size === 0;
+  requiredElement<HTMLButtonElement>('#enable-all-sources').disabled = disabledSources.size === 0;
 }
 updateSourceControls();
 const sourceSearch = document.querySelector<HTMLInputElement>('#source-search');
 if (sourceSearch) {
-sourceSearch.hidden = publisherSources.length <= 12;
-sourceSearch.setAttribute('aria-label', t('Search sources'));
-sourceSearch.placeholder = t('Search sources');
-sourceSearch.addEventListener('input', () => {
-  const query = sourceSearch.value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  for (const label of sourceOptions!.querySelectorAll<HTMLLabelElement>('label')) {
-    label.hidden = !label.textContent.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(query);
-  }
-  required('#no-matching-sources').hidden = [...sourceOptions!.querySelectorAll<HTMLLabelElement>('label')].some(label => !label.hidden);
-});
+  sourceSearch.hidden = publisherSources.length <= 12;
+  sourceSearch.setAttribute('aria-label', t('Search sources'));
+  sourceSearch.placeholder = t('Search sources');
+  sourceSearch.addEventListener('input', () => {
+    const query = sourceSearch.value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    for (const label of sourceOptions!.querySelectorAll<HTMLLabelElement>('label'))
+      label.hidden = !(label.textContent || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(query);
+    requiredElement('#no-matching-sources').hidden = [...sourceOptions!.querySelectorAll<HTMLLabelElement>('label')].some(label => !label.hidden);
+  });
 }
 const interval = 5 * 60 * 1000;
 let snapshot: Snapshot | null = null;
@@ -85,7 +91,7 @@ let loadStage = '';
 let feedTimings: Record<string, FeedLoadTiming> = {};
 // Per-page random ranks keep the complete collection stable during polling.
 const stringerOrder = new Map<string, number>();
-function shuffledStringerStories(stories: Story[]) {
+function shuffledStringerStories(stories: DisplayStory[]) {
   for (const story of stories) {
     if (!stringerOrder.has(story.url)) stringerOrder.set(story.url, Math.random());
   }
@@ -97,14 +103,16 @@ function element<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, c
   if (className) node.className = className;
   return node;
 }
-function renderStories(target: HTMLElement, stories: Story[], emptyMessage: string) {
+function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessage: string) {
   target.replaceChildren();
   const usePlaceholder = target.id === 'stringer-news';
   const wire = target.id === 'world-news';
   for (const [index, story] of stories.entries()) {
     const url = safeUrl(story.url); if (!url) continue;
     const approvedMedia = usePlaceholder ? STRINGER_MEDIA.get(url) : null;
-    const localImage = CONTENT_PERMISSIONS.stringer.images && approvedMedia?.image ? (locale !== 'en-US' ? new URL(approvedMedia.image, import.meta.url).href : approvedMedia.image) : null;
+    const localImage = CONTENT_PERMISSIONS.stringer.images && approvedMedia?.image
+      ? (locale !== 'en-US' ? new URL(approvedMedia.image, import.meta.url).href : approvedMedia.image)
+      : null;
     const article = element('article', '', 'story');
     article.dir = 'auto';
     const body = element('div', '', 'story-body');
@@ -131,9 +139,9 @@ function renderStories(target: HTMLElement, stories: Story[], emptyMessage: stri
           image.src = localImage;
           return;
         }
-        figure.remove(); article.classList.remove('with-image');
-        if (usePlaceholder) showPlaceholder();
-        balanceNewswire();
+        const placeholder = element('div', '', 'story-placeholder');
+        placeholder.setAttribute('aria-hidden', 'true');
+        image.replaceWith(placeholder);
       });
       image.src = imageUrl;
       if (wire) {
@@ -154,9 +162,7 @@ function renderStories(target: HTMLElement, stories: Story[], emptyMessage: stri
     if (story.credits) body.append(element('p', story.credits, 'credits'));
     if (story.summary) body.append(element('p', story.summary, 'summary'));
     const meta = element('div', '', 'meta');
-    const grouped = wire && (story.articles?.length ?? 0) > 1;
-    if (wire && story.mayRequireSubscription) body.append(element('p', t('May require subscription'), 'subscription-warning'));
-    meta.append(element('span', grouped ? `${t('{count} articles', {count: story.articles!.length})} · ${[...new Set(story.articles!.map(a => a.source))].join(', ')}` : story.source || new URL(url).hostname.replace(/^www\./, ''), 'source'));
+    meta.append(element('span', story.source || new URL(url).hostname.replace(/^www\./, ''), 'source'));
     if (story.mirroredVia) meta.append(element('span', t('via {network} / Atomstr', {network: story.mirroredVia}), 'mirror-provenance'));
     // The publisher may still serve an older signed collection; the owner confirmed this exact reel's date.
     const reviewedDate = target.id === 'stringer-news' && story.url === 'https://www.instagram.com/reel/DMsRo8JNRY8/?igsh=MWc5aXJiZml4c2l4cA==' ? '2025-07-29' : null;
@@ -177,64 +183,46 @@ function renderStories(target: HTMLElement, stories: Story[], emptyMessage: stri
       meta.firstElementChild!.after(separator);
     }
     body.append(meta);
-    if (grouped) {
-      const details = element('details', '', 'group-articles');
-      details.append(element('summary', t('View {count} articles', {count: story.articles!.length})));
-      const list = element('ul');
-      for (const member of story.articles!) {
-        const memberUrl = safeUrl(member.url); if (!memberUrl) continue;
-        const item = element('li');
-        item.append(element('span', `${member.source} · `, 'source'));
-        const memberLink = element('a', member.title);
-        memberLink.href = memberUrl; memberLink.target = '_blank'; memberLink.rel = 'noopener noreferrer';
-        item.append(memberLink);
-        if (member.mayRequireSubscription) item.append(element('span', t('May require subscription'), 'subscription-warning'));
-        list.append(item);
-      }
-      details.append(list);
-      details.addEventListener('toggle', balanceNewswire);
-      body.append(details);
-    }
     article.append(body); target.append(article);
   }
   if (!target.children.length && emptyMessage) target.append(element('p', emptyMessage, 'empty'));
 }
-let balancing = false;
-function arrangeMobileHeadlines(mobile: boolean) {
-  const list = required('#world-news');
-  const more = required<HTMLDetailsElement>('#world-more');
-  const remainder = required('#world-more-list');
-  const cards = [...list.children, ...remainder.children].filter((node): node is HTMLElement => node instanceof HTMLElement && node.tagName === 'ARTICLE');
-  const limit = innerHeight < 640 ? 2 : innerHeight < 740 ? 3 : 4;
-  cards.forEach((card, index) => {
-    const destination = mobile && index >= limit ? remainder : list;
-    if (card.parentElement !== destination) destination.append(card);
-  });
-  more.hidden = !mobile || remainder.children.length === 0;
-  const label = more.open ? t('Show fewer headlines') : t('More headlines ({count})', {count: remainder.children.length});
-  if (more.querySelector('summary')!.textContent !== label) more.querySelector('summary')!.textContent = label;
-  return cards;
-}
-function balanceNewswire() {
-  if (balancing || !snapshot) return;
-  balancing = true;
-  try {
-    const stringer = required('#stringer-news');
-    const mobile = matchMedia('(max-width: 767px)').matches;
-    const cards = arrangeMobileHeadlines(mobile);
-    // Show real headlines until their content reaches the end of the Stringer collection.
-    // Images reserve their space, so loading them does not keep shifting the balance.
-    cards.forEach(card => { card.hidden = false; });
-    if (!mobile && stringer.querySelector('article')) {
-      const bottom = stringer.getBoundingClientRect().bottom;
-      const last = cards.findIndex(card => card.getBoundingClientRect().bottom >= bottom);
-      if (last !== -1) cards.slice(last + 1).forEach(card => { card.hidden = true; });
+const mobileLayout = matchMedia('(max-width: 767px)');
+const sections = [
+  { list: requiredElement('#world-news'), button: requiredElement('#world-more'), more: 'Show more headlines', fewer: 'Show fewer headlines', expanded: false },
+  { list: requiredElement('#stringer-news'), button: requiredElement('#stringer-more'), more: 'Show more courageous stories', fewer: 'Show fewer courageous stories', expanded: false },
+];
+function updateStoryVisibility() {
+  for (const section of sections) {
+    const cards = [...section.list.querySelectorAll('article')];
+    cards.forEach((card, index) => { card.hidden = mobileLayout.matches && !section.expanded && index >= 5; });
+    section.button.hidden = !mobileLayout.matches || cards.length <= 5;
+    section.button.setAttribute('aria-expanded', String(section.expanded));
+    section.button.textContent = t(section.expanded ? section.fewer : section.more);
+    section.button.setAttribute('aria-label', section.button.textContent || '');
+  }
+  if (!mobileLayout.matches) {
+    const stringer = requiredElement('#stringer-news');
+    if (!stringer.querySelector('article')) return;
+    const bottom = stringer.getBoundingClientRect().bottom;
+    let reachedEnd = false;
+    // Keep complete headlines through the end of the Courageous Stories column.
+    for (const card of requiredElement('#world-news').querySelectorAll('article')) {
+      card.hidden = reachedEnd;
+      if (!reachedEnd && card.getBoundingClientRect().bottom >= bottom) reachedEnd = true;
     }
-  } finally { balancing = false; }
+  }
 }
+for (const section of sections) {
+  section.button.addEventListener('click', () => {
+    section.expanded = !section.expanded;
+    updateStoryVisibility();
+  });
+}
+mobileLayout.addEventListener('change', updateStoryVisibility);
 function renderStatuses() {
-  const relayStatus = required('#relay-status');
-  const relayDetails = required('#relay-status-details');
+  const relayStatus = requiredElement('#relay-status');
+  const relayDetails = requiredElement('#relay-status-details');
   relayDetails.replaceChildren();
   const notes = [];
   const seconds = ((loading ? performance.now() - loadStarted : loadDuration) / 1000).toFixed(1);
@@ -255,10 +243,10 @@ function renderStatuses() {
     }
   }
   if (snapshot) for (const group of ['world', 'stringer']) {
-    const target = required(`#${group}-status`); target.replaceChildren();
+    const target = requiredElement(`#${group}-status`); target.replaceChildren();
     const sources = group === 'stringer' ? SOURCES.filter(s => s.id === 'stringer') : publisherSources.filter(s => !disabledSources.has(s.id));
     for (const source of sources) {
-      const entry = snapshot.sources[source.id];
+      const entry = snapshot.sources[source.id]!;
       if (entry.status === 'paused' || entry.status === 'loading') continue;
       if (relayConfig.enabled) {
         const counts = [];
@@ -269,8 +257,8 @@ function renderStatuses() {
       if (entry.status === 'failure' && !(loading && entry.unavailable)) target.append(element('p', t('{source}: refresh unavailable.{retained}', {source: source.name, retained: t(entry.stories.length ? ' Showing previously collected stories.' : ' No stories available.')}), 'warning'));
     }
   }
-  if (portugueseEdition) {
-    const target = required('#world-status');
+  if (atomstrEdition) {
+    const target = requiredElement('#world-status');
     const warnings = [...target.children];
     if (warnings.length) {
       const details = element('details');
@@ -281,22 +269,23 @@ function renderStatuses() {
   for (const note of notes) relayDetails.append(element('p', note));
   relayStatus.hidden = notes.length === 0;
   const summary = relayStatus.querySelector('summary')!;
-  summary.textContent = timing ? t('Feed status · {timing}', {timing}) : t('Feed status');
+  summary.textContent = timing ? t('Feed status · {timing}', {timing: locale === 'en-US' ? timing.toLowerCase() : timing}) : t('Feed status');
   summary.title = notes.join('\n');
 }
 function renderWorld() {
   if (!snapshot) return;
-  required('#world-more-list').replaceChildren();
+  const current = snapshot;
   const selected = selectedSources();
-  const worldPaused = selected.length > 0 && selected.every(id => snapshot!.sources[id].status === 'paused');
-  const list = required('#world-news');
-  const stories = worldGroups(snapshot, selected, publisherSources);
-  renderStories(list, portugueseEdition ? stories.slice(0, 300) : stories, !selected.length ? t('No sources selected.') : loading ? '' : worldPaused ? t('Global headlines are currently unavailable.') : t('No headlines available in this collection.'));
+  const worldPaused = selected.length > 0 && selected.every(id => current.sources[id]!.status === 'paused');
+  const list = requiredElement('#world-news');
+  const stories = worldStories(current, selected, publisherSources);
+  renderStories(list, atomstrEdition ? stories.slice(0, 300) : stories,
+    !selected.length ? t('No sources selected.') : loading ? '' : worldPaused ? t('Global headlines are currently unavailable.') : t('No headlines available in this collection.'));
   if (!selected.length) {
     const button = element('button', t('Enable all'), 'enable-all-empty');
     button.type = 'button'; button.addEventListener('click', enableAllSources); list.append(button);
   }
-  if (worldPaused && !portugueseEdition) {
+  if (worldPaused && !atomstrEdition) {
     const links = element('p', '', 'publisher-links');
     for (const [id, name, url] of [
       ['bbc', 'BBC News', 'https://www.bbc.com/news'],
@@ -304,7 +293,7 @@ function renderWorld() {
       ['aljazeera', 'Al Jazeera', 'https://www.aljazeera.com/'],
       ['dw', 'DW', 'https://www.dw.com/'],
       ['cna', 'CNA', 'https://www.channelnewsasia.com/world'],
-    ]) {
+    ] as const) {
       if (!selected.includes(id)) continue;
       const link = element('a', name); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer';
       if (links.childNodes.length) links.append(document.createTextNode(' · '));
@@ -313,15 +302,27 @@ function renderWorld() {
     list.append(links);
   }
   renderStatuses();
-  balanceNewswire();
+  updateStoryVisibility();
 }
 function render() {
   if (!snapshot) return;
-  renderStories(required('#stringer-news'), shuffledStringerStories(snapshot.sources.stringer.stories), loading ? '' : t('Courageous stories are currently unavailable. Visit the Stringer collection below.'));
+  renderStories(requiredElement('#stringer-news'), shuffledStringerStories(snapshot.sources.stringer!.stories), loading ? '' : t('Courageous stories are currently unavailable. Visit the Stringer collection below.'));
   renderWorld();
 }
+function preserveStoriesDuringRefresh(
+  previous: Snapshot['sources'][string] | undefined,
+  current: Snapshot['sources'][string],
+) {
+  if (!previous || current.status === 'paused' ||
+    !(previous.stories.length > current.stories.length || !current.stories.length)) return current;
+  return {
+    ...current,
+    stories: previous.stories,
+    lastSuccessAt: current.lastSuccessAt || previous.lastSuccessAt,
+  };
+}
 async function load() {
-  if (portugueseEdition) return loadPortuguese();
+  if (atomstrEdition) return loadAtomstr();
   if (loading) return;
   loading = true; lastAttempt = Date.now();
   loadStarted = performance.now();
@@ -335,24 +336,23 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import('./relay/reader.ts');
+      const reader = await import('./relay-reader.js');
       if (!snapshot) {
         snapshot = reader.cachedRelaySnapshot(relayConfig);
         if (snapshot) render();
       }
       next = await reader.readRelaySnapshot(relayConfig, message => {
         const retry = message.match(/^Received (\d+) published notes\. Retrying (\d+) missing notes…$/);
-        loadStage = retry ? t('Received {received} published notes. Retrying {missing} missing notes…', {received: retry[1], missing: retry[2]}) : t(message);
+        loadStage = retry ? t('Received {received} published notes. Retrying {missing} missing notes…', {received: retry[1]!, missing: retry[2]!}) : t(message);
         renderStatuses();
         console.info('[Stringer reader]', message);
       }, partial => {
         if (snapshot && Date.parse(partial.generatedAt) < Date.parse(snapshot.generatedAt)) return;
         // Preserve already displayed stories while the rest of the update arrives.
         for (const source of SOURCES) {
-          const old = snapshot?.sources[source.id];
-          const nextSource = partial.sources[source.id];
-          if (old && (old.stories.length > nextSource.stories.length || !nextSource.stories.length))
-            partial.sources[source.id] = old;
+          partial.sources[source.id] = preserveStoriesDuringRefresh(
+            snapshot?.sources[source.id], partial.sources[source.id]!,
+          );
         }
         snapshot = partial;
         render();
@@ -374,8 +374,8 @@ async function load() {
     console.error('[Stringer reader] Collection refresh failed:', error);
     feedback.textContent = t(snapshot ? 'Could not check for updates. Keeping the previously loaded collection.' : 'The news collection is unavailable. We’ll retry automatically.');
     if (!snapshot) {
-      required('#world-status').textContent = t('Headlines unavailable.');
-      required('#stringer-status').textContent = t('Courageous stories unavailable. You can still visit the Stringer collection below.');
+      requiredElement('#world-status').textContent = t('Headlines unavailable.');
+      requiredElement('#stringer-status').textContent = t('Courageous stories unavailable. You can still visit the Stringer collection below.');
     }
   } finally {
     loadDuration = performance.now() - loadStarted;
@@ -391,8 +391,7 @@ async function load() {
     if (snapshot) render(); else renderStatuses();
   }
 }
-
-async function loadPortuguese() {
+async function loadAtomstr() {
   if (loading) return;
   loading = true; lastAttempt = Date.now();
   loadStarted = performance.now();
@@ -403,43 +402,47 @@ async function loadPortuguese() {
   document.querySelectorAll('.story-list').forEach(list => list.setAttribute('aria-busy', 'true'));
   let redraw: ReturnType<typeof setTimeout> | undefined;
   try {
-    const reader = await import('./relay/portuguese-reader.ts');
+    const reader = await import('./atomstr-reader.js');
     if (!snapshot) {
-      const sources = reader.cachedPortugueseSources(PORTUGUESE_SOURCES);
+      const sources = reader.cachedAtomstrSources(mirrorSources);
       for (const source of Object.values(sources)) source.status = 'loading';
       snapshot = { schemaVersion: 2, generatedAt: new Date().toISOString(), sources: {
         ...sources, stringer: {stories: [], status: 'loading', lastSuccessAt: null, attemptedAt: new Date().toISOString(), error: null},
       } };
       renderWorld();
+      render();
     }
     const queueDraw = () => {
       if (!redraw) redraw = setTimeout(() => { redraw = undefined; renderWorld(); }, 150);
     };
     await Promise.allSettled([
-      reader.readPortugueseSources({sources: PORTUGUESE_SOURCES, previous: snapshot.sources, onUpdate(id, entry) {
+      reader.readAtomstrSources({sources: mirrorSources, previous: snapshot.sources, onUpdate(id, entry) {
         snapshot!.sources[id] = entry; queueDraw();
       }}),
       (async () => {
         try {
-          let original;
+          let original: Snapshot;
           if (relayConfig.enabled) {
-            const relay = await import('./relay/reader.ts');
+            const relay = await import('./relay-reader.js');
             const cached = relay.cachedRelaySnapshot(relayConfig);
-            if (cached) { snapshot!.sources.stringer = cached.sources.stringer; render(); }
+            if (cached) { snapshot!.sources.stringer = cached.sources.stringer!; render(); }
             original = await relay.readRelaySnapshot(relayConfig);
           } else {
             const response = await fetch(new URL('./data/news.json', import.meta.url), {cache: 'no-cache', credentials: 'omit', signal: AbortSignal.timeout(15000)});
             if (!response.ok) throw new Error('Unavailable collection');
             original = applyContentPermissions(validateSnapshot(await response.json()));
           }
-          snapshot!.sources.stringer = original.sources.stringer;
+          snapshot!.sources.stringer = original.sources.stringer!;
         } catch {
-          snapshot!.sources.stringer = {...snapshot!.sources.stringer, status: 'failure'};
+          snapshot!.sources.stringer = {...snapshot!.sources.stringer!, status: 'failure'};
         }
         render();
       })(),
     ]);
-    feedback.textContent = '';
+    const completedSources = [...publisherSources.map(source => snapshot!.sources[source.id]!), snapshot.sources.stringer!];
+    const successfulSources = completedSources.filter(source => source.status === 'success').length;
+    loadOutcome = successfulSources === 0 ? 'Failed' : successfulSources === completedSources.length ? 'Loaded' : 'Partial';
+    feedback.textContent = successfulSources === 0 ? t('The news collection is unavailable. We’ll retry automatically.') : '';
   } catch {
     loadOutcome = 'Failed';
     feedback.textContent = t('The news collection is unavailable. We’ll retry automatically.');
@@ -448,22 +451,14 @@ async function loadPortuguese() {
     loadDuration = performance.now() - loadStarted;
     loadOutcome ||= 'Loaded';
     loading = false;
-    if (snapshot) renderWorld();
+    if (snapshot) render(); else renderStatuses();
     document.querySelectorAll('.story-list').forEach(list => list.setAttribute('aria-busy', 'false'));
   }
 }
-
-const layoutObserver = new ResizeObserver(balanceNewswire);
-layoutObserver.observe(required('#stringer-news'));
-window.addEventListener('resize', balanceNewswire);
-required<HTMLDetailsElement>('#world-more').addEventListener('toggle', balanceNewswire);
-document.fonts?.ready.then(balanceNewswire);
-setInterval(() => { renderStatuses(); balanceNewswire(); if (!document.hidden && Date.now() - lastAttempt >= interval) load(); }, 30_000);
+const layoutObserver = new ResizeObserver(updateStoryVisibility);
+layoutObserver.observe(requiredElement('#stringer-news'));
+window.addEventListener('resize', updateStoryVisibility);
+document.fonts.ready.then(updateStoryVisibility);
+setInterval(() => { renderStatuses(); if (!document.hidden && Date.now() - lastAttempt >= interval) load(); }, 30_000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastAttempt >= interval) load(); });
 load();
-
-function required<T extends HTMLElement = HTMLElement>(selector: string): T {
-  const node = document.querySelector<T>(selector);
-  if (!node) throw new Error(`Missing reader element: ${selector}`);
-  return node;
-}

@@ -4,9 +4,10 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "strict": true,
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "lib": [
       "ES2023",
@@ -15,14 +16,15 @@
     ],
     "types": [
       "node"
-    ],
-    "erasableSyntaxOnly": true
+    ]
   },
   "include": [
-    "**/*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "_site"
+    "*.ts",
+    "scripts/**/*.ts",
+    "tests/**/*.ts",
+    "relay/**/*.ts",
+    "deploy/**/*.ts",
+    "locales/**/*.ts",
+    "sources/**/*.ts"
   ]
 }

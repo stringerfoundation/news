@@ -9,10 +9,10 @@ export const browserExternals: Plugin = {
       './relay-config.ts': './relay-config.js',
       './stringer-media.ts': './stringer-media.js',
       './relay/reader.ts': './relay-reader.js',
-      './relay/portuguese-reader.ts': './portuguese-reader.js',
+      './relay/atomstr-reader.ts': './atomstr-reader.js',
     };
     builder.onResolve({filter: /^\.\//}, args => {
-      const path = paths[args.path];
+      const path = paths[args.path] || (Object.values(paths).includes(args.path) ? args.path : undefined);
       return path ? {path, external: true} : undefined;
     });
   },

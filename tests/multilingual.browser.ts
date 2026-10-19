@@ -1,3 +1,7 @@
+import { build } from 'esbuild';
+import { generateSecretKey, getPublicKey, finalizeEvent } from 'nostr-tools';
+import { EDITION_SOURCES } from '../edition-sources.ts';
+import { browserExternals } from '../scripts/browser-build.ts';
 import type { Snapshot } from '../relay/types.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -48,12 +52,32 @@ const snapshot: Snapshot = {
   }])) as Snapshot['sources'],
 };
 
+// Every fixture uses a fresh signing key; no notes are published to a real relay.
+const keys = new Map(Object.values(EDITION_SOURCES).flatMap(sources => sources.map(source => [source.id, generateSecretKey()] as const)));
+const catalogues = Object.fromEntries(Object.entries(EDITION_SOURCES).map(([locale, sources]) => [locale,
+  sources.map(source => ({...source, feeds: [{...source.feeds[0]!, pubkey: getPublicKey(keys.get(source.id)!)}]})),
+]));
+const notes = Object.fromEntries(Object.entries(catalogues).map(([locale, sources]) => {
+  const source = sources[0]!;
+  return [locale, finalizeEvent({kind: 1, created_at: Math.floor(Date.parse(collectedAt) / 1000),
+    tags: [['proxy', `${source.feeds[0]!.url}#${encodeURIComponent('https://news.example.org/original-headline')}`, 'rss']],
+    content: `${publisherHeadline}\n\nPublisher copy must remain hidden.`,
+  }, keys.get(source.id)!)];
+}));
+const fixtureApp = await build({entryPoints: ['app.ts'], bundle: true, write: false, platform: 'browser', format: 'esm', target: 'es2022',
+  plugins: [browserExternals, {name: 'synthetic-edition-identities', setup(builder) {
+    builder.onLoad({filter: /edition-sources\.ts$/}, () => ({loader: 'js', contents:
+      `const sources=${JSON.stringify(catalogues)}; export function sourcesForLocale(locale) { return sources[locale] || []; }`}));
+  }}],
+});
+
 async function openEdition(browser: Awaited<ReturnType<typeof launchBrowser>>, prefix: string, editionPath: string,
   options: {holdData?: boolean; unavailable?: boolean} = {}) {
   const page = await browser.newPage({viewport: {width: 375, height: 900}});
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.clock.install();
+  let mirrorUnavailable = options.unavailable ?? false;
   let releaseData!: () => void;
   const dataGate = new Promise<void>(resolve => { releaseData = resolve; });
   await page.route('**/*', async route => {
@@ -62,6 +86,7 @@ async function openEdition(browser: Awaited<ReturnType<typeof launchBrowser>>, p
     if (!url.pathname.startsWith(prefix)) return route.fulfill({status: 404});
     let file = url.pathname.slice(prefix.length) || 'index.html';
     if (file.endsWith('/')) file += 'index.html';
+    if (file === 'app.js') return route.fulfill({contentType: 'text/javascript', body: fixtureApp.outputFiles[0]!.text});
     if (file === 'relay-config.js') return route.fulfill({contentType: 'text/javascript', body: 'export default {enabled: false};'});
     if (file === 'data/news.json') {
       if (options.holdData) await dataGate;
@@ -75,8 +100,17 @@ async function openEdition(browser: Awaited<ReturnType<typeof launchBrowser>>, p
       return route.fulfill({body, contentType: file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.png') ? 'image/png' : 'text/html'});
     } catch { return route.fulfill({status: 404}); }
   });
+  await page.routeWebSocket('wss://nostr.data.haus/', socket => socket.onMessage(async raw => {
+    const [type, id, filter] = JSON.parse(String(raw));
+    if (type !== 'REQ') return;
+    if (options.holdData) await dataGate;
+    if (!mirrorUnavailable) for (const note of Object.values(notes)) {
+      if (filter.authors.includes(note.pubkey)) socket.send(JSON.stringify(['EVENT', id, note]));
+    }
+    socket.send(JSON.stringify(['EOSE', id]));
+  }));
   await page.goto(`https://edition.test${prefix}${editionPath}/`);
-  return {page, errors, releaseData};
+  return {page, errors, releaseData, stopMirrors() { mirrorUnavailable = true; }};
 }
 
 test('localized editions preserve original headlines, direction, layout, loading, refresh, and language navigation', async () => {
@@ -88,8 +122,9 @@ test('localized editions preserve original headlines, direction, layout, loading
       assert.equal(await page.locator('html').getAttribute('lang'), edition.lang);
       assert.equal(await page.locator('html').getAttribute('dir'), edition.dir);
       assert.equal(await page.locator('#world-title').textContent(), edition.messages['Global Newswire']);
-      assert.equal(await page.locator('#source-picker').count(), 0, 'Global editions use the shared static source registry without a source picker');
-      assert.equal(await page.locator('#global-newswire .source').first().textContent(), 'BBC World');
+      assert.equal(await page.locator('#source-options input').count(), catalogues[edition.lang]!.length, 'Each edition exposes only its own publisher catalogue');
+      assert.equal(await page.locator('#source-options input').first().getAttribute('value'), catalogues[edition.lang]![0]!.id);
+      assert.equal(await page.locator('#global-newswire .source').first().textContent(), catalogues[edition.lang]![0]!.name);
       assert.equal(await page.locator('#global-newswire h3').first().textContent(), publisherHeadline);
       assert.equal(await page.locator('#global-newswire img').count(), 0, 'Publisher images are not rendered');
       assert.equal(await page.locator('#global-newswire .summary').count(), 0, 'Publisher summaries are not rendered');
@@ -106,9 +141,25 @@ test('localized editions preserve original headlines, direction, layout, loading
       }
       await page.setViewportSize({width: 1280, height: 900});
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${edition.lang} desktop layout overflows`);
+      if (edition.lang === 'ar') await page.screenshot({path: '.test-output/arabic-desktop.png', fullPage: true});
       await page.setViewportSize({width: 375, height: 900});
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${edition.lang} mobile layout overflows`);
+      if (edition.lang === 'ar') await page.screenshot({path: '.test-output/arabic-mobile.png', fullPage: true});
 
+      if (edition.lang === 'fr') {
+        const sourceId = catalogues.fr![0]!.id;
+        await page.locator('#source-picker > summary').click();
+        await page.locator(`#source-options input[value="${sourceId}"]`).uncheck();
+        assert.equal(await page.locator('#global-newswire article').count(), 0);
+        await page.reload();
+        await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
+        assert.equal(await page.locator('#global-newswire article').count(), 0, 'French choices survive reload');
+        await page.getByRole('link', {name: 'Español', exact: true}).click();
+        await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
+        assert.equal(await page.locator('#global-newswire article').count(), 1, 'French choices cannot hide Spanish sources');
+        await page.getByRole('link', {name: 'Français', exact: true}).click();
+        await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
+      }
       const menu = page.locator('.header-menu-toggle');
       await menu.click();
       assert.equal(await menu.getAttribute('aria-label'), edition.messages['Close menu']);
@@ -131,18 +182,19 @@ test('localized reader shows loading and first-load failure, then retains a coll
   try {
     const first = await openEdition(browser, '/stringer-news/', 'zh', {holdData: true});
     await first.page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'true');
-    await first.page.waitForFunction(() => document.querySelector('#relay-status')?.hidden === false);
-    assert.ok((await first.page.locator('#relay-status-details').textContent())?.includes(chinese['Loading news…']), 'Loading progress uses the selected locale');
+    await first.page.waitForFunction(() => document.querySelector<HTMLElement>('#relay-status')?.hidden === false);
+    assert.ok((await first.page.locator('#relay-status-details').textContent())?.includes(chinese['Loading news…']!), 'Loading progress uses the selected locale');
     first.releaseData();
     await first.page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
     assert.equal(await first.page.locator('#global-newswire article').count(), 1);
     assert.equal(await first.page.locator('#global-newswire h3').first().textContent(), publisherHeadline);
     assert.equal(await first.page.locator('#stringer-news article').count(), 1);
 
+    first.stopMirrors();
     await first.page.route('**/stringer-news/data/news.json', route => route.fulfill({status: 503, body: 'Unavailable'}));
     await first.page.clock.fastForward(300_000);
-    await first.page.waitForFunction(expected => document.querySelector('#refresh-status')?.textContent === expected,
-      chinese['Could not check for updates. Keeping the previously loaded collection.']);
+    await first.page.waitForFunction(expected => document.querySelector<HTMLElement>('#refresh-status')?.textContent === expected,
+      chinese['The news collection is unavailable. We’ll retry automatically.']!);
     assert.equal(await first.page.locator('#global-newswire article').count(), 1, 'A failed refresh keeps the displayed publisher story');
     assert.equal(await first.page.locator('#stringer-news article').count(), 1, 'A failed refresh keeps Stringer reporting');
     assert.equal(await first.page.locator('html').getAttribute('lang'), 'zh');
@@ -152,7 +204,7 @@ test('localized reader shows loading and first-load failure, then retains a coll
     await failed.page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
     assert.equal(await failed.page.locator('#global-newswire article').count(), 0);
     assert.equal(await failed.page.locator('#stringer-news article').count(), 0);
-    assert.equal(await failed.page.locator('#refresh-status').textContent(), arabic['The news collection is unavailable. We’ll retry automatically.']);
+    assert.equal(await failed.page.locator('#refresh-status').textContent(), arabic['The news collection is unavailable. We’ll retry automatically.']!);
     assert.equal(await failed.page.locator('html').getAttribute('dir'), 'rtl');
     assert.deepEqual([...failed.errors], []);
     await failed.page.close();

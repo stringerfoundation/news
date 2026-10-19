@@ -1,16 +1,17 @@
 import { load } from 'cheerio';
 import { translator, localeForLanguage } from '../reader-locales.ts';
-import { PORTUGUESE_SOURCES } from '../portuguese-sources.ts';
+import { sourcesForLocale } from '../edition-sources.ts';
 
 export function localizedReaderHtml(html: string, locale: string) {
   const $ = load(html);
   locale = localeForLanguage(locale);
   const t = translator(locale);
   const portuguese = locale.startsWith('pt-');
-  if (portuguese && !$('#source-picker').length) $('#world-news').before("        <details id=\"source-picker\" class=\"source-picker\">\n          <summary>Sources <span id=\"source-count\" aria-live=\"polite\">5 of 5 enabled</span></summary>\n          <fieldset><legend>Choose news sources</legend><input id=\"source-search\" type=\"search\" aria-label=\"Search sources\" placeholder=\"Search sources\" hidden /><div id=\"source-options\" class=\"source-options\"></div><p id=\"no-matching-sources\" hidden>No matching sources.</p></fieldset>\n          <button type=\"button\" id=\"enable-all-sources\">Enable all</button>\n          <p class=\"source-help\">Your choices are saved in this browser.</p>\n        </details>\n");
+  const sources = sourcesForLocale(locale);
+  if (sources.length && !$('#source-picker').length) $('#world-news').before("        <details id=\"source-picker\" class=\"source-picker\">\n          <summary>Sources <span id=\"source-count\" aria-live=\"polite\">5 of 5 enabled</span></summary>\n          <fieldset><legend>Choose news sources</legend><input id=\"source-search\" type=\"search\" aria-label=\"Search sources\" placeholder=\"Search sources\" hidden /><div id=\"source-options\" class=\"source-options\"></div><p id=\"no-matching-sources\" hidden>No matching sources.</p></fieldset>\n          <button type=\"button\" id=\"enable-all-sources\">Enable all</button>\n          <p class=\"source-help\">Your choices are saved in this browser.</p>\n        </details>\n");
   $('html').attr('lang', locale).attr('dir', locale === 'ar' ? 'rtl' : 'ltr');
   $('title').text(`${t('Stringer World News')} | The Stringer Foundation`);
-  $('meta[name="description"]').attr('content', portuguese ? 'Manchetes de fontes em língua portuguesa e reportagens selecionadas pela The Stringer Foundation.' : t('Global publisher headlines and Stringer reporting in their original languages.'));
+  $('meta[name="description"]').attr('content', portuguese ? 'Manchetes de fontes em língua portuguesa e reportagens selecionadas pela The Stringer Foundation.' : t('Headlines from publishers in this language.'));
   // Translate static UI text, never reporting, identifiers, licenses or URLs.
   $('body *').contents().each((_, node) => {
     if (node.type !== 'text') return;
@@ -31,8 +32,8 @@ export function localizedReaderHtml(html: string, locale: string) {
   }
   $('.edition-switcher a').removeAttr('aria-current');
   $(`.edition-switcher a[hreflang="${locale}"]`).attr('aria-current', 'page');
-  $('#source-count').text(t('{enabled} of {total} enabled', {enabled: PORTUGUESE_SOURCES.length, total: PORTUGUESE_SOURCES.length}));
-  if (portuguese) $('.column-heading').first().append($('<p class="source-provenance"></p>').append(
+  $('#source-count').text(t('{enabled} of {total} enabled', {enabled: sources.length, total: sources.length}));
+  if (sources.length) $('.column-heading').first().append($('<p class="source-provenance"></p>').append(
     $('<a href="https://atomstr.data.haus/" target="_blank" rel="noopener noreferrer"></a>').text(t('Atomstr mirrors; these are not official publisher Nostr accounts.')),
   ));
   return $.html();

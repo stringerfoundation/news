@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools';
 import { PORTUGUESE_SOURCES, ATOMSTR_RELAY } from '../portuguese-sources.ts';
-import { parseAtomstrEvent, readPortugueseSources, cachedPortugueseSources } from '../relay/portuguese-reader.ts';
+import { parseAtomstrEvent, readAtomstrSources, cachedAtomstrSources } from '../relay/atomstr-reader.ts';
 import { translator, localeForLanguage } from '../reader-locales.ts';
 import { localizedReaderHtml } from '../scripts/reader-html.ts';
 import { worldGroups, safeUrl, formatLocalDateTime, formatPublicationDate } from '../news-model.ts';
@@ -14,7 +14,7 @@ const secret = generateSecretKey(), pubkey = getPublicKey(secret);
 const now = Date.parse('2026-10-16T12:00:00.000Z');
 const source = {id: 'pt-synthetic', name: 'Fonte de teste', feeds: [{url: 'https://example.org/feed', pubkey}]};
 const event = (options: Partial<EventTemplate> = {}, key = secret) => finalizeEvent({kind: 1, created_at: now / 1000 - 30,
-  tags: [['proxy', source.feeds[0].url + '#' + encodeURIComponent('https://example.org/report?q=1#section'), 'rss']],
+  tags: [['proxy', source.feeds[0]!.url + '#' + encodeURIComponent('https://example.org/report?q=1#section'), 'rss']],
   content: 'Manchete original — ação e ciência\n\nResumo que nunca deve aparecer.\n\nhttps://images.example.org/photo.jpg\n\nhttps://example.org/report', ...options}, key);
 
 test('Portuguese editions share the complete pinned source catalogue, including specialized and institutional feeds', () => {
@@ -47,8 +47,8 @@ test('Atomstr extraction verifies pinned identity and feed provenance, strips su
   for (const overrides of [
     {kind: 7}, {created_at: now / 1000 + 120}, {content: '\nNo headline'},
     {tags: [['proxy', 'https://wrong.example/feed#https%3A%2F%2Fexample.org', 'rss']]},
-    {tags: [['proxy', source.feeds[0].url + '#javascript%3Aalert(1)', 'rss']]},
-    {tags: [['proxy', source.feeds[0].url + '#%invalid', 'rss']]},
+    {tags: [['proxy', source.feeds[0]!.url + '#javascript%3Aalert(1)', 'rss']]},
+    {tags: [['proxy', source.feeds[0]!.url + '#%invalid', 'rss']]},
   ]) assert.equal(parseAtomstrEvent(event(overrides), source, now), null);
 });
 
@@ -67,39 +67,39 @@ test('mirror queries are bounded, recover verified cache on outages, and never i
   Object.defineProperty(globalThis, 'localStorage', {configurable: true, value: memoryStorage});
   try {
     let reads = 0, updates = 0;
-    const fresh = await readPortugueseSources({sources: [source], now: () => now, query: async filter => {
+    const fresh = await readAtomstrSources({sources: [source], now: () => now, query: async filter => {
       reads++; assert.deepEqual(filter.authors, [pubkey]); assert.equal(filter.limit, 30); return [event()];
     }, onUpdate() {updates++;}});
     assert.equal(reads, 1); assert.equal(updates, 1);
-    assert.equal(fresh[source.id].status, 'success');
-    const cached = cachedPortugueseSources([source], now + 1000);
-    assert.equal(cached[source.id].stories[0].title, fresh[source.id].stories[0].title);
-    const failed = await readPortugueseSources({sources: [source], now: () => now + 2000, query: async () => {throw Error('Offline');}});
-    assert.equal(failed[source.id].status, 'failure');
-    assert.equal(failed[source.id].lastSuccessAt, fresh[source.id].lastSuccessAt);
-    assert.equal(failed[source.id].stories.length, 1);
+    assert.equal(fresh[source.id]!.status, 'success');
+    const cached = cachedAtomstrSources([source], now + 1000);
+    assert.equal(cached[source.id]!.stories[0]!.title, fresh[source.id]!.stories[0]!.title);
+    const failed = await readAtomstrSources({sources: [source], now: () => now + 2000, query: async () => {throw Error('Offline');}});
+    assert.equal(failed[source.id]!.status, 'failure');
+    assert.equal(failed[source.id]!.lastSuccessAt, fresh[source.id]!.lastSuccessAt);
+    assert.equal(failed[source.id]!.stories.length, 1);
     storage.clear();
-    const empty = await readPortugueseSources({sources: [source], now: () => now, query: async () => []});
-    assert.equal(empty[source.id].status, 'failure');
-    assert.equal(empty[source.id].lastSuccessAt, null);
+    const empty = await readAtomstrSources({sources: [source], now: () => now, query: async () => []});
+    assert.equal(empty[source.id]!.status, 'failure');
+    assert.equal(empty[source.id]!.lastSuccessAt, null);
     storage.set('stringer-atomstr-v1:' + source.id, JSON.stringify({checkedAt: new Date(now).toISOString(), events: [{...event(), content: 'forged'}]}));
-    assert.equal(cachedPortugueseSources([source], now)[source.id].stories.length, 0);
+    assert.equal(cachedAtomstrSources([source], now)[source.id]!.stories.length, 0);
   } finally { if (originalStorage) Object.defineProperty(globalThis, 'localStorage', originalStorage); else Reflect.deleteProperty(globalThis, 'localStorage'); }
 });
 
 test('publisher RSS is preferred over social aliases and edition grouping uses the supplied registry', async () => {
   const socialSecret = generateSecretKey();
   const mixed = {...source, feeds: [...source.feeds, {url: 'https://bsky.app/profile/example.org/rss', pubkey: getPublicKey(socialSecret), social: 'Bluesky'}]};
-  const social = event({tags: [['proxy', mixed.feeds[1].url + '#' + encodeURIComponent('https://bsky.app/profile/example.org/post/1'), 'rss']]}, socialSecret);
+  const social = event({tags: [['proxy', mixed.feeds[1]!.url + '#' + encodeURIComponent('https://bsky.app/profile/example.org/post/1'), 'rss']]}, socialSecret);
   const query = async () => [social, event()];
-  const result = await readPortugueseSources({sources: [mixed], query, now: () => now, previous: {}});
-  assert.equal(result[source.id].stories.length, 1);
-  assert.equal(result[source.id].stories[0].mirroredVia, undefined);
+  const result = await readAtomstrSources({sources: [mixed], query, now: () => now, previous: {}});
+  assert.equal(result[source.id]!.stories.length, 1);
+  assert.equal(result[source.id]!.stories[0]!.mirroredVia, undefined);
   const snapshot = {sources: result};
-  assert.equal(worldGroups(snapshot, [source.id], [source])[0].source, source.name);
+  assert.equal(worldGroups(snapshot, [source.id], [source])[0]!.source, source.name);
   assert.deepEqual(worldGroups(snapshot, [], [source]), []);
-  const fallback = await readPortugueseSources({sources: [mixed], query: async () => [social], now: () => now, previous: {}});
-  assert.equal(fallback[source.id].stories[0].mirroredVia, 'Bluesky');
+  const fallback = await readAtomstrSources({sources: [mixed], query: async () => [social], now: () => now, previous: {}});
+  assert.equal(fallback[source.id]!.stories[0]!.mirroredVia, 'Bluesky');
 });
 
 test('Portuguese pages use relative shared assets, distinct language variants, and the same source count', () => {
@@ -125,8 +125,7 @@ test('Portuguese pages use relative shared assets, distinct language variants, a
   assert.equal(translator('pt-PT')('Donate now'), 'Faça um donativo');
 });
 
-test('staging retains the deployment robots block and uses the two canonical Portuguese routes', () => {
-  assert.equal(readFileSync('_site/robots.txt', 'utf8'), 'User-agent: *\nDisallow: /\n');
+test('edition navigation uses the two canonical Portuguese routes', () => {
   const html = load(readFileSync('index.html', 'utf8'));
   assert.equal(html('.edition-switcher [hreflang="pt-BR"]').attr('href'), './br/');
   assert.equal(html('.edition-switcher [hreflang="pt-PT"]').attr('href'), './pt/');

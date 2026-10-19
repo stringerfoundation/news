@@ -1,7 +1,8 @@
 import { SimplePool } from 'nostr-tools/pool';
 import type { Event, Filter } from 'nostr-tools';
-import type { Snapshot } from './types.ts';
-import { assemble, readManifest, MANIFEST_KIND, MANIFEST_KEY } from './protocol.ts';
+import type { Snapshot } from './types.js';
+import { readCachedCollection } from './cache.js';
+import { assemble, readManifest, MANIFEST_KIND, MANIFEST_KEY } from './protocol.js';
 export interface ReaderConfig {
   pubkey: string;
   relays: string[];
@@ -13,7 +14,12 @@ export interface FeedLoadTiming {
   total: number;
   state: 'loading' | 'loaded' | 'partial' | 'empty';
 }
-export async function readRelaySnapshot(config: ReaderConfig, report: (message: string) => void = () => {}, onSnapshot?: (snapshot: Snapshot) => void, onFeedTiming?: (timings: Record<string, FeedLoadTiming>) => void) {
+export async function readRelaySnapshot(config: ReaderConfig, report: (message: string) => void = () => {}, onSnapshot?: (snapshot: Snapshot) => void, onFeedTiming?: (timings: Record<string, FeedLoadTiming>) => void, options: { timeoutMs?: number } = {}) {
+  const timeoutMs = options.timeoutMs ?? 15_000;
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > 15_000)
+    throw new Error('Invalid reader loading budget');
+  const deadline = performance.now() + timeoutMs;
+  const cached = readCachedCollection(config.pubkey);
   if (!/^[0-9a-f]{64}$/.test(config.pubkey) || !config.relays.length || config.relays.length > 5)
     throw new Error('Relay reader not configured');
   for (const relay of config.relays) {
@@ -26,6 +32,8 @@ export async function readRelaySnapshot(config: ReaderConfig, report: (message: 
     // A slow or silent relay must not hold up data already returned by healthy relays.
     // maxWait in nostr-tools is an EOSE timeout, not an overall request deadline.
     const query = (filter: Filter, onEvent?: (event: Event) => void) => new Promise<Event[]>((resolve) => {
+      const remaining = deadline - performance.now();
+      if (remaining <= 0) { resolve([]); return; }
       const events = new Map<string, Event>();
       let settled = false;
       let manifestTimer: ReturnType<typeof setTimeout> | undefined;
@@ -39,7 +47,7 @@ export async function readRelaySnapshot(config: ReaderConfig, report: (message: 
         void subscription.close();
         resolve([...events.values()]);
       };
-      const timer = setTimeout(finish, 6000);
+      const timer = setTimeout(finish, Math.min(6000, remaining));
       const subscription = pool.subscribeMany(config.relays, filter, {
         maxWait: 5000,
         abort: abort.signal,
@@ -77,9 +85,11 @@ export async function readRelaySnapshot(config: ReaderConfig, report: (message: 
       .sort((a, b) => b.created_at - a.created_at || a.id.localeCompare(b.id));
     const event = valid[0];
     if (!event) throw new Error('No valid collection');
+    const manifest = readManifest(event, config.pubkey);
+    if (cached && Date.parse(cached.snapshot.generatedAt) > Date.parse(manifest.generatedAt))
+      throw new Error('Older collection');
     report('Verified collection. Loading published stories…');
-    const manifest = readManifest(event, config.pubkey),
-      ids = Object.values(manifest.sources).flatMap((source) => source.ids);
+    const ids = Object.values(manifest.sources).flatMap((source) => source.ids);
     const requestedIds = [
       ...new Set([
         ...ids,
@@ -131,7 +141,7 @@ export async function readRelaySnapshot(config: ReaderConfig, report: (message: 
     const received = new Set(stories.map((story) => story.id));
     const missing = ids.filter((id) => !received.has(id));
     // One bounded retry covers transient relay connection failures without accepting an incomplete collection.
-    if (missing.length) {
+    if (missing.length && performance.now() < deadline) {
       report(`Received ${received.size} published notes. Retrying ${missing.length} missing notes…`);
       const retries: Promise<Event[]>[] = [];
       for (let i = 0; i < missing.length; i += 100)
@@ -139,33 +149,16 @@ export async function readRelaySnapshot(config: ReaderConfig, report: (message: 
       stories.push(...(await Promise.all(retries)).flat());
     }
     const cacheKey = `stringer-relay:${config.pubkey}`;
-    // Keep previously verified notes when one relay is temporarily unable to return them.
-    try {
-      const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
-      if (cached) {
-        assemble(cached.manifest, cached.stories, config.pubkey, true);
-        const have = new Set(stories.map((story) => story.id));
-        stories.push(
-          ...cached.stories.filter(
-            (story: Event) => requestedIds.includes(story.id) && !have.has(story.id),
-          ),
-        );
-      }
-    } catch {
-      /* Only validated cached events may fill gaps. */
+    // Re-read in case another tab saved a newer verified collection during the load.
+    const latestCache = readCachedCollection(config.pubkey) ?? cached;
+    if (latestCache && Date.parse(latestCache.snapshot.generatedAt) > Date.parse(manifest.generatedAt))
+      throw new Error('Older collection');
+    if (latestCache) {
+      const have = new Set(stories.map(story => story.id));
+      const requested = new Set(requestedIds);
+      stories.push(...latestCache.stories.filter(story => requested.has(story.id) && !have.has(story.id)));
     }
     const snapshot = assemble(event, stories, config.pubkey, true);
-    try {
-      const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
-      if (
-        cached &&
-        Date.parse(cached.manifest.content && JSON.parse(cached.manifest.content).generatedAt) >
-          Date.parse(snapshot.generatedAt)
-      )
-        throw new Error('Older collection');
-    } catch (error) {
-      if (error instanceof Error && error.message === 'Older collection') throw error;
-    }
     updateTimings(true);
     try {
       localStorage.setItem(cacheKey, JSON.stringify({ manifest: event, stories }));
@@ -179,10 +172,5 @@ export async function readRelaySnapshot(config: ReaderConfig, report: (message: 
   }
 }
 export function cachedRelaySnapshot(config: ReaderConfig) {
-  try {
-    const cached = JSON.parse(localStorage.getItem(`stringer-relay:${config.pubkey}`) || 'null');
-    return cached ? assemble(cached.manifest, cached.stories, config.pubkey, true) : null;
-  } catch {
-    return null;
-  }
+  return readCachedCollection(config.pubkey)?.snapshot ?? null;
 }

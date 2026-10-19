@@ -10,7 +10,7 @@ export interface Story {
   url: string;
   summary: string;
   publishedAt: string | null;
-  credits?: string;
+  credits?: string | undefined;
   publicationDate?: string | null;
   publicationSource?: string | null;
   headlineOnly?: boolean;
@@ -45,5 +45,3 @@ export interface AtomstrSource extends Source {
   readonly homepage?: string;
   readonly feeds: readonly AtomstrFeed[];
 }
-export interface ContentPermission { text: boolean; summaries: boolean; images: boolean }
-export type ContentPermissions = Readonly<Record<string, ContentPermission>>;

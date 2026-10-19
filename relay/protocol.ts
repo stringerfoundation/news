@@ -1,6 +1,6 @@
 import { verifyEvent, type Event } from 'nostr-tools';
-import { validateSnapshot, applyContentPermissions, normalizeSourceSet, SOURCES } from '../news-model.ts';
-import type { Snapshot, Story } from './types.ts';
+import { validateSnapshot, applyContentPermissions, normalizeSourceSet, SOURCES } from '../news-model.js';
+import type { Snapshot, Story } from './types.js';
 export const MANIFEST_KIND = 30078;
 export const MANIFEST_KEY = 'stringer-news-v1';
 export const GROUP_MARKER = 'stringer-group-v1';

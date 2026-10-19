@@ -20,7 +20,7 @@ const headlines = new Map([
 const events = catalogue.filter(source => headlines.has(source.id)).map(source => finalizeEvent({kind: 1,
   created_at: Math.floor(Date.parse(time) / 1000),
   content: headlines.get(source.id) + '\n\nResumo e imagem que não devem aparecer.\n\nhttps://images.example.org/publisher-photo.jpg',
-  tags: [['proxy', source.feeds[0].url + '#' + encodeURIComponent('https://news.example.org/' + source.id), 'rss']],
+  tags: [['proxy', source.feeds[0]!.url + '#' + encodeURIComponent('https://news.example.org/' + source.id), 'rss']],
 }, keys.get(source.id)!));
 const baseline: Snapshot = {schemaVersion: 2, generatedAt: time, sources: Object.fromEntries(SOURCES.map(source => [source.id,
   {stories: [], attemptedAt: time, lastSuccessAt: null, status: 'paused', error: null}]))};
@@ -52,7 +52,7 @@ test('Portuguese editions share all sources and preferences, localize only UI, r
         let file = url.pathname.slice(prefix.length) || 'index.html';
         if (['br', 'pt'].includes(file)) return route.fulfill({status: 308, headers: {location: prefix + file + '/'}});
         if (file.endsWith('/')) file += 'index.html';
-        if (file === 'app.js') return route.fulfill({contentType: 'text/javascript', body: syntheticBundle.outputFiles[0].text});
+        if (file === 'app.js') return route.fulfill({contentType: 'text/javascript', body: syntheticBundle.outputFiles[0]!.text});
         if (file === 'relay-config.js') return route.fulfill({contentType: 'text/javascript', body: 'export default {enabled: false};'});
         if (file === 'portuguese-sources.js') return route.fulfill({contentType: 'text/javascript', body: `export const ATOMSTR_RELAY='wss://nostr.data.haus';export const PORTUGUESE_SOURCES=${JSON.stringify(catalogue)};`});
         if (file === 'data/news.json') return route.fulfill({json: baseline});

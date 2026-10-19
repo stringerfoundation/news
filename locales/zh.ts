@@ -1,4 +1,5 @@
 const chinese: Readonly<Record<string, string>> = {
+  'Headlines from publishers in this language.': '中文媒体的新闻标题。',
   'Close menu': '关闭菜单', 'Open menu': '打开菜单', 'Sources': '来源',
   'Choose news sources': '选择新闻来源', 'Enable all': '全部启用',
   'Your choices are saved in this browser.': '你的选择会保存在此浏览器中。',
@@ -39,8 +40,8 @@ const chinese: Readonly<Record<string, string>> = {
   'Stringer on Instagram': 'Stringer 的 Instagram 账号', 'Stringer on Facebook': 'Stringer 的 Facebook 账号',
   'Stringer on LinkedIn': 'Stringer 的 LinkedIn 账号', 'Stringer on YouTube': 'Stringer 的 YouTube 频道',
   'Stringer World News': 'Stringer 世界新闻', 'Around the world': '环球新闻',
-  'Global Newswire': '全球新闻快讯', 'Courageous Stories': '勇气报道',
-  'Headlines from global publishers.': '全球出版方的新闻标题。',
+  'Global Newswire': '中文新闻', 'Courageous Stories': '勇气报道',
+  'Headlines from global publishers.': '中文媒体的新闻标题。',
   'Beyond the headlines': '标题之外', "Stringer's Courageous Stories": 'Stringer 的勇气报道',
   'Reporting selected by The Stringer Foundation.': '由 Stringer 基金会精选的报道。',
   'Explore the Stringer collection': '浏览 Stringer 栏目',
@@ -68,6 +69,10 @@ const chinese: Readonly<Record<string, string>> = {
   'Connecting to news relays…': '正在连接新闻中继…',
   'Verified collection. Loading published stories…': '已验证栏目。正在加载已发布的报道…',
   'Received {received} published notes. Retrying {missing} missing notes…': '已收到 {received} 条已发布的消息。正在重试获取缺失的 {missing} 条消息…',
+  'Show more headlines': '显示更多新闻标题',
+  'Show more courageous stories': '显示更多勇气报道',
+  'Show fewer courageous stories': '收起部分勇气报道',
+  'View source for this build': '查看此版本的源代码',
 };
 
 export default chinese;

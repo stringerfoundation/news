@@ -1,9 +1,9 @@
 import type { Event, Filter } from 'nostr-tools';
-import type { AtomstrSource, SourceState, Story } from './types.ts';
+import type { AtomstrSource, SourceState } from './types.ts';
 import { verifyEvent } from 'nostr-tools';
 import { SimplePool } from 'nostr-tools/pool';
 import { safeUrl, newestFirst, uniqueStories, NEWSWIRE_LIMIT } from '../news-model.ts';
-import { ATOMSTR_RELAY } from '../portuguese-sources.ts';
+import { ATOMSTR_RELAY } from '../atomstr-config.ts';
 
 const cachePrefix = 'stringer-atomstr-v1:';
 const maxAge = 7 * 24 * 60 * 60 * 1000;
@@ -16,11 +16,12 @@ export function parseAtomstrEvent(event: Event, source: AtomstrSource, now = Dat
   const feed = source.feeds.find(feed => feed.pubkey === event.pubkey);
   if (!feed || !verifyEvent(event)) return null;
   const proxies = event.tags.filter(tag => tag[0] === 'proxy');
-  if (proxies.length !== 1 || proxies[0][2] !== 'rss' || !proxies[0][1]?.startsWith(`${feed.url}#`)) return null;
+  const proxy = proxies[0];
+  if (proxies.length !== 1 || !proxy || proxy[2] !== 'rss' || !proxy[1]?.startsWith(`${feed.url}#`)) return null;
   let url;
-  try { url = safeUrl(decodeURIComponent(proxies[0][1].slice(feed.url.length + 1).replace(/\+/g, '%20'))); }
+  try { url = safeUrl(decodeURIComponent(proxy[1].slice(feed.url.length + 1).replace(/\+/g, '%20'))); }
   catch { return null; }
-  const title = event.content.split(/\r?\n/, 1)[0].trim();
+  const title = (event.content.split(/\r?\n/, 1)[0] ?? '').trim();
   if (!url || !title || title.length > 1000) return null;
   return { title, url, publishedAt: new Date(event.created_at * 1000).toISOString(),
     summary: '', image: null, noteId: event.id, atomstr: true,
@@ -44,7 +45,7 @@ function unavailable(source: AtomstrSource, attemptedAt: string, previous?: Sour
     status: 'failure', error: `No verified publications available from the ${source.name} Atomstr mirror` };
 }
 
-export function cachedPortugueseSources(sources: readonly AtomstrSource[], now = Date.now()): Record<string, SourceState> {
+export function cachedAtomstrSources(sources: readonly AtomstrSource[], now = Date.now()): Record<string, SourceState> {
   return Object.fromEntries(sources.map(source => {
     const attemptedAt = new Date(now).toISOString();
     try {
@@ -59,8 +60,8 @@ export function cachedPortugueseSources(sources: readonly AtomstrSource[], now =
   }));
 }
 
-export async function readPortugueseSources({sources, onUpdate = () => {}, query,
-  previous = cachedPortugueseSources(sources), now = () => Date.now()}: {sources: readonly AtomstrSource[]; onUpdate?: (id: string, entry: SourceState) => void; query?: (filter: Filter) => Promise<Event[]>; previous?: Record<string, SourceState>; now?: () => number}) {
+export async function readAtomstrSources({sources, onUpdate = () => {}, query,
+  previous = cachedAtomstrSources(sources), now = () => Date.now()}: {sources: readonly AtomstrSource[]; onUpdate?: (id: string, entry: SourceState) => void; query?: (filter: Filter) => Promise<Event[]>; previous?: Record<string, SourceState>; now?: () => number}) {
   const pool = query ? null : new SimplePool();
   const read = query || (filter => pool!.querySync([ATOMSTR_RELAY], filter, {maxWait: 8000}));
   const result: Record<string, SourceState> = {};
@@ -69,7 +70,7 @@ export async function readPortugueseSources({sources, onUpdate = () => {}, query
     // Bounded parallel subscriptions keep the catalogue from opening one connection per source.
     await Promise.all(Array.from({length: Math.min(8, sources.length)}, async () => {
       while (next < sources.length) {
-        const source = sources[next++];
+        const source = sources[next++]!;
         const attemptedAt = new Date(now()).toISOString();
         let entry: SourceState;
         try {

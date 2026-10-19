@@ -18,7 +18,7 @@ On 20 September 2026, the owner selected `syria-3talawjYJe7gOOcj.png` for “Syr
 
 ## Source and reader behavior
 
-- Use the publisher RSS endpoints configured in `news-model.js`. CNA's official [RSS directory](https://www.channelnewsasia.com/rss) lists the World feed with category `6311`.
+- Use the publisher RSS endpoints configured in `news-model.ts`. CNA's official [RSS directory](https://www.channelnewsasia.com/rss) lists the World feed with category `6311`.
 - Render remote content as text and restrict article destinations to HTTP(S).
 - Browser source preferences control the newswire display only; they do not stop shared collection or change publication policy.
 - Preserve truthful loading, empty, unavailable, and recovery states. Reader source preferences cannot enable publisher summaries or images.
@@ -43,6 +43,6 @@ Checked 11 September 2026. These are discovery notes, not a live feed audit or r
 
 NYT and Al Jazeera on Bluesky are candidates for further evaluation, not enabled sources. Before implementation, recheck publisher ownership through domain verification or a publisher-site link, inspect current activity and original-story links, and evaluate how much of the desired coverage is actually posted. Domain ownership does not establish rights to every attached photograph. Unofficial mirrors must be identified as such and cannot grant rights they do not hold.
 
-## Portuguese-language editions
+## Language-specific editions
 
-The `/br/` and `/pt/` readers use the configured Atomstr mirrors for publisher headlines, attribution, mirror timestamps, and original HTTP(S) links only. These are third-party mirror identities, not official publisher Nostr accounts. Social-feed fallbacks are labeled. Publisher summaries and images remain disabled, and Stringer reporting and approved photos remain separate. Translating interface labels does not translate reporting or grant additional content rights.
+The `/br/`, `/pt/`, `/fr/`, `/es/`, `/ar/`, `/zh/`, `/ru/`, `/nl/`, and `/de/` readers use the configured Atomstr mirrors for publisher headlines, attribution, mirror timestamps, and original HTTP(S) links only. These are third-party mirror identities, not official publisher Nostr accounts. Social-feed fallbacks are labeled. Publisher summaries and images remain disabled, and Stringer reporting and approved photos remain separate. Translating interface labels does not translate reporting or grant additional content rights.

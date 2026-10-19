@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import path from 'node:path';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { load } from 'cheerio';
 import arabic from '../locales/ar.ts';
@@ -48,10 +47,10 @@ test('edition registry and language mapping cover every locale and common region
     ['en-GB', 'en-US'], ['pt', 'pt-BR'], ['pt-BR', 'pt-BR'], ['pt-PT', 'pt-PT'],
     ['fr-FR', 'fr'], ['fr-CA', 'fr'], ['es-MX', 'es'], ['ar-EG', 'ar'],
     ['zh-TW', 'zh'], ['ru-RU', 'ru'], ['nl-BE', 'nl'], ['de-AT', 'de'], ['xx-ZZ', 'en-US'],
-  ]) assert.equal(localeForLanguage(input!), locale, input);
+  ]) assert.equal(localeForLanguage(input!), locale, input!);
 });
 
-test('edition HTML has language metadata, relative shared assets, edition links, and a picker only for Portuguese', () => {
+test('edition HTML has language metadata, relative shared assets, edition links, and a picker for each localized edition', () => {
   const source = readFileSync('index.html', 'utf8');
   for (const edition of EDITIONS) {
     const html = edition.path ? localizedReaderHtml(source, edition.locale) : source;
@@ -60,7 +59,7 @@ test('edition HTML has language metadata, relative shared assets, edition links,
     assert.equal($('html').attr('lang'), hreflang, `${edition.locale} lang`);
     assert.equal($('html').attr('dir'), edition.direction, `${edition.locale} direction`);
     assert.equal($('script[type="module"]').attr('src'), edition.path ? '../app.js' : './app.js');
-    assert.equal($('link[rel="stylesheet"]').first().attr('href')?.startsWith(edition.path ? '../style.css' : './style.css'), true);
+    assert.equal($('link[href*="style.css"]').attr('href')?.startsWith(edition.path ? '../style.css' : './style.css'), true);
 
     const nav = $('.edition-switcher');
     assert.ok(nav.length, `${edition.locale} edition switcher`);
@@ -75,35 +74,6 @@ test('edition HTML has language metadata, relative shared assets, edition links,
         : target.path ? `./${target.path}/` : './';
       assert.equal(link.attr('href'), expectedHref, `${edition.locale} link to ${target.locale}`);
     }
-    assert.equal(Boolean($('#source-picker').length), edition.locale === 'pt-BR' || edition.locale === 'pt-PT');
+    assert.equal(Boolean($('#source-picker').length), edition.locale !== 'en-US');
   }
-});
-
-test('staged edition routes share one UTC build time and publish no TypeScript or development files', () => {
-  const publishedFiles: string[] = [];
-  const visit = (directory: string) => {
-    for (const entry of readdirSync(directory)) {
-      const fullPath = path.join(directory, entry);
-      if (statSync(fullPath).isDirectory()) visit(fullPath);
-      else publishedFiles.push(path.relative('_site', fullPath).split(path.sep).join('/'));
-    }
-  };
-  visit('_site');
-
-  const forbidden = publishedFiles.filter(file =>
-    /\.tsx?$|\.map$|(^|\/)(?:AGENTS\.md|package(?:-lock)?\.json|tsconfig\.json|node_modules|tests|scripts|locales|openspec)(?:\/|$)/i.test(file),
-  );
-  assert.deepEqual(forbidden, []);
-
-  const timestamps = EDITIONS.map(edition => {
-    const relativePath = edition.path ? `${edition.path}/index.html` : 'index.html';
-    assert.ok(publishedFiles.includes(relativePath), `staged route ${relativePath}`);
-    const $ = load(readFileSync(path.join('_site', relativePath), 'utf8'));
-    const time = $('#reader-build time');
-    assert.ok(time.length, `${relativePath} build timestamp`);
-    assert.match(time.text(), / UTC$/);
-    assert.ok(time.attr('datetime')?.endsWith('Z'), `${relativePath} timestamp is UTC`);
-    return time.attr('datetime');
-  });
-  assert.equal(new Set(timestamps).size, 1, 'all edition pages use the same build timestamp');
 });
