@@ -1,6 +1,6 @@
-import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=e964351ae646aa2c";
-import relayConfig from "./relay-config.js?v=e964351ae646aa2c";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=e964351ae646aa2c";
+import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=a5bbaf7b2a40aca9";
+import relayConfig from "./relay-config.js?v=a5bbaf7b2a40aca9";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=a5bbaf7b2a40aca9";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -103,13 +103,16 @@ function commonsCaption(candidate) {
 function imageReview(storyId, title) {
   if (!voter || !imageSession?.canVote(voter)) return null;
   const selection = imageSession.selection(storyId);
+  if (voter === relayConfig.pubkey && !commonsSearches.has(storyId))
+    commonsSearches.set(storyId, { query: title, loading: false, results: [], error: "", searched: false });
   const details = element("details", "", "image-review");
   details.open = openImageReviews.has(storyId);
   details.append(element("summary", "Review illustrative images"));
   details.addEventListener("toggle", () => {
     if (details.open) {
       openImageReviews.add(storyId);
-      if (voter === relayConfig.pubkey && !commonsSearches.has(storyId)) void findCommons(storyId, title);
+      const state = commonsSearches.get(storyId);
+      if (voter === relayConfig.pubkey && state && !state.searched && !state.loading) void findCommons(storyId, state.query);
     } else openImageReviews.delete(storyId);
   });
   const current = selection.latest.get(voter)?.vote.candidateId;
@@ -211,7 +214,8 @@ function imageReview(storyId, title) {
 }
 async function findCommons(storyId, query) {
   if (!searchCommons || commonsSearches.get(storyId)?.loading) return;
-  const state = { query, loading: true, results: [], error: "", searched: false };
+  const state = commonsSearches.get(storyId) || { query, loading: false, results: [], error: "", searched: false };
+  Object.assign(state, { query, loading: true, results: [], error: "", searched: false });
   commonsSearches.set(storyId, state);
   renderWorld();
   try {
@@ -473,7 +477,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=e964351ae646aa2c");
+      const reader = await import("./relay-reader.js?v=a5bbaf7b2a40aca9");
       ImageSessionClass = reader.ImageSession;
       searchCommons = reader.searchCommons;
       if (!snapshot) {
