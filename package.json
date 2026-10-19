@@ -20,7 +20,7 @@
   "dependencies": {
     "nostr-tools": "2.25.2",
     "cheerio": "1.2.0",
-    "fast-xml-parser": "5.11.1"
+    "fast-xml-parser": "5.11.2"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
