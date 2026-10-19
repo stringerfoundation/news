@@ -424,7 +424,7 @@ async function loadAtomstr() {
           } else {
             const response = await fetch(new URL('./data/news.json', import.meta.url), {cache: 'no-cache', credentials: 'omit', signal: AbortSignal.timeout(15000)});
             if (!response.ok) throw new Error('Unavailable collection');
-            original = applyContentPermissions(validateSnapshot(await response.json()));
+            original = applyContentPermissions(validateSnapshot(JSON.parse(await readResponseText(response))));
           }
           snapshot!.sources.stringer = original.sources.stringer!;
         } catch {
