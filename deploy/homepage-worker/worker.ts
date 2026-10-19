@@ -1,3 +1,4 @@
+import { isPublicAsset } from '../../public-assets.ts';
 import relayConfig from '../../relay-config.ts';
 import type { HTMLRewriter as CloudflareHTMLRewriter } from '@cloudflare/workers-types';
 
@@ -23,13 +24,6 @@ type Route =
   | { kind: 'asset'; path: string };
 
 const prefix = '/news-assets/';
-const files = new Set([
-  'app.js', 'news-model.js', 'relay-config.js', 'relay-reader.js',
-  'stringer-media.js', 'style.css', 'data/news.json',
-  'assets/stringer-logo.png', 'assets/nostr-banner.png',
-  'assets/favicon-16.png', 'assets/favicon-32.png',
-  'assets/favicon-192.png', 'assets/favicon-180.png',
-]);
 export function routeFor(request: Request): Route {
   const url = new URL(request.url);
   if (url.pathname === '/.well-known/nostr.json' && ['GET', 'HEAD', 'OPTIONS'].includes(request.method))
@@ -38,7 +32,7 @@ export function routeFor(request: Request): Route {
   if (url.pathname === '/') return { kind: 'home', path: '/' };
   if (!url.pathname.startsWith(prefix)) return { kind: 'legacy' };
   const path = url.pathname.slice(prefix.length);
-  return files.has(path) || /^assets\/stringer-thumbnails\/[a-zA-Z0-9-]+\.png$/.test(path)
+  return isPublicAsset(path) || path === 'data/news.json'
     ? { kind: 'asset', path: '/' + path } : { kind: 'missing' };
 }
 export default {

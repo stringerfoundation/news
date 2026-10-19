@@ -26,7 +26,7 @@ before(async()=>{
   server=createServer(async(req,res)=>{
     const pathname=new URL(req.url ?? '/','http://localhost').pathname.replace(/^\/stringer-news(?=\/)/,'');
     const file=pathname==='/'?'index.html':pathname.slice(1);
-    if(!['index.html','app.js','relay-config.js','news-model.js','stringer-media.js','style.css','assets/stringer-logo.png','assets/favicon-16.png','assets/favicon-32.png','assets/favicon-192.png','assets/favicon-180.png','data/news.json'].includes(file) && !/^assets\/stringer-thumbnails\/[a-zA-Z0-9-]+\.png$/.test(file)){res.writeHead(404);res.end();return;}
+    if(!['index.html','app.js','relay-config.js','news-model.js','response.js', 'publications.js', 'stringer-media.js','style.css','assets/stringer-logo.png','assets/favicon-16.png','assets/favicon-32.png','assets/favicon-192.png','assets/favicon-180.png','data/news.json'].includes(file) && !/^assets\/stringer-thumbnails\/[a-zA-Z0-9-]+\.png$/.test(file)){res.writeHead(404);res.end();return;}
     try {
       let body;
       if (file === 'data/news.json') body = JSON.stringify(snapshot);
@@ -272,12 +272,15 @@ test('partial relay refresh preserves displayed stories and keeps source failure
   partial.generatedAt = new Date(Date.parse(snapshot.generatedAt) + 60_000).toISOString();
   partial.sources.bbc.stories = partial.sources.bbc.stories.slice(0, 1);
   partial.sources.bbc.unavailable = 2;
+  partial.sources.bbc.attemptedAt = partial.generatedAt;
+  partial.sources.bbc.lastSuccessAt = partial.generatedAt;
   partial.sources.stringer.stories = [];
   partial.sources.stringer.status = 'failure';
   partial.sources.stringer.lastSuccessAt = null;
   partial.sources.stringer.error = 'Published stories temporarily unavailable from relays';
   partial.sources.stringer.unavailable = cached.sources.stringer.stories.length;
   const page = await browser.newPage();
+  await page.clock.install();
   await mockStoryImages(page);
   await page.route('**/relay-config.js*', route => route.fulfill({
     contentType: 'text/javascript',
@@ -286,7 +289,7 @@ test('partial relay refresh preserves displayed stories and keeps source failure
   await page.route('**/relay-reader.js*', route => route.fulfill({
     contentType: 'text/javascript',
     body: `export function cachedRelaySnapshot() { return ${JSON.stringify(cached)}; }\n` +
-      `export async function readRelaySnapshot(_config, _report, onSnapshot) { onSnapshot(${JSON.stringify(partial)}); throw new Error('relay timeout'); }`,
+      `let calls = 0; export async function readRelaySnapshot(_config, _report, onSnapshot) { if (calls++) return ${JSON.stringify({ ...cached, generatedAt: partial.generatedAt, sources: { ...cached.sources, bbc: { ...partial.sources.bbc, unavailable: 0 } } })}; const partial = ${JSON.stringify(partial)}; Object.freeze(partial.sources); for (const source of Object.values(partial.sources)) Object.freeze(source); onSnapshot(partial); throw new Error('relay timeout'); }`,
   }));
   await page.goto(base);
   await page.waitForFunction(() => document.querySelector<HTMLElement>('#world-news')!.getAttribute('aria-busy') === 'false');
@@ -294,6 +297,17 @@ test('partial relay refresh preserves displayed stories and keeps source failure
   assert.equal(await page.locator('#stringer-news article').count(), cached.sources.stringer.stories.length);
   assert.match((await page.locator('#relay-status-details').textContent())!, /BBC World · 2 unavailable/);
   assert.match(await page.locator('#stringer-status').innerText(), /Stringer: refresh unavailable\. Showing previously collected stories/);
+  const retainedDate = await page.evaluate(async value => {
+    const entry = '/news-model.js';
+    const { formatLocalDateTime } = await import(entry);
+    return formatLocalDateTime(value);
+  }, cached.sources.bbc.lastSuccessAt!);
+  const details = await page.locator('#relay-status-details').textContent();
+  assert.ok(details!.includes(`BBC World · Showing ${cached.sources.bbc.stories.length} previously collected stories from ${retainedDate}.`), details!);
+  await page.clock.fastForward(300_000);
+  await page.waitForFunction(() => document.querySelector('#refresh-status')!.textContent === '');
+  assert.doesNotMatch(await page.locator('#relay-status-details').innerText(), /previously collected stories/);
+  assert.equal(await page.locator('#world-news article').count(), worldStories({ ...cached, sources: { ...cached.sources, bbc: partial.sources.bbc } }).length);
   await page.close();
 });
 test('failures and empty news remain visible without collection timestamps',async()=>{
@@ -304,9 +318,20 @@ test('failures and empty news remain visible without collection timestamps',asyn
   await poll(page);await page.waitForSelector('#world-news .empty');assert.equal(await page.locator('#world-status').textContent(),'');
   await page.clock.fastForward(30_000);assert.equal(await page.locator('#stringer-status').textContent(),'');assert.doesNotMatch(await page.locator('body').innerText(),/last collected|over two hours old/);await page.close();
 });
+test('oversized snapshot responses preserve the last displayed collection', async () => {
+  const page = await pageAt();
+  const previous = await page.locator('#world-news h3').allTextContents();
+  await page.route('**/data/news.json', route => route.fulfill({
+    contentType: 'application/json', body: JSON.stringify({ ...snapshot, padding: 'x'.repeat(5_000_001) }),
+  }));
+  await poll(page);
+  assert.match(await page.locator('#refresh-status').innerText(), /Could not check for updates/);
+  assert.deepEqual(await page.locator('#world-news h3').allTextContents(), previous);
+  await page.close();
+});
 test('malicious snapshot is rejected and remote markup is rendered as text',async()=>{
   const page=await pageAt();const bad=structuredClone(snapshot);bad.sources.stringer.stories[0]!.url='javascript:alert(1)';await page.route('**/data/news.json',route=>route.fulfill({json:bad}));await poll(page);await page.waitForFunction(()=>document.querySelector<HTMLElement>('#refresh-status')!.textContent.includes('Could not check'));assert.equal(await page.locator('#stringer-news article').count(),24);
-  bad.sources.stringer.stories[0]!.url='https://example.org/story';bad.sources.stringer.stories[0]!.title='<img src=x onerror=alert(1)>';await poll(page);await page.waitForFunction(()=>[...document.querySelectorAll<HTMLElement>('#stringer-news h3')].some(el=>el.textContent.startsWith('<img')));
+  bad.sources.stringer.stories[0]!.url='https://example.org/story';bad.sources.stringer.stories[0]!.publicationSource='https://example.org/story';bad.sources.stringer.stories[0]!.title='<img src=x onerror=alert(1)>';await poll(page);await page.waitForFunction(()=>[...document.querySelectorAll<HTMLElement>('#stringer-news h3')].some(el=>el.textContent.startsWith('<img')));
   assert.equal(await page.locator('#stringer-news img[src="x"]').count(),0);await page.close();
 });
 test('visible polling, hidden-page pause, visibility catch-up, and overlap prevention',async()=>{

@@ -91,7 +91,7 @@ test('relay reader verifies complete collections, preserves order, caches offlin
           return;
         }
         if (
-          !['index.html', 'app.js', 'news-model.js', 'stringer-media.js', 'style.css', 'relay-reader.js'].includes(
+          !['index.html', 'app.js', 'news-model.js', 'response.js', 'publications.js', 'stringer-media.js', 'style.css', 'relay-reader.js'].includes(
             file,
           ) &&
           !/^assets\/[a-z0-9-]+\.png$/.test(file) &&
