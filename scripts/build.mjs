@@ -21,7 +21,7 @@ await writeFile('_site/robots.txt', 'User-agent: *\nDisallow: /\n');
 let html = await readFile('_site/index.html', 'utf8');
 html = html.replace('<head>', '<head>\n  <meta name="robots" content="noindex, nofollow, noarchive, noimageindex" />');
 html = html.replace('<p id="reader-build" class="build-info" hidden>Build <time></time></p>',
-  `<p id="reader-build" class="build-info">Build <time datetime="${builtAt}">${builtAt.slice(0, 19).replace('T', ' ')} UTC</time></p>`);
+  `<p id="reader-build" class="build-info">Build <time datetime="${builtAt}">${builtAt.slice(0, 16).replace('T', ' ')} UTC</time></p>`);
 await writeFile('_site/index.html', html);
 const versioned = [...files, 'relay-reader.js'];
 const hash = createHash('sha256');
