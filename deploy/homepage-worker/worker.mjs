@@ -1,4 +1,4 @@
-import relayConfig from '../../relay-config.js';
+import relayConfig from '../../relay-config.ts';
 
 const prefix = '/news-assets/';
 const files = new Set([

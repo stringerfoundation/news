@@ -108,7 +108,7 @@ test('relay reader verifies complete collections, preserves order, caches offlin
               : file.endsWith('.png')
                 ? 'image/png'
                 : 'text/html',
-          body: await readFile(file === 'relay-reader.js' ? '_site/relay-reader.js' : file),
+          body: await readFile(file.endsWith('.js') ? `_site/${file}` : file),
         });
       });
       // A connected relay that never sends EOSE must not delay a complete response.

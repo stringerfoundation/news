@@ -5,7 +5,7 @@ export interface Story {
   url: string;
   summary: string;
   publishedAt: string | null;
-  credits?: string;
+  credits?: string | undefined;
   publicationDate?: string | null;
   publicationSource?: string | null;
   headlineOnly?: boolean;
@@ -17,6 +17,8 @@ export interface SourceState {
   lastSuccessAt: string | null;
   status: 'success' | 'failure' | 'paused';
   error: string | null;
+  pending?: number;
+  unavailable?: number;
 }
 export interface Snapshot {
   schemaVersion: number;
