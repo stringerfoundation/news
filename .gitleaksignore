@@ -1,0 +1,4 @@
+# Verified historical public Nostr author identifiers, used only in relay authors filters.
+# Exact fingerprints avoid excluding other keys or files from the history scan.
+a52d964d91b32d198f9863e5cf8f72dc161c9750:reporters.js:generic-api-key:3
+a52d964d91b32d198f9863e5cf8f72dc161c9750:reporters.js:generic-api-key:6
