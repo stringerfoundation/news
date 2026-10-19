@@ -8,24 +8,25 @@
   },
   "scripts": {
     "check": "node scripts/check-syntax.ts",
-    "test": "node --import tsx --test tests/*.test.mjs tests/*.test.ts deploy/homepage-worker/worker.test.mjs",
-    "test:browser": "node --import tsx --test tests/browser.spec.mjs tests/previews.browser.mjs",
+    "test": "node --import tsx --test tests/*.test.ts deploy/homepage-worker/worker.test.ts",
+    "test:browser": "node --import tsx --test tests/browser.spec.ts tests/previews.browser.ts",
     "build": "node scripts/build.ts",
-    "lint": "eslint .",
+    "lint": "eslint --flag unstable_native_nodejs_ts_config .",
     "typecheck": "tsc --noEmit",
     "test:relay": "tsx --test tests/relay/*.test.ts",
     "test:relay-browser": "tsx --test tests/relay/*.browser.ts",
-    "test:artifact": "node --test tests/artifact/*.test.mjs",
+    "test:artifact": "node --import tsx --test tests/artifact/*.test.ts",
     "test:previews": "python3 -B -m unittest discover -s tests/previews -p '*_test.py'"
   },
   "dependencies": {
-    "nostr-tools": "2.25.2",
     "cheerio": "1.2.0",
-    "fast-xml-parser": "5.11.2"
+    "fast-xml-parser": "5.11.2",
+    "nostr-tools": "2.25.2"
   },
   "devDependencies": {
     "@babel/eslint-parser": "8.0.7",
     "@babel/plugin-syntax-typescript": "8.0.3",
+    "@cloudflare/workers-types": "5.20261019.1",
     "@playwright/test": "1.64.1",
     "@types/node": "26.6.5",
     "esbuild": "0.28.2",

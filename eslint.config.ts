@@ -1,3 +1,4 @@
+import type { Linter } from 'eslint';
 import globals from 'globals';
 import tsParser from '@babel/eslint-parser';
 export default [
@@ -24,4 +25,4 @@ export default [
     // TypeScript checks unresolved names, including names used only in types.
     rules: { 'no-undef': 'off' },
   },
-];
+] satisfies Linter.Config[];
