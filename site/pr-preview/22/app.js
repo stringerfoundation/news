@@ -1,6 +1,6 @@
-import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=eeb8d77f2ca71542";
-import relayConfig from "./relay-config.js?v=eeb8d77f2ca71542";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=eeb8d77f2ca71542";
+import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=5bedf6816537af85";
+import relayConfig from "./relay-config.js?v=5bedf6816537af85";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=5bedf6816537af85";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -79,7 +79,7 @@ async function connectNostr() {
   try {
     const key = await signer.getPublicKey();
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=eeb8d77f2ca71542");
+    const identity = await import("./relay-reader.js?v=5bedf6816537af85");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -551,7 +551,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=eeb8d77f2ca71542");
+      const reader = await import("./relay-reader.js?v=5bedf6816537af85");
       ImageSessionClass = reader.ImageSession;
       searchCommons = reader.searchCommons;
       if (!snapshot) {
