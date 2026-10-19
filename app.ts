@@ -236,6 +236,18 @@ function render() {
   renderStories(requiredElement('#stringer-news'), shuffledStringerStories(snapshot.sources.stringer!.stories), loading ? '' : 'Courageous stories are currently unavailable. Visit the Stringer collection below.');
   renderWorld();
 }
+function preserveStoriesDuringRefresh(
+  previous: Snapshot['sources'][string] | undefined,
+  current: Snapshot['sources'][string],
+) {
+  if (!previous || current.status === 'paused' ||
+    !(previous.stories.length > current.stories.length || !current.stories.length)) return current;
+  return {
+    ...current,
+    stories: previous.stories,
+    lastSuccessAt: current.lastSuccessAt || previous.lastSuccessAt,
+  };
+}
 async function load() {
   if (loading) return;
   loading = true; lastAttempt = Date.now();
@@ -263,10 +275,9 @@ async function load() {
         if (snapshot && Date.parse(partial.generatedAt) < Date.parse(snapshot.generatedAt)) return;
         // Preserve already displayed stories while the rest of the update arrives.
         for (const source of SOURCES) {
-          const old = snapshot?.sources[source.id];
-          const nextSource = partial.sources[source.id]!;
-          if (old && (old.stories.length > nextSource.stories.length || !nextSource.stories.length))
-            partial.sources[source.id] = old;
+          partial.sources[source.id] = preserveStoriesDuringRefresh(
+            snapshot?.sources[source.id], partial.sources[source.id]!,
+          );
         }
         snapshot = partial;
         render();
