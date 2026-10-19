@@ -1,0 +1,64 @@
+name: Publish production and PR previews
+on:
+  workflow_run:
+    workflows: [Website CI and GitHub Pages]
+    types: [completed]
+  pull_request_target:
+    types: [closed]
+  workflow_dispatch:
+permissions:
+  contents: read
+# Pending events can coalesce; the publisher reconciles all current PR heads.
+concurrency:
+  group: combined-github-pages-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      actions: read
+      pages: write
+      id-token: write
+      pull-requests: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      # Only trusted main code runs with write permissions. PR artifacts are data.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Reconcile checked production and preview builds
+        id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 scripts/pages-preview.py prepare
+          --state "$RUNNER_TEMP/pages-state"
+          --incoming "$RUNNER_TEMP/incoming-site"
+          --plan "$RUNNER_TEMP/preview-plan.json"
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        if: steps.prepare.outputs.publish == 'true'
+        with:
+          path: ${{ runner.temp }}/pages-state/site
+      - name: Deploy production and previews together
+        id: deployment
+        if: steps.prepare.outputs.publish == 'true'
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+      - name: Add or update PR preview links after deployment
+        if: steps.prepare.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PAGES_URL: ${{ steps.deployment.outputs.page_url }}
+        run: >-
+          python3 scripts/pages-preview.py report
+          --state "$RUNNER_TEMP/pages-state"
+          --incoming "$RUNNER_TEMP/incoming-site"
+          --plan "$RUNNER_TEMP/preview-plan.json"

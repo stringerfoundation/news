@@ -20,11 +20,11 @@ test('Pages artifact contains only the public asset allowlist', async () => {
   for (const path of paths) assert.ok(exact.has(path) || /^assets\/stringer-thumbnails\/[a-zA-Z0-9-]+\.png$/.test(path), `Unexpected published file: ${path}`);
   for (const path of exact) assert.ok(paths.includes(path), `Missing public asset: ${path}`);
   assert.equal(paths.some(path => /(?:dashboard|backend|private|secrets|\.env|\.sqlite|\.csv|AGENTS|LICENSE|README)/i.test(path)), false);
-  assert.match(await readFile('_site/robots.txt', 'utf8'), /Disallow: \/$/m);
+  assert.match(await readFile('_site/robots.txt', 'utf8'), /Disallow:\s*$/m);
 });
 test('built HTML, module imports and Stringer photos resolve under a GitHub project path', async () => {
   const html = await readFile('_site/index.html', 'utf8'), $ = load(html);
-  assert.match($('meta[name="robots"]').attr('content'), /noindex/);
+  assert.equal($('meta[name="robots"]').attr('content'), 'index, follow');
   assert.equal($('base').length, 0, 'Worker owns the public base path');
   const urls = $('script[src],link[href],img[src]').toArray().map(el => $(el).attr('src') || $(el).attr('href'));
   for (const file of ['app.js','relay-reader.js','stringer-media.js','news-model.js']) {

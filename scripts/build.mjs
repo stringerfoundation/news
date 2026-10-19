@@ -17,9 +17,9 @@ for (const file of await readdir('assets/stringer-thumbnails')) {
 }
 await copyFile('.well-known/nostr.json', '_site/.well-known/nostr.json');
 await writeFile('_site/.nojekyll', '');
-await writeFile('_site/robots.txt', 'User-agent: *\nDisallow: /\n');
+await writeFile('_site/robots.txt', 'User-agent: *\nDisallow:\n');
 let html = await readFile('_site/index.html', 'utf8');
-html = html.replace('<head>', '<head>\n  <meta name="robots" content="noindex, nofollow, noarchive, noimageindex" />');
+html = html.replace('<head>', '<head>\n  <meta name="robots" content="index, follow" />');
 html = html.replace('<p id="reader-build" class="build-info" hidden>Build <time></time></p>',
   `<p id="reader-build" class="build-info">Build <time datetime="${builtAt}">${builtAt.slice(0, 16).replace('T', ' ')} UTC</time></p>`);
 await writeFile('_site/index.html', html);

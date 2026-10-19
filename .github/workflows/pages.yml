@@ -32,6 +32,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run test:relay
+      - run: npm run test:previews
   security:
     name: Workflow lint and secret scan
     runs-on: ubuntu-latest
@@ -86,10 +87,14 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
       - run: npm run test:relay-browser
-      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+      - name: Package checked site
+        run: tar -cf "$RUNNER_TEMP/public-site.tar" -C _site .
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          path: _site
+          name: checked-site
+          path: ${{ runner.temp }}/public-site.tar
+          retention-days: 30
+          if-no-files-found: error
   codeql:
     name: CodeQL security analysis
     runs-on: ubuntu-latest
@@ -103,22 +108,6 @@ jobs:
           persist-credentials: false
       - uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4
         with:
-          languages: javascript-typescript
+          languages: javascript-typescript, python
           queries: security-extended
       - uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4
-  deploy:
-    name: Deploy checked public artifact
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: [quality, security, dependencies, browser, codeql]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
