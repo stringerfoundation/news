@@ -45,7 +45,7 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
       const file = url.pathname.slice(1) || 'index.html';
       if (file === 'relay-config.js') { await route.fulfill({ contentType: 'text/javascript', body: `export default ${JSON.stringify({ enabled: true, pubkey, relays: ['wss://relay.test'] })}` }); return; }
       if (!/^(index.html|app.js|news-model.js|stringer-media.js|style.css|relay-reader.js|assets\/[\w/-]+\.png)$/.test(file)) { await route.fulfill({ status: 404 }); return; }
-      await route.fulfill({ contentType: file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.png') ? 'image/png' : 'text/html', body: await readFile(file === 'relay-reader.js' ? '_site/relay-reader.js' : file) });
+      await route.fulfill({ contentType: file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.png') ? 'image/png' : 'text/html', body: await readFile(file.endsWith('.js') ? `_site/${file}` : file) });
     });
     await page.routeWebSocket('wss://relay.test/', socket => {
       const subs = new Map<string, Record<string, unknown>[]>(); subscriptions.set(socket, subs);
@@ -72,7 +72,12 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     });
     if (signer) {
       await page.exposeFunction('fixtureSign', (event: EventTemplate) => { if (rejectSign) throw new Error('Signer rejected request'); return finalizeEvent(tamperSign ? { ...event, content: 'Signer changed payload' } : event, voter); });
-      await page.addInitScript({ content: `window.nostr = { getPublicKey: async function() { return ${JSON.stringify(voterKey)}; }, signEvent: function(event) { return window.fixtureSign(event); } };` });
+      await page.addInitScript(key => {
+        window.nostr = {
+          async getPublicKey() { return key; },
+          signEvent(event) { return window.fixtureSign(event); },
+        };
+      }, voterKey);
     }
     await page.goto('https://reader.test/');
     await page.getByRole('heading', { name: 'Synthetic headline' }).waitFor();
@@ -89,10 +94,16 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     await editor.getByRole('button', { name: 'Upvote image (0)', exact: true }).click();
     await editor.getByText('Signer rejected request', { exact: true }).waitFor();
     rejectSign = false;
-    await editor.evaluate(`window.nostr.getPublicKey = async function() { return ${JSON.stringify(pubkey)}; };`);
+    await editor.evaluate(key => {
+      if (!window.nostr) throw new Error('Missing fixture signer');
+      window.nostr.getPublicKey = async () => key;
+    }, pubkey);
     await editor.getByRole('button', { name: 'Upvote image (0)', exact: true }).click();
     await editor.getByText('This account is not currently eligible to approve images.', { exact: true }).waitFor();
-    await editor.evaluate(`window.nostr.getPublicKey = async function() { return ${JSON.stringify(voterKey)}; };`);
+    await editor.evaluate(key => {
+      if (!window.nostr) throw new Error('Missing fixture signer');
+      window.nostr.getPublicKey = async () => key;
+    }, voterKey);
     tamperSign = true;
     await editor.getByRole('button', { name: 'Upvote image (0)', exact: true }).click();
     await editor.getByText('Signer changed the requested vote.', { exact: true }).waitFor();
