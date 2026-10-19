@@ -20,6 +20,7 @@
     ]
   },
   "include": [
+    "*.ts",
     "relay/**/*.ts",
     "tests/relay/**/*.ts"
   ]

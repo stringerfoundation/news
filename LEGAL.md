@@ -18,7 +18,7 @@ On 20 September 2026, the owner selected `syria-3talawjYJe7gOOcj.png` for “Syr
 
 ## Source and reader behavior
 
-- Use the publisher RSS endpoints configured in `news-model.js`. CNA's official [RSS directory](https://www.channelnewsasia.com/rss) lists the World feed with category `6311`.
+- Use the publisher RSS endpoints configured in `news-model.ts`. CNA's official [RSS directory](https://www.channelnewsasia.com/rss) lists the World feed with category `6311`.
 - Render remote content as text and restrict article destinations to HTTP(S).
 - Browser source preferences control the newswire display only; they do not stop shared collection or change publication policy.
 - Preserve truthful loading, empty, unavailable, and recovery states. Reader source preferences cannot enable publisher summaries or images.

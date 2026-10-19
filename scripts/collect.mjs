@@ -1,7 +1,7 @@
 import { load } from 'cheerio';
 import { XMLParser, XMLValidator } from 'fast-xml-parser';
 import { VERIFIED_PUBLICATIONS } from './verified-publications.mjs';
-import { SOURCES, ARTICLE_IMAGE_HOSTS, CONTENT_PERMISSIONS, applyContentPermissions, NEWSWIRE_LIMIT, safeUrl, safeImageUrl, urlIdentity, uniqueStories, newestFirst, validateSnapshot } from '../news-model.js';
+import { SOURCES, ARTICLE_IMAGE_HOSTS, CONTENT_PERMISSIONS, applyContentPermissions, NEWSWIRE_LIMIT, safeUrl, safeImageUrl, urlIdentity, uniqueStories, newestFirst, validateSnapshot } from '../news-model.ts';
 
 function text(html) {
   const $ = load(String(html ?? '')); $('script,style').remove(); $('br').replaceWith(' ');
