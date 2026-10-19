@@ -1,11 +1,11 @@
-import { readerSource } from './reader-source.mjs';
+import { readerSource } from './reader-source.ts';
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile, mkdir } from 'node:fs/promises';
-import { launchBrowser } from '../scripts/browser.mjs';
+import { launchBrowser } from '../scripts/browser.ts';
 import { SOURCES, worldStories } from '../news-model.ts';
-import { collect, snapshotUrl } from '../scripts/collect.mjs';
+import { collect, snapshotUrl } from '../scripts/collect.ts';
 let server, browser, base, snapshot;
 const thumbnail = await readFile(new URL('../assets/favicon-192.png', import.meta.url));
 async function mockStoryImages(page) {

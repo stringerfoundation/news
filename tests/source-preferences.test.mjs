@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { SOURCES, validateSnapshot, worldStories, worldGroups, applyContentPermissions } from '../news-model.ts';
-import { collect, parseFeed } from '../scripts/collect.mjs';
+import { collect, parseFeed } from '../scripts/collect.ts';
 
 const time = '2026-09-10T11:00:00.000Z';
 const makeSnapshot = () => ({ schemaVersion: 2, generatedAt: time,

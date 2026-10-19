@@ -1,6 +1,6 @@
 import { readdir } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
-async function check(directory) {
+async function check(directory: string): Promise<void> {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     if (['.git', 'node_modules', '_site', '.test-output', '.wrangler'].includes(entry.name)) continue;
     const path = `${directory}/${entry.name}`;

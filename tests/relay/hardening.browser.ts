@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { generateSecretKey, getPublicKey } from 'nostr-tools';
 import type { Browser, Page } from '@playwright/test';
-import { launchBrowser } from '../../scripts/browser.mjs';
+import { launchBrowser } from '../../scripts/browser.ts';
 import { publicBatch } from './fixture.js';
 import { SOURCES } from '../../news-model.js';
 import type { Snapshot } from '../../relay/types.js';

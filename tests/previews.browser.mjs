@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFile, mkdir, rm } from 'node:fs/promises';
 import { resolve, relative } from 'node:path';
-import { launchBrowser } from '../scripts/browser.mjs';
+import { launchBrowser } from '../scripts/browser.ts';
 import { SOURCES } from '../news-model.js';
 
 test('built production and PR previews preserve relative assets, indexing and mobile behavior', async () => {

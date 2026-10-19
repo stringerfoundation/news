@@ -36,6 +36,6 @@ for (const file of versioned.filter(file => /\.(html|js)$/.test(file))) {
   const content = await readFile(`_site/${file}`, 'utf8');
   await writeFile(`_site/${file}`, content.replace(
     /(["'])\.\/([a-zA-Z0-9-]+\.(?:js|css))(?:\?[^"']*)?\1/g,
-    (_, quote, asset) => `${quote}./${asset}?v=${version}${quote}`,
+    (_match: string, quote: string, asset: string) => `${quote}./${asset}?v=${version}${quote}`,
   ));
 }

@@ -7,10 +7,10 @@
     "node": ">=24"
   },
   "scripts": {
-    "check": "node scripts/check-syntax.mjs",
-    "test": "node --import tsx --test tests/*.test.mjs deploy/homepage-worker/worker.test.mjs",
+    "check": "node scripts/check-syntax.ts",
+    "test": "node --import tsx --test tests/*.test.mjs tests/*.test.ts deploy/homepage-worker/worker.test.mjs",
     "test:browser": "node --import tsx --test tests/browser.spec.mjs tests/previews.browser.mjs",
-    "build": "node scripts/build.mjs",
+    "build": "node scripts/build.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:relay": "tsx --test tests/relay/*.test.ts",

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { launchBrowser } from '../../scripts/browser.mjs';
+import { launchBrowser } from '../../scripts/browser.ts';
 import { readFile } from 'node:fs/promises';
 import { generateSecretKey, getPublicKey, finalizeEvent } from 'nostr-tools';
 import { publicBatch } from './fixture.js';
