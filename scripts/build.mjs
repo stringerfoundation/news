@@ -1,7 +1,10 @@
 import { build } from 'esbuild';
 import { mkdir, copyFile, readFile, writeFile, readdir, rm } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 const builtAt = new Date().toISOString();
+const revision = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+const commitUrl = `https://github.com/stringerfoundation/news/commit/${revision}`;
 await rm('_site', { recursive: true, force: true });
 await mkdir('_site/assets/stringer-thumbnails', { recursive: true });
 await mkdir('_site/.well-known', { recursive: true });
@@ -23,7 +26,7 @@ await writeFile('_site/robots.txt', 'User-agent: *\nDisallow:\n');
 let html = await readFile('_site/index.html', 'utf8');
 html = html.replace('<head>', '<head>\n  <meta name="robots" content="index, follow" />');
 html = html.replace('<p id="reader-build" class="build-info" hidden>Build <time></time>',
-  `<p id="reader-build" class="build-info">Build <time datetime="${builtAt}">${builtAt.slice(0, 16).replace('T', ' ')} UTC</time>`);
+  `<p id="reader-build" class="build-info"><a class="build-commit" href="${commitUrl}" title="View source for this build">Build <time datetime="${builtAt}">${builtAt.slice(0, 16).replace('T', ' ')} UTC</time></a>`);
 await writeFile('_site/index.html', html);
 const versioned = [...files, 'relay-reader.js'];
 const hash = createHash('sha256');
