@@ -17,6 +17,9 @@ export interface CommonsImage {
   attribution: string;
   license: string;
   licenseUrl: string;
+  source?: 'openverse' | 'eu';
+  sourceName?: string;
+  sourceUrl?: string;
 }
 export interface Candidate extends CommonsImage { id: string; storyId: string }
 export interface Vote { storyId: string; candidateId: string | null }
@@ -39,36 +42,56 @@ function payload(event: Event, marker: string): Record<string, unknown> {
     throw new Error('Invalid image metadata version');
   return value as Record<string, unknown>;
 }
-function https(value: unknown): URL {
+function https(value: unknown, allowQuery = false): URL {
   if (typeof value !== 'string') throw new Error('Invalid image URL');
   const url = new URL(value);
-  if (url.protocol !== 'https:' || url.username || url.password || url.port || url.hash || url.search)
+  if (url.protocol !== 'https:' || url.username || url.password || url.port || url.hash || (!allowQuery && url.search))
     throw new Error('Invalid image URL');
   return url;
 }
-export function readCommonsImage(data: Record<string, unknown>): CommonsImage {
+function publicUrl(value: unknown): URL {
+  const url = https(value, true), host = url.hostname.replace(/\.$/, '');
+  // Suggestions are fetched by browsers, never from local/network addresses.
+  if (!host.includes('.') || /[\[\]:]/.test(host) || /^\d+(?:\.\d+)*$/.test(host) || /\.(?:local|localhost|internal|test|invalid|lan|home)$/.test(host)) throw new Error('Invalid public image URL');
+  return url;
+}
+export function readIllustration(data: Record<string, unknown>): CommonsImage {
   if (data.version !== 1) throw new Error('Invalid image metadata version');
   for (const field of ['title', 'alt', 'creator', 'attribution', 'license']) if (!text(data[field])) throw new Error('Missing image attribution');
-  const image = https(data.url), page = https(data.filePage), license = https(data.licenseUrl);
-  if (!['upload.wikimedia.org', 'thumb.wikimedia.org'].includes(image.hostname) || !image.pathname.startsWith('/wikipedia/commons/') ||
-      page.hostname !== 'commons.wikimedia.org' || !page.pathname.startsWith('/wiki/File:')) throw new Error('Not a Commons image');
+  const external = data.source === 'openverse' || data.source === 'eu';
+  const image = external ? publicUrl(data.url) : https(data.url), page = external ? publicUrl(data.filePage) : https(data.filePage), license = https(data.licenseUrl);
+  if (!external) {
+    if (data.source !== undefined || !['upload.wikimedia.org', 'thumb.wikimedia.org'].includes(image.hostname) || !image.pathname.startsWith('/wikipedia/commons/') ||
+        page.hostname !== 'commons.wikimedia.org' || !page.pathname.startsWith('/wiki/File:')) throw new Error('Not a Commons image');
+  } else {
+    if (!text(data.sourceName)) throw new Error('Missing image source');
+    const catalog = https(data.sourceUrl);
+    if (data.source === 'openverse' && (catalog.hostname !== 'api.openverse.org' || !/^\/v1\/images\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/$/.test(catalog.pathname))) throw new Error('Invalid Openverse provenance');
+    if (data.source === 'eu' && (catalog.hostname !== 'audiovisual.ec.europa.eu' || !/^\/en\/(?:media\/)?photo\/P-\d+(?:~2F|%2F)\d+-\d+$/i.test(catalog.pathname) ||
+      page.href !== catalog.href || image.hostname !== 'ec.europa.eu' || !image.pathname.startsWith('/avservices/repository/photo/') || data.license !== 'CC-BY-4.0')) throw new Error('Invalid EU photo provenance');
+  }
   const cc = /^(CC-BY|CC-BY-SA)-(1\.0|2\.0|2\.5|3\.0|4\.0)$/.exec(String(data.license));
   const licensePath = cc ? `/licenses/${cc[1] === 'CC-BY' ? 'by' : 'by-sa'}/${cc[2]}/` :
     data.license === 'CC0-1.0' ? '/publicdomain/zero/1.0/' : data.license === 'PDM-1.0' ? '/publicdomain/mark/1.0/' : null;
   if (license.hostname !== 'creativecommons.org' || !licensePath || license.pathname !== licensePath) throw new Error('Unsupported image license');
   return { version: 1, url: image.href, filePage: page.href,
     title: data.title as string, alt: data.alt as string, creator: data.creator as string,
-    attribution: data.attribution as string, license: data.license as string, licenseUrl: license.href };
+    attribution: data.attribution as string, license: data.license as string, licenseUrl: license.href,
+    ...(external ? { source: data.source as 'openverse' | 'eu', sourceName: data.sourceName as string, sourceUrl: data.sourceUrl as string } : {}) };
+}
+export function readCommonsImage(data: Record<string, unknown>): CommonsImage {
+  if (data.source !== undefined) throw new Error('Not a Commons image');
+  return readIllustration(data);
 }
 export function readCandidate(event: Event, pubkey: string, refs: Record<string, string[]>, discover = false): Candidate {
   checkedEvent(event, pubkey, 1);
   const storyId = root(event);
   const indexed = discover && Object.hasOwn(refs, storyId) && event.tags.some(t => t[0] === 't' && t[1] === IMAGE_MARKER);
   if (!refs[storyId]?.includes(event.id) && !indexed) throw new Error('Unlisted candidate');
-  return { ...readCommonsImage(payload(event, IMAGE_MARKER)), id: event.id, storyId };
+  return { ...readIllustration(payload(event, IMAGE_MARKER)), id: event.id, storyId };
 }
 export function candidateTemplate(storyId: string, image: CommonsImage): EventTemplate {
-  return { kind: 1, created_at: Math.floor(Date.now() / 1000), content: `Illustrative Commons image: ${image.title}\n${image.filePage}`,
+  return { kind: 1, created_at: Math.floor(Date.now() / 1000), content: `Illustrative image: ${image.title}\n${image.filePage}`,
     tags: [['e', storyId, '', 'root'], ['t', IMAGE_MARKER], [IMAGE_MARKER, JSON.stringify(image)]] };
 }
 export function readVote(event: Event, refs: Record<string, string[]>): Vote {
@@ -100,7 +123,7 @@ export function selectImage(storyId: string, candidates: Candidate[], votes: Eve
   return { winner: scores[0]?.count ? scores[0].candidate : null, scores, latest };
 }
 export function voteTemplate(storyId: string, candidateId: string | null, created_at = Math.floor(Date.now() / 1000)): EventTemplate {
-  return { kind: 1, created_at, content: candidateId ? 'Approve this illustrative Commons image.' : 'Withdraw my image approval.',
+  return { kind: 1, created_at, content: candidateId ? 'Approve this illustrative image.' : 'Withdraw my image approval.',
     tags: [['e', storyId, '', 'root'], ['t', VOTE_MARKER], [VOTE_MARKER, JSON.stringify({ version: 1, candidateId })]] };
 }
 
@@ -260,7 +283,7 @@ export class ImageSession {
   async propose(signer: Signer, pubkey: string, storyId: string, image: CommonsImage) {
     if (pubkey !== this.config.pubkey || await signer.getPublicKey() !== pubkey) throw new Error('Connect Stringer’s account to publish image candidates.');
     if (this.stopped || !Object.hasOwn(this.refs, storyId)) throw new Error('This headline is no longer available.');
-    const template = candidateTemplate(storyId, readCommonsImage(image as unknown as Record<string, unknown>));
+    const template = candidateTemplate(storyId, readIllustration(image as unknown as Record<string, unknown>));
     const event = await signer.signEvent(structuredClone(template));
     checkedEvent(event, pubkey, 1);
     if (event.created_at !== template.created_at || event.content !== template.content || JSON.stringify(event.tags) !== JSON.stringify(template.tags)) throw new Error('Signer changed the requested image candidate.');

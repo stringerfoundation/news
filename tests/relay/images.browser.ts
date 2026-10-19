@@ -39,9 +39,26 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
   const errors: string[] = [];
   const searchedSubjects = new Set<string>();
   async function setup(page: Page, signer: boolean | 'owner', denied = false) {
+    // tsx emits this helper for nested callbacks serialized into the browser.
+    await page.addInitScript('window.__name = (fn) => fn;');
     page.on('pageerror', error => errors.push(error.message));
     await page.route('**/*', async route => {
       const url = new URL(route.request().url());
+      if (['live.staticflickr.com', 'ec.europa.eu'].includes(url.hostname)) { await route.fulfill({ contentType: 'image/png', body: await readFile('assets/favicon-16.png') }); return; }
+      if (url.hostname === 'api.openverse.org') {
+        await route.fulfill({ json: { results: url.searchParams.get('q') === 'External sample' ? [{
+          id: '12345678-1234-1234-1234-123456789abc', title: 'External example', creator: 'Flickr photographer', attribution: 'Flickr photographer · CC BY 4.0',
+          url: 'https://live.staticflickr.com/1/123456789_example.jpg', foreign_landing_url: 'https://www.flickr.com/photos/example/123456789',
+          source: 'flickr', license: 'by', license_version: '4.0', license_url: 'https://creativecommons.org/licenses/by/4.0/',
+        }] : [] } }); return;
+      }
+      if (url.hostname === 'gfdwwnbuul.execute-api.eu-west-1.amazonaws.com') {
+        await route.fulfill({ json: { response: { docs: url.searchParams.get('kwgg') === 'EU sample' ? [{
+          type: 'PHOTO', ref: 'P-123456/00-01', titles_json: { EN: 'EU example' }, summary_json: { EN: 'EU illustration' },
+          copyright_json: { year: '2026', holders: { EN: ['European Union'] } }, cc_by_json: [{ cc_by: '0', titles: {}, links: {} }],
+          cooperator_json: { PHOTOGRAPHER: { EN: { coop: ['EU photographer'] } } }, media_json: { LOW: { PATH: '/01/02/03/P-123456_00-01.jpg' } },
+        }] : [] } } }); return;
+      }
       if (['upload.wikimedia.org', 'thumb.wikimedia.org'].includes(url.hostname) && brokenImage) { await route.fulfill({ status: 404 }); return; }
       if (['upload.wikimedia.org', 'thumb.wikimedia.org'].includes(url.hostname)) { await route.fulfill({ contentType: 'image/png', body: await readFile('assets/favicon-16.png') }); return; }
       if (url.hostname === 'en.wikipedia.org') {
@@ -205,11 +222,23 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     await ownerPage.getByText('Review illustrative images', { exact: true }).click();
     const search = ownerPage.getByRole('searchbox');
     await search.fill('No results');
-    await ownerPage.getByRole('button', { name: 'Search Commons', exact: true }).click();
+    await ownerPage.getByRole('button', { name: 'Search images', exact: true }).click();
     await ownerPage.getByText('No reusable images found. Try a specific person, place or subject.', { exact: true }).waitFor();
     await ownerPage.getByRole('searchbox').fill('Unavailable');
-    await ownerPage.getByRole('button', { name: 'Search Commons', exact: true }).click();
-    await ownerPage.getByText('Commons search is unavailable. Please retry.', { exact: true }).waitFor();
+    await ownerPage.getByRole('button', { name: 'Search images', exact: true }).click();
+    await ownerPage.locator('.image-review .warning').filter({ hasText: 'Commons search is unavailable.' }).waitFor();
+    // External sources use the same signed-candidate and approval flow.
+    for (const [query, source, credit] of [['External sample', 'flickr', 'Flickr photographer'], ['EU sample', 'eu', 'EU photographer']]) {
+      await ownerPage.getByRole('searchbox').fill(query!);
+      await ownerPage.getByRole('combobox', { name: 'Image source' }).selectOption(source!);
+      const publish = ownerPage.locator('.image-review').getByRole('button', { name: 'Publish and upvote image', exact: true });
+      await publish.waitFor();
+      const priorTime = Math.max(...events.filter(event => event.pubkey === pubkey).map(event => event.created_at));
+      await ownerPage.waitForFunction(at => Math.floor(Date.now() / 1000) > at, priorTime);
+      await publish.click();
+      await ownerPage.getByText('Image and approval published.', { exact: true }).waitFor();
+      await reader.locator('#world-news figcaption').filter({ hasText: credit! }).waitFor();
+    }
     const late = await browser.newPage();
     await setup(late, false);
     await late.evaluate(key => { window.nostr = { async getPublicKey() { return key; }, async signEvent() { throw new Error('No signing in identity test'); } }; }, voterKey);

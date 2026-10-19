@@ -1,6 +1,7 @@
 import { readResponseText } from './response.js';
 import type { SourceState, Snapshot } from './relay/types.js';
 import type { CommonsImage, ImageSession } from './relay/images.js';
+import type { ImageSource } from './relay/open-images.js';
 import type { DisplayStory } from './news-model.js';
 import type { FeedLoadTiming } from './relay/reader.js';
 import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from './news-model.js';
@@ -44,9 +45,9 @@ let loadOutcome = '';
 let loadStage = '';
 let feedTimings: Record<string, FeedLoadTiming> = {};
 let ImageSessionClass: typeof ImageSession | null = null;
-let searchCommons: typeof import('./relay/commons.js').searchCommons | null = null;
+let searchImages: typeof import('./relay/open-images.js').searchImages | null = null;
 let commonsSubject: typeof import('./relay/commons.js').commonsSubject = title => title;
-interface CommonsSearch { query: string; loading: boolean; results: CommonsImage[]; error: string; searched: boolean }
+interface CommonsSearch { query: string; source: ImageSource; issues: string[]; loading: boolean; results: CommonsImage[]; error: string; searched: boolean }
 const commonsSearches = new Map<string, CommonsSearch>();
 const suggestionQueue = new Set<string>();
 let activeSuggestions = 0;
@@ -177,13 +178,14 @@ function commonsCaption(candidate: CommonsImage) {
     if (caption.lastChild?.nodeType === Node.ELEMENT_NODE) caption.append(document.createTextNode(' · '));
     const link = element('a', label); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; caption.append(link);
   }
+  if (candidate.sourceName) caption.append(document.createTextNode(` · ${candidate.sourceName}`));
   return caption;
 }
 function imageReview(storyId: string, title: string) {
   if (!hasSigner() || !voter || !imageSession?.canVote(voter)) return null;
   const selection = imageSession.selection(storyId);
   if (!commonsSearches.has(storyId)) {
-    commonsSearches.set(storyId, { query: commonsSubject(title), loading: false, results: [], error: '', searched: false });
+    commonsSearches.set(storyId, { query: commonsSubject(title), source: 'all', issues: [], loading: false, results: [], error: '', searched: false });
   }
   const needsSuggestion = !selection.winner && !selection.scores.length;
   const details = element('details', '', 'image-review');
@@ -225,17 +227,26 @@ function imageReview(storyId: string, title: string) {
   {
     const state = commonsSearches.get(storyId);
     const form = element('form', '', 'commons-search');
-    const label = element('label', 'Search Commons for a person, place or subject');
+    const label = element('label', 'Search reusable images for a person, place or subject');
+    const sourceLabel = element('label', 'Image source');
+    const sourceSelect = element('select'); sourceSelect.setAttribute('aria-label', 'Image source');
+    for (const [value, text] of [['all', 'All sources'], ['commons', 'Wikimedia Commons'], ['openverse', 'Openverse'], ['flickr', 'Flickr via Openverse'], ['eu', 'EU audiovisual library']]) {
+      const option = element('option', text); option.value = value!; sourceSelect.append(option);
+    }
+    sourceSelect.value = state?.source || 'all'; sourceSelect.disabled = !!state?.loading;
+    sourceSelect.addEventListener('change', () => { if (state) { state.source = sourceSelect.value as ImageSource; void findCommons(storyId, state.query); } });
+    sourceLabel.append(sourceSelect);
     const input = element('input'); input.type = 'search'; input.value = state?.query || title; input.maxLength = 200; input.required = true;
     label.append(input);
     input.addEventListener('input', () => { if (state) state.query = input.value; });
-    const submit = element('button', state?.loading ? 'Searching Commons…' : 'Search Commons'); submit.type = 'submit'; submit.disabled = !!state?.loading;
+    const submit = element('button', state?.loading ? 'Searching images…' : 'Search images'); submit.type = 'submit'; submit.disabled = !!state?.loading;
     form.addEventListener('submit', event => { event.preventDefault(); void findCommons(storyId, input.value); });
-    form.append(label, submit); details.append(form);
+    form.append(sourceLabel, label, submit); details.append(form);
     details.append(element('p', voter === relayConfig.pubkey
       ? 'Suggested images need approval before other readers can see them. Publishing and upvoting requests two signatures.'
       : 'Suggested images need approval before other readers can see them. Stringer’s account must publish new candidates first.'));
     if (state?.error) details.append(element('p', state.error, 'warning'));
+    else if (state?.issues.length) details.append(element('p', state.issues.join(' '), 'warning'));
     if (state?.searched && !state.loading && !state.error && !state.results.length)
       details.append(element('p', 'No reusable images found. Try a specific person, place or subject.'));
     for (const image of state?.results || []) {
@@ -262,12 +273,16 @@ async function publishCommons(storyId: string, image: CommonsImage) {
   finally { voteBusy = false; renderWorld(); }
 }
 async function findCommons(storyId: string, query: string, suggest = false) {
-  if (!searchCommons || commonsSearches.get(storyId)?.loading) return;
-  const state: CommonsSearch = commonsSearches.get(storyId) || { query, loading: false, results: [], error: '', searched: false };
-  Object.assign(state, { query, loading: true, results: [], error: '', searched: false });
+  if (!searchImages || commonsSearches.get(storyId)?.loading) return;
+  const state: CommonsSearch = commonsSearches.get(storyId) || { query, source: 'all', issues: [], loading: false, results: [], error: '', searched: false };
+  Object.assign(state, { query, loading: true, results: [], error: '', issues: [], searched: false });
   commonsSearches.set(storyId, state); renderWorld();
-  try { state.results = await searchCommons(query, fetch, suggest); }
-  catch (error) { state.error = error instanceof Error ? error.message : 'Commons search is unavailable. Please retry.'; }
+  try {
+    const result = await searchImages(query, state.source, suggest);
+    state.results = result.images; state.issues = result.issues;
+    if (!result.images.length && result.issues.length) state.error = result.issues.join(' ');
+  }
+  catch (error) { state.error = error instanceof Error ? error.message : 'Image search is unavailable. Please retry.'; }
   finally { state.loading = false; state.searched = true; renderWorld(); }
 }
 window.addEventListener('pagehide', () => imageSession?.close());
@@ -335,7 +350,7 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
         figure.classList.add('wire-thumbnail');
         const imageLink = element('a');
         imageLink.href = commons.filePage; imageLink.target = '_blank'; imageLink.rel = 'noopener noreferrer';
-        imageLink.setAttribute('aria-label', `View ${commons.title} on Wikimedia Commons`);
+        imageLink.setAttribute('aria-label', `View ${commons.title} at ${commons.sourceName || 'Wikimedia Commons'}`);
         imageLink.append(image);
         figure.append(imageLink);
       } else figure.append(image);
@@ -380,8 +395,8 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
     } else if (wire && story.noteId && trusted && !selection?.winner) {
       const state = commonsSearches.get(story.noteId);
       body.append(element('p', state?.error || (state?.searched
-        ? 'No reusable Commons image found. Open image review to refine the search.'
-        : 'Finding a suggested Commons image…'), state?.error ? 'warning' : 'image-search-status'));
+        ? 'No reusable image found. Open image review to refine the search.'
+        : 'Finding a suggested image…'), state?.error ? 'warning' : 'image-search-status'));
     }
     if (wire && story.noteId) {
       const review = imageReview(story.noteId, story.title);
@@ -509,7 +524,7 @@ async function load() {
     if (relayConfig.enabled) {
       const reader = await import('./relay-reader.js');
       ImageSessionClass = reader.ImageSession;
-      searchCommons = reader.searchCommons;
+      searchImages = reader.searchImages;
       commonsSubject = reader.commonsSubject;
       if (!snapshot) {
         snapshot = reader.cachedRelaySnapshot(relayConfig);
