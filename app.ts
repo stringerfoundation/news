@@ -143,6 +143,17 @@ function updateStoryVisibility() {
     section.button.textContent = `Show ${section.expanded ? 'fewer' : 'more'} ${section.label}`;
     section.button.setAttribute('aria-label', section.button.textContent);
   }
+  if (!mobileLayout.matches) {
+    const stringer = document.querySelector('#stringer-news');
+    if (!stringer.querySelector('article')) return;
+    const bottom = stringer.getBoundingClientRect().bottom;
+    let reachedEnd = false;
+    // Keep complete headlines through the end of the Courageous Stories column.
+    for (const card of document.querySelectorAll('#world-news article')) {
+      card.hidden = reachedEnd;
+      if (!reachedEnd && card.getBoundingClientRect().bottom >= bottom) reachedEnd = true;
+    }
+  }
 }
 for (const section of sections) {
   section.button.addEventListener('click', () => {
@@ -294,6 +305,10 @@ async function load() {
     if (snapshot) render(); else renderStatuses();
   }
 }
+const layoutObserver = new ResizeObserver(updateStoryVisibility);
+layoutObserver.observe(document.querySelector('#stringer-news'));
+window.addEventListener('resize', updateStoryVisibility);
+document.fonts.ready.then(updateStoryVisibility);
 setInterval(() => { renderStatuses(); if (!document.hidden && Date.now() - lastAttempt >= interval) load(); }, 30_000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastAttempt >= interval) load(); });
 load();
