@@ -1,6 +1,7 @@
 import { build } from 'esbuild';
 import { mkdir, copyFile, readFile, writeFile, readdir, rm } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+const builtAt = new Date().toISOString();
 await rm('_site', { recursive: true, force: true });
 await mkdir('_site/assets/stringer-thumbnails', { recursive: true });
 await mkdir('_site/.well-known', { recursive: true });
@@ -19,6 +20,8 @@ await writeFile('_site/.nojekyll', '');
 await writeFile('_site/robots.txt', 'User-agent: *\nDisallow: /\n');
 let html = await readFile('_site/index.html', 'utf8');
 html = html.replace('<head>', '<head>\n  <meta name="robots" content="noindex, nofollow, noarchive, noimageindex" />');
+html = html.replace('<p id="reader-build" class="build-info" hidden>Build <time></time></p>',
+  `<p id="reader-build" class="build-info">Build <time datetime="${builtAt}">${builtAt.slice(0, 19).replace('T', ' ')} UTC</time></p>`);
 await writeFile('_site/index.html', html);
 const versioned = [...files, 'relay-reader.js'];
 const hash = createHash('sha256');
