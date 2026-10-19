@@ -1,6 +1,6 @@
-import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=a5bbaf7b2a40aca9";
-import relayConfig from "./relay-config.js?v=a5bbaf7b2a40aca9";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=a5bbaf7b2a40aca9";
+import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=eeb8d77f2ca71542";
+import relayConfig from "./relay-config.js?v=eeb8d77f2ca71542";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=eeb8d77f2ca71542";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -39,6 +39,12 @@ const commonsSearches = /* @__PURE__ */ new Map();
 let imageSession = null;
 let imageRefsKey = "";
 let voter = null;
+let accountNpub = "";
+let accountNip05 = null;
+let identityPending = false;
+let connectingSigner = false;
+let accountRevision = 0;
+let attemptedSigner;
 let voteBusy = false;
 let voteMessage = "";
 const openImageReviews = /* @__PURE__ */ new Set();
@@ -55,38 +61,106 @@ function syncImages() {
     imageRefsKey = key;
     if (storyIds.length) imageSession = new ImageSessionClass(relayConfig, refs, () => renderWorld(), storyIds);
   }
-  imageToolbar.replaceChildren();
-  imageToolbar.hidden = !imageSession;
-  if (!imageSession) return;
-  const connect = element("button", voter ? "Disconnect Nostr" : "Connect Nostr");
-  connect.type = "button";
-  connect.disabled = voteBusy;
-  connect.addEventListener("click", async () => {
+  renderNostrAccount();
+}
+function hasSigner() {
+  return typeof window.nostr?.getPublicKey === "function" && typeof window.nostr?.signEvent === "function";
+}
+function refreshAccount() {
+  if (snapshot) renderWorld();
+  else renderNostrAccount();
+}
+async function connectNostr() {
+  if (!hasSigner() || connectingSigner) return;
+  const signer = window.nostr, revision = ++accountRevision;
+  connectingSigner = true;
+  voteMessage = "";
+  renderNostrAccount();
+  try {
+    const key = await signer.getPublicKey();
+    if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
+    const identity = await import("./relay-reader.js?v=eeb8d77f2ca71542");
+    if (revision !== accountRevision || window.nostr !== signer) return;
+    voter = key;
+    accountNpub = identity.npubEncode(key);
+    accountNip05 = null;
+    identityPending = true;
+    connectingSigner = false;
+    refreshAccount();
+    const address = await identity.readIdentity(key, relayConfig.relays, key === relayConfig.pubkey ? "_@stringerjournalism.org" : void 0);
+    if (revision !== accountRevision || voter !== key || window.nostr !== signer) return;
+    accountNip05 = address;
+    identityPending = false;
+    refreshAccount();
+  } catch (error) {
+    if (revision !== accountRevision) return;
     if (voter) {
+      identityPending = false;
+      accountNip05 = null;
+    } else voteMessage = error instanceof Error ? error.message : "Could not connect to your signer.";
+  } finally {
+    if (revision === accountRevision) {
+      connectingSigner = false;
+      refreshAccount();
+    }
+  }
+}
+function renderNostrAccount() {
+  imageToolbar.replaceChildren();
+  imageToolbar.hidden = !hasSigner();
+  if (imageToolbar.hidden) return;
+  if (voter) {
+    const identity = element("div", "", "nostr-identity");
+    const npub = element("code", accountNpub);
+    npub.className = "account-npub";
+    identity.append(npub, element("span", identityPending ? "Looking up NIP-05\u2026" : accountNip05 || "NIP-05 unavailable", "account-nip05"));
+    imageToolbar.append(identity);
+  }
+  const connect = element("button", connectingSigner ? "Connecting Nostr\u2026" : voter ? "Disconnect Nostr" : "Connect Nostr");
+  connect.type = "button";
+  connect.disabled = voteBusy || connectingSigner;
+  connect.addEventListener("click", () => {
+    if (voter) {
+      ++accountRevision;
       voter = null;
+      accountNpub = "";
+      accountNip05 = null;
+      identityPending = false;
       voteMessage = "";
-      renderWorld();
-      return;
-    }
-    try {
-      if (!window.nostr?.getPublicKey || !window.nostr?.signEvent) throw new Error("Install a NIP-07 Nostr signer to approve images.");
-      const key2 = await window.nostr.getPublicKey();
-      if (!/^[0-9a-f]{64}$/.test(key2)) throw new Error("The signer returned an invalid account.");
-      voter = key2;
-      voteMessage = "";
-      renderWorld();
-    } catch (error) {
-      voteMessage = error instanceof Error ? error.message : "Could not connect to your signer.";
-      renderWorld();
-    }
+      refreshAccount();
+    } else void connectNostr();
   });
   imageToolbar.append(connect);
-  let status = voter && imageSession.trustLive && !imageSession.canVote(voter) ? "This account is not followed by Stringer and cannot approve images." : voteMessage;
-  if (!status && voter) status = imageSession.canVote(voter) ? "You can approve illustrative images." : !imageSession.trustLive ? "Waiting for Stringer\u2019s follow list." : "This account is not followed by Stringer and cannot approve images.";
+  let status = voter && imageSession?.trustLive && !imageSession.canVote(voter) ? "This account is not followed by Stringer and cannot approve images." : voteMessage;
+  if (!status && voter && imageSession) status = imageSession.canVote(voter) ? "You can approve illustrative images." : !imageSession.trustLive ? "Waiting for Stringer\u2019s follow list." : "This account is not followed by Stringer and cannot approve images.";
   const message = element("p", status);
   message.setAttribute("role", "status");
   imageToolbar.append(message);
 }
+function detectNostr() {
+  if (!hasSigner()) {
+    if (voter) {
+      ++accountRevision;
+      voter = null;
+      accountNpub = "";
+      accountNip05 = null;
+      identityPending = false;
+      refreshAccount();
+    } else renderNostrAccount();
+    return;
+  }
+  if (attemptedSigner === window.nostr) return;
+  attemptedSigner = window.nostr;
+  void connectNostr();
+}
+let signerChecks = 0;
+const signerTimer = setInterval(() => {
+  detectNostr();
+  if (++signerChecks >= 40 || attemptedSigner) clearInterval(signerTimer);
+}, 250);
+window.addEventListener("load", detectNostr);
+window.addEventListener("nostr:ready", detectNostr);
+detectNostr();
 function commonsCaption(candidate) {
   const caption = element("figcaption");
   caption.append(document.createTextNode(`Illustrative image \xB7 ${candidate.creator} \xB7 ${candidate.attribution} \xB7 `));
@@ -101,7 +175,7 @@ function commonsCaption(candidate) {
   return caption;
 }
 function imageReview(storyId, title) {
-  if (!voter || !imageSession?.canVote(voter)) return null;
+  if (!hasSigner() || !voter || !imageSession?.canVote(voter)) return null;
   const selection = imageSession.selection(storyId);
   if (voter === relayConfig.pubkey && !commonsSearches.has(storyId))
     commonsSearches.set(storyId, { query: title, loading: false, results: [], error: "", searched: false });
@@ -477,7 +551,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=a5bbaf7b2a40aca9");
+      const reader = await import("./relay-reader.js?v=eeb8d77f2ca71542");
       ImageSessionClass = reader.ImageSession;
       searchCommons = reader.searchCommons;
       if (!snapshot) {

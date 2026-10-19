@@ -8337,9 +8337,93 @@ function cachedRelaySnapshot(config) {
     return null;
   }
 }
+
+// node_modules/nostr-tools/lib/esm/nip19.js
+var utf8Decoder3 = new TextDecoder("utf-8");
+var utf8Encoder4 = new TextEncoder();
+var Bech32MaxSize2 = 5e3;
+function npubEncode2(hex2) {
+  return encodeBytes2("npub", hexToBytes(hex2));
+}
+function encodeBech322(prefix, data) {
+  let words = bech32.toWords(data);
+  return bech32.encode(prefix, words, Bech32MaxSize2);
+}
+function encodeBytes2(prefix, bytes) {
+  return encodeBech322(prefix, bytes);
+}
+
+// relay/identity.ts
+function profileAddress(events, pubkey) {
+  const valid = events.filter((event) => {
+    try {
+      checkedEvent(event, pubkey, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  }).sort(newest);
+  if (!valid[0]) return null;
+  try {
+    const metadata = JSON.parse(valid[0].content);
+    return typeof metadata.nip05 === "string" ? metadata.nip05 : null;
+  } catch {
+    return null;
+  }
+}
+function nip05Endpoint(address) {
+  const match = /^([a-z0-9._-]+)@([a-z0-9.-]+)$/i.exec(address);
+  if (!match) return null;
+  const name = match[1], domain = match[2].toLowerCase();
+  if (address.length > 320 || !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(domain) || /\.(local|localhost|internal|home|lan)$/.test(domain)) return null;
+  const url = new URL(`https://${domain}/.well-known/nostr.json`);
+  url.searchParams.set("name", name);
+  return { url: url.href, name, address: name === "_" ? domain : `${name}@${domain}` };
+}
+async function verifyAddress(address, pubkey, request = fetch) {
+  const endpoint = nip05Endpoint(address);
+  if (!endpoint) return null;
+  try {
+    const response = await request(endpoint.url, { credentials: "omit", referrerPolicy: "no-referrer", redirect: "error", signal: AbortSignal.timeout(5e3) });
+    if (!response.ok) return null;
+    const body = await response.json();
+    const names = body?.names;
+    return names && typeof names === "object" && !Array.isArray(names) && Object.hasOwn(names, endpoint.name) && names[endpoint.name] === pubkey ? endpoint.address : null;
+  } catch {
+    return null;
+  }
+}
+async function readIdentity(pubkey, relays, fallback) {
+  const pool = new SimplePool({ enableReconnect: false });
+  const events = [];
+  let timer;
+  let subscription;
+  try {
+    await new Promise((resolve) => {
+      timer = setTimeout(resolve, 4500);
+      subscription = pool.subscribeMany(relays, { kinds: [0], authors: [pubkey], limit: 3 }, {
+        maxWait: 3500,
+        onevent: (event) => {
+          events.push(event);
+        },
+        oneose: resolve,
+        onclose: () => resolve()
+      });
+    });
+  } finally {
+    clearTimeout(timer);
+    await subscription?.close();
+    pool.destroy();
+  }
+  const claimed = profileAddress(events, pubkey);
+  const verified = claimed ? await verifyAddress(claimed, pubkey) : null;
+  return verified || (fallback && fallback !== claimed ? await verifyAddress(fallback, pubkey) : null);
+}
 export {
   ImageSession,
   cachedRelaySnapshot,
+  npubEncode2 as npubEncode,
+  readIdentity,
   readRelaySnapshot,
   searchCommons
 };
