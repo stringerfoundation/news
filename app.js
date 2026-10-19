@@ -1,4 +1,4 @@
-import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldGroups, formatLocalDateTime, formatPublicationDate } from './news-model.js';
+import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from './news-model.js';
 import relayConfig from './relay-config.js';
 import { STRINGER_MEDIA } from './stringer-media.js';
 const menuToggle = document.querySelector('.header-menu-toggle');
@@ -74,9 +74,9 @@ function renderStories(target, stories, emptyMessage) {
           image.src = localImage;
           return;
         }
-        figure.remove(); article.classList.remove('with-image');
-        if (usePlaceholder) showPlaceholder();
-        balanceNewswire();
+        const placeholder = element('div', '', 'story-placeholder');
+        placeholder.setAttribute('aria-hidden', 'true');
+        image.replaceWith(placeholder);
       });
       image.src = imageUrl;
       if (wire) {
@@ -97,9 +97,7 @@ function renderStories(target, stories, emptyMessage) {
     if (story.credits) body.append(element('p', story.credits, 'credits'));
     if (story.summary) body.append(element('p', story.summary, 'summary'));
     const meta = element('div', '', 'meta');
-    const grouped = wire && story.articles?.length > 1;
-    if (wire && story.mayRequireSubscription) body.append(element('p', 'May require subscription', 'subscription-warning'));
-    meta.append(element('span', grouped ? `${story.articles.length} articles · ${[...new Set(story.articles.map(a => a.source))].join(', ')}` : story.source || new URL(url).hostname.replace(/^www\./, ''), 'source'));
+    meta.append(element('span', story.source || new URL(url).hostname.replace(/^www\./, ''), 'source'));
     // The publisher may still serve an older signed collection; the owner confirmed this exact reel's date.
     const reviewedDate = target.id === 'stringer-news' && story.url === 'https://www.instagram.com/reel/DMsRo8JNRY8/?igsh=MWc5aXJiZml4c2l4cA==' ? '2025-07-29' : null;
     const publishedAt = story.publishedAt || approvedMedia?.publishedAt;
@@ -119,61 +117,32 @@ function renderStories(target, stories, emptyMessage) {
       meta.firstElementChild.after(separator);
     }
     body.append(meta);
-    if (grouped) {
-      const details = element('details', '', 'group-articles');
-      details.append(element('summary', `View ${story.articles.length} articles`));
-      const list = element('ul');
-      for (const member of story.articles) {
-        const memberUrl = safeUrl(member.url); if (!memberUrl) continue;
-        const item = element('li');
-        item.append(element('span', `${member.source} · `, 'source'));
-        const memberLink = element('a', member.title);
-        memberLink.href = memberUrl; memberLink.target = '_blank'; memberLink.rel = 'noopener noreferrer';
-        item.append(memberLink);
-        if (member.mayRequireSubscription) item.append(element('span', 'May require subscription', 'subscription-warning'));
-        list.append(item);
-      }
-      details.append(list);
-      details.addEventListener('toggle', balanceNewswire);
-      body.append(details);
-    }
     article.append(body); target.append(article);
   }
   if (!target.children.length && emptyMessage) target.append(element('p', emptyMessage, 'empty'));
 }
-let balancing = false;
-function arrangeMobileHeadlines(mobile) {
-  const list = document.querySelector('#world-news');
-  const more = document.querySelector('#world-more');
-  const remainder = document.querySelector('#world-more-list');
-  const cards = [...list.children, ...remainder.children].filter(node => node.tagName === 'ARTICLE');
-  const limit = innerHeight < 640 ? 2 : innerHeight < 740 ? 3 : 4;
-  cards.forEach((card, index) => {
-    const destination = mobile && index >= limit ? remainder : list;
-    if (card.parentElement !== destination) destination.append(card);
+const mobileLayout = matchMedia('(max-width: 767px)');
+const sections = [
+  { list: document.querySelector('#world-news'), button: document.querySelector('#world-more'), label: 'headlines', expanded: false },
+  { list: document.querySelector('#stringer-news'), button: document.querySelector('#stringer-more'), label: 'courageous stories', expanded: false },
+];
+function updateStoryVisibility() {
+  for (const section of sections) {
+    const cards = [...section.list.querySelectorAll('article')];
+    cards.forEach((card, index) => { card.hidden = mobileLayout.matches && !section.expanded && index >= 5; });
+    section.button.hidden = !mobileLayout.matches || cards.length <= 5;
+    section.button.setAttribute('aria-expanded', String(section.expanded));
+    section.button.textContent = `Show ${section.expanded ? 'fewer' : 'more'} ${section.label}`;
+    section.button.setAttribute('aria-label', section.button.textContent);
+  }
+}
+for (const section of sections) {
+  section.button.addEventListener('click', () => {
+    section.expanded = !section.expanded;
+    updateStoryVisibility();
   });
-  more.hidden = !mobile || remainder.children.length === 0;
-  const label = more.open ? 'Show fewer headlines' : `More headlines (${remainder.children.length})`;
-  if (more.querySelector('summary').textContent !== label) more.querySelector('summary').textContent = label;
-  return cards;
 }
-function balanceNewswire() {
-  if (balancing || !snapshot) return;
-  balancing = true;
-  try {
-    const stringer = document.querySelector('#stringer-news');
-    const mobile = matchMedia('(max-width: 767px)').matches;
-    const cards = arrangeMobileHeadlines(mobile);
-    // Show real headlines until their content reaches the end of the Stringer collection.
-    // Images reserve their space, so loading them does not keep shifting the balance.
-    cards.forEach(card => { card.hidden = false; });
-    if (!mobile && stringer.querySelector('article')) {
-      const bottom = stringer.getBoundingClientRect().bottom;
-      const last = cards.findIndex(card => card.getBoundingClientRect().bottom >= bottom);
-      if (last !== -1) cards.slice(last + 1).forEach(card => { card.hidden = true; });
-    }
-  } finally { balancing = false; }
-}
+mobileLayout.addEventListener('change', updateStoryVisibility);
 function renderStatuses() {
   const relayStatus = document.querySelector('#relay-status');
   const relayDetails = document.querySelector('#relay-status-details');
@@ -218,11 +187,10 @@ function renderStatuses() {
   summary.title = notes.join('\n');
 }
 function renderWorld() {
-  document.querySelector('#world-more-list').replaceChildren();
   const selected = selectedSources();
   const worldPaused = selected.length > 0 && selected.every(id => snapshot.sources[id].status === 'paused');
   const list = document.querySelector('#world-news');
-  renderStories(list, worldGroups(snapshot, selected), loading ? '' : worldPaused ? 'Global headlines are currently unavailable.' : 'No headlines available in this collection.');
+  renderStories(list, worldStories(snapshot, selected), loading ? '' : worldPaused ? 'Global headlines are currently unavailable.' : 'No headlines available in this collection.');
   if (worldPaused) {
     const links = element('p', '', 'publisher-links');
     for (const [id, name, url] of [
@@ -240,7 +208,7 @@ function renderWorld() {
     list.append(links);
   }
   renderStatuses();
-  balanceNewswire();
+  updateStoryVisibility();
 }
 function render() {
   renderStories(document.querySelector('#stringer-news'), shuffledStringerStories(snapshot.sources.stringer.stories), loading ? '' : 'Courageous stories are currently unavailable. Visit the Stringer collection below.');
@@ -315,11 +283,6 @@ async function load() {
     if (snapshot) render(); else renderStatuses();
   }
 }
-const layoutObserver = new ResizeObserver(balanceNewswire);
-layoutObserver.observe(document.querySelector('#stringer-news'));
-window.addEventListener('resize', balanceNewswire);
-document.querySelector('#world-more').addEventListener('toggle', balanceNewswire);
-document.fonts?.ready.then(balanceNewswire);
-setInterval(() => { renderStatuses(); balanceNewswire(); if (!document.hidden && Date.now() - lastAttempt >= interval) load(); }, 30_000);
+setInterval(() => { renderStatuses(); if (!document.hidden && Date.now() - lastAttempt >= interval) load(); }, 30_000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastAttempt >= interval) load(); });
 load();

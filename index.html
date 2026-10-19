@@ -76,12 +76,13 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
         <div class="column-heading"><p class="eyebrow">Around the world</p><h2 id="world-title">Global Newswire</h2><a class="section-jump" href="#courageous-stories">Courageous Stories <span aria-hidden="true">↓</span></a><p>Headlines from global publishers.</p></div>
         <div id="world-news" class="story-list" aria-busy="true"></div>
         <div id="world-status" class="feed-status" role="status"></div>
-        <details id="world-more" class="mobile-more" hidden><summary>More headlines</summary><div id="world-more-list" class="story-list"></div></details>
+        <button id="world-more" class="mobile-more" type="button" aria-controls="world-news" aria-expanded="false" hidden>Show more headlines</button>
       </section>
       <section class="column stringer" id="courageous-stories" aria-labelledby="stringer-title">
         <div class="column-heading"><p class="eyebrow">Beyond the headlines</p><h2 id="stringer-title">Stringer's Courageous Stories</h2><p>Reporting selected by The Stringer Foundation.</p></div>
         <div id="stringer-news" class="story-list" aria-busy="true"></div>
         <div id="stringer-status" class="feed-status" role="status"></div>
+        <button id="stringer-more" class="mobile-more" type="button" aria-controls="stringer-news" aria-expanded="false" hidden>Show more courageous stories</button>
         <a class="collection-link" href="https://stringerjournalism.org/courageous-stories">Explore the Stringer collection <span aria-hidden="true">↗</span></a>
       </section>
     </div>
