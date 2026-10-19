@@ -7844,21 +7844,16 @@ function https(value) {
     throw new Error("Invalid image URL");
   return url;
 }
-function readCandidate(event, pubkey, refs) {
-  checkedEvent(event, pubkey, 1);
-  const storyId = root(event);
-  if (!refs[storyId]?.includes(event.id)) throw new Error("Unlisted candidate");
-  const data = payload(event, IMAGE_MARKER);
+function readCommonsImage(data) {
+  if (data.version !== 1) throw new Error("Invalid image metadata version");
   for (const field of ["title", "alt", "creator", "attribution", "license"]) if (!text(data[field])) throw new Error("Missing image attribution");
   const image = https(data.url), page = https(data.filePage), license = https(data.licenseUrl);
-  if (image.hostname !== "upload.wikimedia.org" || !image.pathname.startsWith("/wikipedia/commons/") || page.hostname !== "commons.wikimedia.org" || !page.pathname.startsWith("/wiki/File:")) throw new Error("Not a Commons image");
+  if (!["upload.wikimedia.org", "thumb.wikimedia.org"].includes(image.hostname) || !image.pathname.startsWith("/wikipedia/commons/") || page.hostname !== "commons.wikimedia.org" || !page.pathname.startsWith("/wiki/File:")) throw new Error("Not a Commons image");
   const cc = /^(CC-BY|CC-BY-SA)-(1\.0|2\.0|2\.5|3\.0|4\.0)$/.exec(String(data.license));
   const licensePath = cc ? `/licenses/${cc[1] === "CC-BY" ? "by" : "by-sa"}/${cc[2]}/` : data.license === "CC0-1.0" ? "/publicdomain/zero/1.0/" : data.license === "PDM-1.0" ? "/publicdomain/mark/1.0/" : null;
   if (license.hostname !== "creativecommons.org" || !licensePath || license.pathname !== licensePath) throw new Error("Unsupported image license");
   return {
     version: 1,
-    id: event.id,
-    storyId,
     url: image.href,
     filePage: page.href,
     title: data.title,
@@ -7867,6 +7862,22 @@ function readCandidate(event, pubkey, refs) {
     attribution: data.attribution,
     license: data.license,
     licenseUrl: license.href
+  };
+}
+function readCandidate(event, pubkey, refs, discover = false) {
+  checkedEvent(event, pubkey, 1);
+  const storyId = root(event);
+  const indexed = discover && Object.hasOwn(refs, storyId) && event.tags.some((t) => t[0] === "t" && t[1] === IMAGE_MARKER);
+  if (!refs[storyId]?.includes(event.id) && !indexed) throw new Error("Unlisted candidate");
+  return { ...readCommonsImage(payload(event, IMAGE_MARKER)), id: event.id, storyId };
+}
+function candidateTemplate(storyId, image) {
+  return {
+    kind: 1,
+    created_at: Math.floor(Date.now() / 1e3),
+    content: `Illustrative Commons image: ${image.title}
+${image.filePage}`,
+    tags: [["e", storyId, "", "root"], ["t", IMAGE_MARKER], [IMAGE_MARKER, JSON.stringify(image)]]
   };
 }
 function readVote(event, refs) {
@@ -7907,10 +7918,12 @@ function voteTemplate(storyId, candidateId, created_at = Math.floor(Date.now() /
   };
 }
 var ImageSession = class {
-  constructor(config, refs, changed) {
+  constructor(config, refs, changed, storyIds = Object.keys(refs)) {
     this.config = config;
     this.refs = refs;
     this.changed = changed;
+    this.refs = Object.fromEntries(storyIds.filter(hex).map((id) => [id, [...refs[id] || []]]));
+    this.follows.add(config.pubkey);
     this.cacheKey = `stringer-images:${config.pubkey}`;
     try {
       const cached = JSON.parse(localStorage.getItem(this.cacheKey) || "[]");
@@ -7932,6 +7945,7 @@ var ImageSession = class {
     const ids = [...new Set(Object.values(refs).flat())];
     for (let i3 = 0; i3 < ids.length; i3 += 100)
       this.subscribe({ kinds: [1], authors: [config.pubkey], ids: ids.slice(i3, i3 + 100), limit: 100 }, false);
+    this.subscribe({ kinds: [1], authors: [config.pubkey], "#e": Object.keys(this.refs), "#t": [IMAGE_MARKER], limit: 750 }, false);
     this.listenVotes();
   }
   config;
@@ -7949,10 +7963,13 @@ var ImageSession = class {
   follows = /* @__PURE__ */ new Set();
   trustLive = false;
   cacheKey;
+  canVote(pubkey) {
+    return pubkey === this.config.pubkey || this.trustLive && this.follows.has(pubkey);
+  }
   subscribe(filter, vote = false, receive = (event) => this.receive(event, true)) {
     const sub = this.pool.subscribeMany(this.config.relays, filter, { onevent: receive });
-    const close = () => {
-      void sub.close();
+    const close = async () => {
+      await sub.close();
     };
     (vote ? this.voteClosers : this.closers).push(close);
   }
@@ -8007,11 +8024,12 @@ var ImageSession = class {
           return;
         }
         this.follow = event;
-        this.follows = follows;
+        this.follows = /* @__PURE__ */ new Set([this.config.pubkey, ...follows]);
         for (const [id, old] of this.events) if (old.kind === 3) this.events.delete(id);
         if (live) this.listenVotes();
       } else if (event.tags.some((t) => t[0] === IMAGE_MARKER)) {
-        const candidate = readCandidate(event, this.config.pubkey, this.refs);
+        const candidate = readCandidate(event, this.config.pubkey, this.refs, true);
+        if (!this.refs[candidate.storyId].includes(event.id)) this.refs[candidate.storyId].push(event.id);
         this.candidates.set(event.id, candidate);
       } else {
         const vote = readVote(event, this.refs);
@@ -8052,7 +8070,7 @@ var ImageSession = class {
     return result;
   }
   async vote(signer, pubkey, storyId, candidateId) {
-    if (!this.trustLive || !this.follows.has(pubkey) || await signer.getPublicKey() !== pubkey) throw new Error("This account is not currently eligible to approve images.");
+    if (!this.canVote(pubkey) || await signer.getPublicKey() !== pubkey) throw new Error("This account is not currently eligible to approve images.");
     if (candidateId !== null && !this.candidates.has(candidateId)) throw new Error("Image candidate unavailable.");
     const prior = this.selection(storyId).latest.get(pubkey)?.event;
     if (prior && prior.created_at >= Math.floor(Date.now() / 1e3)) throw new Error("Please wait a second before changing your vote.");
@@ -8062,27 +8080,99 @@ var ImageSession = class {
     if (JSON.stringify({ kind: event.kind, created_at: event.created_at, content: event.content, tags: event.tags }) !== JSON.stringify({ kind: template.kind, created_at: template.created_at, content: template.content, tags: template.tags })) throw new Error("Signer changed the requested vote.");
     const choice = readVote(event, this.refs);
     if (choice.candidateId !== null && !this.refs[storyId]?.includes(choice.candidateId)) throw new Error("Image candidate unavailable.");
-    if (this.stopped || !this.trustLive || !this.follows.has(pubkey)) throw new Error("Voting eligibility changed. Please reconnect.");
+    if (this.stopped || !this.canVote(pubkey)) throw new Error("Voting eligibility changed. Please reconnect.");
+    await this.publish(event);
+  }
+  async propose(signer, pubkey, storyId, image) {
+    if (pubkey !== this.config.pubkey || await signer.getPublicKey() !== pubkey) throw new Error("Connect Stringer\u2019s account to publish image candidates.");
+    if (this.stopped || !Object.hasOwn(this.refs, storyId)) throw new Error("This headline is no longer available.");
+    const template = candidateTemplate(storyId, readCommonsImage(image));
+    const event = await signer.signEvent(structuredClone(template));
+    checkedEvent(event, pubkey, 1);
+    if (event.created_at !== template.created_at || event.content !== template.content || JSON.stringify(event.tags) !== JSON.stringify(template.tags)) throw new Error("Signer changed the requested image candidate.");
+    readCandidate(event, pubkey, this.refs, true);
+    if (this.stopped) throw new Error("This headline is no longer available.");
+    await this.publish(event);
+    return event.id;
+  }
+  async publish(event) {
     let timeout;
     try {
       await Promise.race([Promise.any(this.pool.publish(this.config.relays, event)), new Promise((_, reject) => {
-        timeout = setTimeout(() => reject(new Error("Relays did not acknowledge this vote. Please retry.")), 6e3);
+        timeout = setTimeout(() => reject(new Error("Relays did not acknowledge this event. Please retry.")), 6e3);
       })]);
     } catch {
       throw new Error("Could not publish your vote. Please retry.");
     } finally {
       clearTimeout(timeout);
     }
+    if (this.stopped) throw new Error("The news collection changed. Please reconnect.");
     this.receive(event, true);
   }
   close() {
     this.stopped = true;
     this.voteGeneration++;
     clearTimeout(this.timer);
-    [...this.closers, ...this.voteClosers].forEach((close) => close());
-    this.pool.destroy();
+    const closing = [...this.closers, ...this.voteClosers].map((close) => Promise.resolve(close()));
+    void Promise.allSettled(closing).then(() => this.pool.destroy());
   }
 };
+
+// relay/commons.ts
+function plain(value) {
+  if (typeof value !== "string") return "";
+  return new DOMParser().parseFromString(value, "text/html").body.textContent?.replace(/\s+/g, " ").trim().slice(0, 2e3) || "";
+}
+async function searchCommons(query, request = fetch) {
+  if (!query.trim()) throw new Error("Enter a person, place or subject to search for.");
+  const url = new URL("https://commons.wikimedia.org/w/api.php");
+  url.search = new URLSearchParams({
+    action: "query",
+    format: "json",
+    formatversion: "2",
+    origin: "*",
+    generator: "search",
+    gsrnamespace: "6",
+    gsrlimit: "10",
+    gsrsearch: query.trim().slice(0, 200),
+    prop: "imageinfo",
+    iiprop: "url|extmetadata|mime",
+    iiurlwidth: "320"
+  }).toString();
+  const response = await request(url, { credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(12e3) });
+  if (!response.ok) throw new Error("Commons search is unavailable. Please retry.");
+  const data = await response.json();
+  if (data.error) throw new Error("Commons search is unavailable. Please retry.");
+  const results = [];
+  for (const page of [...data.query?.pages || []].sort((a, b) => (a.index || 0) - (b.index || 0))) {
+    const info = page.imageinfo?.[0], meta = info?.extmetadata;
+    if (!info || !meta || !/^image\/(jpeg|png|webp)$/.test(info.mime || "") || plain(meta.Restrictions?.value)) continue;
+    const licenseUrl = plain(meta.LicenseUrl?.value).replace(/^http:/, "https:").replace(/\/deed\.[a-z-]+$/, "/").replace(/\/?$/, "/");
+    const license = /^https:\/\/creativecommons\.org\/licenses\/(by|by-sa)\/(1\.0|2\.0|2\.5|3\.0|4\.0)\/$/.exec(licenseUrl);
+    const identifier = license ? `CC-${license[1].toUpperCase()}-${license[2]}` : licenseUrl === "https://creativecommons.org/publicdomain/zero/1.0/" ? "CC0-1.0" : licenseUrl === "https://creativecommons.org/publicdomain/mark/1.0/" ? "PDM-1.0" : "";
+    try {
+      const title = plain(meta.ObjectName?.value) || (page.title || "").replace(/^File:/, "");
+      const creator = plain(meta.Artist?.value);
+      const imageUrl = new URL(info.thumburl || info.url || "");
+      imageUrl.search = "";
+      imageUrl.hash = "";
+      results.push(readCommonsImage({
+        version: 1,
+        url: imageUrl.href,
+        filePage: info.descriptionurl,
+        title,
+        alt: plain(meta.ImageDescription?.value) || title,
+        creator,
+        attribution: plain(meta.Attribution?.value) || plain(meta.Credit?.value) || creator,
+        license: identifier,
+        licenseUrl
+      }));
+    } catch {
+    }
+    if (results.length >= 5) break;
+  }
+  return results;
+}
 
 // relay/reader.ts
 async function readRelaySnapshot(config, report = () => {
@@ -8250,7 +8340,8 @@ function cachedRelaySnapshot(config) {
 export {
   ImageSession,
   cachedRelaySnapshot,
-  readRelaySnapshot
+  readRelaySnapshot,
+  searchCommons
 };
 /*! Bundled license information:
 
