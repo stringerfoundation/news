@@ -47,7 +47,9 @@ export async function readRelaySnapshot(config: ReaderConfig, report: (message: 
         void subscription.close();
         resolve([...events.values()]);
       };
-      const timer = setTimeout(finish, Math.min(6000, remaining));
+      // Fractional delays are truncated by browser timers. Round up so a
+      // deadline timeout cannot leave a fraction of a millisecond for a retry.
+      const timer = setTimeout(finish, Math.ceil(Math.min(6000, remaining)));
       const subscription = pool.subscribeMany(config.relays, filter, {
         maxWait: 5000,
         abort: abort.signal,

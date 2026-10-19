@@ -218,3 +218,30 @@
 .nostr-identity { display: grid; gap: 4px; margin: 0 0 8px; min-width: 0; }
 .account-npub { display: block; white-space: normal; overflow-wrap: anywhere; font-size: 12px; }
 .account-nip05 { font-size: 13px; overflow-wrap: anywhere; }
+
+/* The same media slot is reserved for every reader; moderation stays inside it. */
+#global-newswire .story.with-image { min-height: 165px; }
+#global-newswire .wire-thumbnail { display: grid; position: relative; grid-column: 1; grid-row: 1; grid-template-columns: minmax(0, 1fr); grid-template-rows: 80px 32px 28px; height: 140px; }
+#global-newswire .wire-thumbnail > a { grid-column: 1; grid-row: 1; }
+#global-newswire .wire-thumbnail > figcaption { grid-column: 1; grid-row: 2; margin: 0; height: 32px; overflow: auto; font-size: 9px; line-height: 1.2; scrollbar-width: thin; }
+.image-controls { grid-column: 1; grid-row: 3; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: start; }
+.image-controls > button, .image-review-control > button { display: block; width: 100%; min-width: 0; height: 28px; padding: 0; font: inherit; font-size: 18px; cursor: pointer; border: 1px solid var(--line); background: white; color: var(--ink); border-radius: 3px; }
+.image-controls button:disabled { opacity: .4; cursor: default; }
+.image-controls button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.image-review-control { display: block; }
+#global-newswire .wire-thumbnail > .image-approval-status { position: absolute; inset: 0 0 auto; margin: 0; padding: 2px; border: 0; background: #fffce8ed; font-size: 10px; line-height: 1.2; text-align: center; }
+#global-newswire .wire-thumbnail > .image-search-status, #global-newswire .wire-thumbnail > .warning { grid-column: 1; grid-row: 1; margin: 0; max-height: 80px; overflow: auto; font-size: 11px; line-height: 1.3; }
+.image-review[popover] { margin: auto; width: min(540px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--ink); box-shadow: 0 12px 50px #0004; overflow: auto; }
+.image-review[popover]::backdrop { background: #0003; }
+.image-review[popover] h3 { font-size: 18px; margin: 12px 0; }
+.image-review[popover] img { width: 160px; height: 110px; aspect-ratio: auto; object-fit: contain; }
+@media (max-width: 767px) {
+  .desk #global-newswire .story.with-image { min-height: 141px; }
+  .desk #global-newswire .wire-thumbnail { display: grid; grid-column: 2; grid-row: 1; grid-template-rows: 48px 24px 48px; height: 120px; }
+  .desk #global-newswire .wire-thumbnail > a { grid-column: 1; grid-row: 1; }
+  .desk #global-newswire .wire-thumbnail > figcaption { grid-column: 1; grid-row: 2; height: 24px; font-size: 8px; }
+  .image-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .image-controls > button, .image-review-control > button { height: 24px; font-size: 17px; }
+  #global-newswire .wire-thumbnail > .image-approval-status { font-size: 9px; }
+  #global-newswire .wire-thumbnail > .image-search-status, #global-newswire .wire-thumbnail > .warning { max-height: 48px; font-size: 9px; }
+}

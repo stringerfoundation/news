@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { finalizeEvent, generateSecretKey, getPublicKey, type Event, type EventTemplate } from 'nostr-tools';
 import { npubEncode } from 'nostr-tools/nip19';
 import type { WebSocketRoute, Page } from '@playwright/test';
-import { launchBrowser } from '../../scripts/browser.mjs';
+import { launchBrowser } from '../../scripts/browser.ts';
+import { isPublicAsset } from '../../public-assets.js';
 import { publicBatch } from './fixture.js';
 import { IMAGE_MARKER, type Signer } from '../../relay/images.js';
 import type { Snapshot } from '../../relay/types.js';
@@ -84,13 +85,13 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
         const query = url.searchParams.get('gsrsearch')?.replace(/ filetype:bitmap$/, '');
         searchedSubjects.add(query || '');
         if (query === 'Unavailable') { await route.fulfill({ status: 503 }); return; }
-        await route.fulfill({ json: { query: { pages: !['Lisbon', 'Emmanuel Macron', 'Saudi Arabia', 'Kenya', 'Trump'].includes(query || '') ? [] : [{ title: 'File:Found.png', imageinfo: [{ mime: 'image/png', thumburl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ab/Found.png/320px-Found.png?utm_source=commons', descriptionurl: 'https://commons.wikimedia.org/wiki/File:Found.png', extmetadata: { Artist: { value: '<a href="https://example.org/">Found photographer</a>' }, Credit: { value: '<b>Own work</b>' }, LicenseUrl: { value: 'https://creativecommons.org/licenses/by-sa/4.0' }, ImageDescription: { value: 'Found illustration' } } }] }] } } }); return;
+        await route.fulfill({ json: { query: { pages: !['Lisbon', 'Emmanuel Macron', 'Saudi Arabia', 'Kenya', 'Trump'].includes(query || '') ? [] : [{ title: `File:${query} alternative.png`, imageinfo: [{ mime: 'image/png', thumburl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ab/Found.png/320px-Found.png?utm_source=commons', descriptionurl: `https://commons.wikimedia.org/wiki/File:${query?.replaceAll(' ', '_')}_alternative.png`, extmetadata: { Artist: { value: '<a href="https://example.org/">Found photographer</a>' }, Credit: { value: '<b>Own work</b>' }, LicenseUrl: { value: 'https://creativecommons.org/licenses/by-sa/4.0' }, ImageDescription: { value: `Alternative ${query}` } } }] }] } } }); return;
       }
       if (url.hostname === 'identity.test') { await route.fulfill({ json: { names: { _: pubkey, reporter: voterKey } } }); return; }
       if (url.hostname !== 'reader.test') { await route.abort(); return; }
       const file = url.pathname.slice(1) || 'index.html';
       if (file === 'relay-config.js') { await route.fulfill({ contentType: 'text/javascript', body: `export default ${JSON.stringify({ enabled: true, pubkey, relays: ['wss://relay.test'] })}` }); return; }
-      if (!/^(index.html|app.js|news-model.js|stringer-media.js|style.css|relay-reader.js|assets\/[\w/-]+\.png)$/.test(file)) { await route.fulfill({ status: 404 }); return; }
+      if (file !== 'index.html' && !isPublicAsset(file)) { await route.fulfill({ status: 404 }); return; }
       await route.fulfill({ contentType: file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.png') ? 'image/png' : 'text/html', body: await readFile(file.endsWith('.js') ? `_site/${file}` : file) });
     });
     await page.routeWebSocket('wss://relay.test/', socket => {
@@ -140,7 +141,7 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     const reader = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
     await setup(editor, true); await setup(reader, false);
     assert.equal(await reader.locator('#world-news img').count(), 0);
-    await editor.getByText('Review illustrative images', { exact: true }).click();
+    await editor.getByRole('button', { name: 'Review illustrative images', exact: true }).click();
     rejectSign = true;
     await editor.getByRole('button', { name: 'Upvote image (0)', exact: true }).click();
     await editor.getByText('Signer rejected request', { exact: true }).waitFor();
@@ -165,36 +166,36 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     rejectPublish = false;
     await editor.getByRole('button', { name: 'Upvote image (0)', exact: true }).click();
     await editor.getByText('Vote published.', { exact: true }).waitFor();
-    await reader.locator('#world-news .wire-thumbnail img').waitFor();
+    await reader.locator('#world-news .wire-thumbnail > a > img').waitFor();
     assert.match(await reader.locator('#world-news figcaption').textContent() || '', /Illustrative image.*Example creator.*CC0-1.0/);
     assert.equal(await reader.getByText('Review illustrative images', { exact: true }).count(), 0);
     assert.equal(await editor.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     offline = true;
     await reader.reload();
-    await reader.locator('#world-news .wire-thumbnail img').waitFor();
+    await reader.locator('#world-news .wire-thumbnail > a > img').waitFor();
     offline = false;
     await reader.reload();
-    await reader.locator('#world-news .wire-thumbnail img').waitFor();
+    await reader.locator('#world-news .wire-thumbnail > a > img').waitFor();
     brokenImage = true;
     await reader.reload();
     await reader.getByRole('heading', { name: 'The Failures of Emmanuel Macron' }).waitFor();
-    await reader.waitForFunction(() => !document.querySelector('#world-news .wire-thumbnail'));
+    await reader.waitForFunction(() => !document.querySelector('#world-news .wire-thumbnail > a > img'));
     brokenImage = false;
     await reader.reload();
-    await reader.locator('#world-news .wire-thumbnail img').waitFor();
+    await reader.locator('#world-news .wire-thumbnail > a > img').waitFor();
     const voteTime = Math.max(...events.filter(e => e.pubkey === voterKey).map(e => e.created_at));
     await editor.waitForFunction(at => Math.floor(Date.now() / 1000) > at, voteTime);
-    await editor.getByRole('button', { name: 'Withdraw approval', exact: true }).click();
+    await editor.locator('.image-review').getByRole('button', { name: 'Withdraw approval', exact: true }).click();
     await editor.getByText('Vote published.', { exact: true }).waitFor();
-    await reader.waitForFunction(() => !document.querySelector('#world-news .wire-thumbnail'));
+    await reader.waitForFunction(() => !document.querySelector('#world-news .wire-thumbnail > a > img'));
     const withdrawalTime = Math.max(...events.filter(e => e.pubkey === voterKey).map(e => e.created_at));
     await editor.waitForFunction(at => Math.floor(Date.now() / 1000) > at, withdrawalTime);
     await editor.getByRole('button', { name: 'Upvote image (0)', exact: true }).click();
-    await reader.locator('#world-news .wire-thumbnail img').waitFor();
+    await reader.locator('#world-news .wire-thumbnail > a > img').waitFor();
     broadcast(follows(false, created_at + 1));
-    await reader.waitForFunction(() => !document.querySelector('#world-news .wire-thumbnail'));
+    await reader.waitForFunction(() => !document.querySelector('#world-news .wire-thumbnail > a > img'));
     await editor.getByText('This account is not followed by Stringer and cannot approve images.', { exact: true }).waitFor();
-    assert.equal(await editor.getByText('Review illustrative images', { exact: true }).count(), 0);
+    assert.equal(await editor.getByRole('button', { name: 'Review illustrative images', exact: true }).count(), 0);
     assert.equal(await reader.locator('.image-toolbar').isVisible(), false);
     const noImages = finalizeEvent({ ...batch.manifest, content: JSON.stringify({ ...manifest, imageCandidates: {} }), created_at: batch.manifest.created_at + 1 }, owner);
     broadcast(noImages);
@@ -207,19 +208,25 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     await setup(ownerPage, 'owner');
     // Suggestions appear without expanding a review or manually submitting search.
     await ownerPage.getByRole('button', { name: 'Publish and upvote image', exact: true }).waitFor();
-    assert.equal(await ownerPage.locator('#world-news .wire-thumbnail img').isVisible(), true);
-    await ownerPage.locator('.story-body > .image-approval-status').waitFor();
+    assert.equal(await ownerPage.locator('#world-news .wire-thumbnail > a > img').isVisible(), true);
+    await ownerPage.locator('.wire-thumbnail > .image-approval-status').waitFor();
     assert.equal(await ownerPage.locator('input[type="search"]').inputValue(), 'Emmanuel Macron');
     assert.equal(await reader.locator('#world-news img').count(), 0);
     await ownerPage.getByRole('button', { name: 'Publish and upvote image', exact: true }).click();
     await ownerPage.getByText('Image and approval published.', { exact: true }).waitFor();
-    await reader.locator('#world-news .wire-thumbnail img').waitFor();
+    await reader.locator('#world-news .wire-thumbnail > a > img').waitFor();
     assert.match(await reader.locator('#world-news figcaption').textContent() || '', /Found photographer.*PDM-1.0/);
     assert.equal(await ownerPage.locator('input[type="search"]').inputValue(), 'Emmanuel Macron');
     assert.equal(await ownerPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await ownerPage.getByRole('button', { name: 'Undo image choice', exact: true }).click();
+    await ownerPage.getByText('Previous approval restored.', { exact: true }).waitFor();
+    await reader.waitForFunction(() => !document.querySelector('#world-news .wire-thumbnail > a > img'));
+    await ownerPage.getByRole('button', { name: 'Approve suggested image', exact: true }).click();
+    await ownerPage.getByText('Vote published.', { exact: true }).waitFor();
+    await reader.locator('#world-news .wire-thumbnail > a > img').waitFor();
     await reader.reload();
-    await reader.locator('#world-news .wire-thumbnail img').waitFor();
-    await ownerPage.getByText('Review illustrative images', { exact: true }).click();
+    await reader.locator('#world-news .wire-thumbnail > a > img').waitFor();
+    await ownerPage.getByRole('button', { name: 'Review illustrative images', exact: true }).click();
     const search = ownerPage.getByRole('searchbox');
     await search.fill('No results');
     await ownerPage.getByRole('button', { name: 'Search images', exact: true }).click();
@@ -266,16 +273,39 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     await setup(multi, 'owner');
     for (const card of await multi.locator('#world-news article').all()) {
       await card.evaluate(node => node.scrollIntoView());
-      await card.locator('.wire-thumbnail img').waitFor();
-      assert.match(await card.locator('.wire-thumbnail img').getAttribute('alt') || '', /^Representative/);
-      assert.equal(await card.locator('.story-body > .image-approval-status').textContent(), 'Needs approval — only visible to trusted accounts.');
-      assert.equal(await card.locator('details').getAttribute('open'), null);
+      await card.locator('.wire-thumbnail > a > img').waitFor();
+      assert.match(await card.locator('.wire-thumbnail > a > img').getAttribute('alt') || '', /^Representative/);
+      assert.equal(await card.locator('.wire-thumbnail > .image-approval-status').getAttribute('aria-label'), 'Needs approval — only visible to trusted accounts.');
+      assert.equal(await card.locator('.image-review').isVisible(), false);
     }
     assert.ok(['Emmanuel Macron', 'Saudi Arabia', 'Kenya', 'Trump'].every(subject => searchedSubjects.has(subject)));
     const untrusted = await browser.newPage();
     await setup(untrusted, false);
+    await untrusted.setViewportSize({ width: 375, height: 1000 });
     assert.equal(await untrusted.locator('#world-news img').count(), 0);
     assert.equal(await multi.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    const heights = await multi.locator('#world-news article').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height));
+    assert.deepEqual(heights, await untrusted.locator('#world-news article').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height)));
+    await mkdir('.test-output', { recursive: true });
+    await multi.locator('#world-news').screenshot({ path: '.test-output/image-voting-mobile.png' });
+    const firstCard = multi.locator('#world-news article').first();
+    await firstCard.evaluate(node => node.scrollIntoView());
+    const originalImage = await firstCard.locator('.wire-thumbnail > a').getAttribute('href');
+    const publishedCount = events.length;
+    await firstCard.getByRole('button', { name: 'Skip image for me', exact: true }).click();
+    assert.notEqual(await firstCard.locator('.wire-thumbnail > a').getAttribute('href'), originalImage);
+    await firstCard.getByRole('button', { name: 'Undo image choice', exact: true }).click();
+    assert.equal(await firstCard.locator('.wire-thumbnail > a').getAttribute('href'), originalImage);
+    assert.equal(events.length, publishedCount, 'Local skips and their undo must never publish Nostr events');
+    await firstCard.getByRole('button', { name: 'Review illustrative images', exact: true }).click();
+    await firstCard.getByRole('dialog').waitFor();
+    assert.deepEqual(heights, await multi.locator('#world-news article').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height)));
+    await multi.keyboard.press('Escape');
+    assert.equal(await firstCard.getByRole('dialog').isVisible(), false);
+    await multi.setViewportSize({ width: 1280, height: 1000 });
+    await untrusted.setViewportSize({ width: 1280, height: 1000 });
+    assert.deepEqual(await multi.locator('#world-news article').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height)), await untrusted.locator('#world-news article').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height)));
+    await multi.locator('#world-news').screenshot({ path: '.test-output/image-voting-desktop.png' });
     assert.deepEqual(await multi.evaluate(async moduleUrl => {
       const { searchCommons } = await import(moduleUrl) as typeof import('../../relay/commons.js');
       const counts: number[] = [];

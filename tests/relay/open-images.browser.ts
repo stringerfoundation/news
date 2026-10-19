@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { launchBrowser } from '../../scripts/browser.mjs';
+import { launchBrowser } from '../../scripts/browser.ts';
 
 test('source adapters preserve credits, reject unsuitable metadata and recover from partial outages', async () => {
   const browser = await launchBrowser();
@@ -14,7 +14,7 @@ test('source adapters preserve credits, reject unsuitable metadata and recover f
     await page.goto('https://reader.test/');
     const result = await page.evaluate(async () => {
       const moduleUrl = '/relay-reader.js';
-      const { searchOpenverse, searchEuPhotos, searchImages } = await import(moduleUrl);
+      const { searchOpenverse, searchEuPhotos, searchImages } = await import(moduleUrl) as typeof import('../../relay/open-images.js');
       const photo = { id: '12345678-1234-1234-1234-123456789abc', title: '<b>Example subject</b>', creator: '<a>Example photographer</a>',
         attribution: 'Example credit', url: 'https://live.staticflickr.com/1/123456789_example.jpg', foreign_landing_url: 'https://www.flickr.com/photos/example/123456789',
         source: 'flickr', license: 'by', license_version: '4.0', license_url: 'https://creativecommons.org/licenses/by/4.0/' };
@@ -45,19 +45,21 @@ test('source adapters preserve credits, reject unsuitable metadata and recover f
       return { ov, european, sourceFilter, licenses, fallback, limited, empty };
     });
     assert.equal(result.ov.length, 1);
+    assert.ok(result.ov[0]);
     assert.equal(result.ov[0].title, 'Example subject');
     assert.equal(result.ov[0].creator, 'Example photographer');
     assert.equal(result.ov[0].filePage, 'https://www.flickr.com/photos/example/123456789');
     assert.equal(result.sourceFilter, 'flickr');
     assert.equal(result.licenses, 'by,by-sa,cc0,pdm');
     assert.equal(result.european.length, 1);
+    assert.ok(result.european[0]);
     assert.equal(result.european[0].creator, 'EU photographer');
     assert.match(result.european[0].attribution, /European Union, 2026.*Example agency/);
     assert.equal(result.european[0].license, 'CC-BY-4.0');
     assert.equal(result.fallback.images.length, 1);
     assert.equal(result.fallback.issues.length, 2);
     assert.equal(result.limited.images.length, 0);
-    assert.match(result.limited.issues[0], /Search limit reached/);
+    assert.match(result.limited.issues[0] || '', /Search limit reached/);
     assert.deepEqual(result.empty, { images: [], issues: [] });
   } finally { await browser.close(); }
 });

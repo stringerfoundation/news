@@ -82,6 +82,51 @@ let attemptedSigner: Window['nostr'];
 let voteBusy = false;
 let voteMessage = '';
 const openImageReviews = new Set<string>();
+interface ImageAction { kind: 'skip' | 'vote'; skipped: string[]; candidateId: string | null }
+const skippedImages = new Map<string, string[]>();
+const imageHistory = new Map<string, ImageAction[]>();
+const choiceKey = (storyId: string) => `${voter}:${storyId}`;
+function rememberImageAction(storyId: string, kind: ImageAction['kind'], candidateId: string | null) {
+  const key = choiceKey(storyId), history = imageHistory.get(key) || [];
+  history.push({ kind, candidateId, skipped: [...(skippedImages.get(key) || [])] });
+  imageHistory.set(key, history.slice(-100));
+}
+function imageOptions(storyId: string) {
+  const selection = imageSession?.selection(storyId);
+  const images = [...(selection?.winner ? [selection.winner] : []), ...(selection?.scores.map(score => score.candidate) || []), ...(commonsSearches.get(storyId)?.results || [])];
+  return images.filter((image, index) => images.findIndex(other => other.filePage === image.filePage) === index);
+}
+function skipImage(storyId: string, image: CommonsImage) {
+  if (!voter || !imageSession?.canVote(voter) || voteBusy) return;
+  rememberImageAction(storyId, 'skip', null);
+  const key = choiceKey(storyId);
+  skippedImages.set(key, [...(skippedImages.get(key) || []), image.filePage]);
+  renderWorld();
+}
+async function undoImage(storyId: string) {
+  const key = choiceKey(storyId), history = imageHistory.get(key), action = history?.at(-1);
+  if (!action || voteBusy) return;
+  if (action.kind === 'vote' && !await castImageVote(storyId, action.candidateId, false)) return;
+  skippedImages.set(key, [...action.skipped]); history!.pop(); renderWorld();
+}
+async function castImageVote(storyId: string, candidateId: string | null, remember = true) {
+  const session = imageSession, account = voter, signer = window.nostr;
+  if (!session || !account || !signer || voteBusy) return false;
+  const prior = session.selection(storyId).latest.get(account)?.vote.candidateId || null;
+  voteBusy = true; voteMessage = 'Waiting for your signer and relay confirmation…'; renderWorld();
+  try {
+    const previousTime = session.selection(storyId).latest.get(account)?.event.created_at;
+    const delay = previousTime ? (previousTime + 1) * 1000 - Date.now() : 0;
+    if (delay > 0 && delay < 2000) await new Promise(resolve => setTimeout(resolve, delay));
+    await session.vote(signer, account, storyId, candidateId);
+    if (remember) rememberImageAction(storyId, 'vote', prior);
+    const image = candidateId ? session.candidates.get(candidateId) : null;
+    if (image) skippedImages.set(choiceKey(storyId), (skippedImages.get(choiceKey(storyId)) || []).filter(page => page !== image.filePage));
+    voteMessage = remember ? 'Vote published.' : 'Previous approval restored.';
+    return true;
+  } catch (error) { voteMessage = error instanceof Error ? error.message : 'Could not publish your vote. Please retry.'; return false; }
+  finally { voteBusy = false; renderWorld(); }
+}
 const imageToolbar = element('div', '', 'image-toolbar');
 imageToolbar.hidden = true;
 requiredElement('#world-news').before(imageToolbar);
@@ -187,21 +232,28 @@ function imageReview(storyId: string, title: string) {
   if (!commonsSearches.has(storyId)) {
     commonsSearches.set(storyId, { query: commonsSubject(title), source: 'all', issues: [], loading: false, results: [], error: '', searched: false });
   }
-  const needsSuggestion = !selection.winner && !selection.scores.length;
-  const details = element('details', '', 'image-review');
-  details.open = openImageReviews.has(storyId);
-  details.dataset.storyId = storyId;
-  if (needsSuggestion) suggestionObserver.observe(details);
-  details.append(element('summary', 'Review illustrative images'));
-  details.addEventListener('toggle', () => {
-    if (details.open) {
+  const control = element('div', '', 'image-review-control'); control.dataset.storyId = storyId;
+  if (!commonsSearches.get(storyId)?.searched) suggestionObserver.observe(control);
+  const details = element('div', '', 'image-review');
+  details.id = `image-review-${storyId}`; details.popover = 'auto';
+  details.setAttribute('role', 'dialog'); details.setAttribute('aria-label', `Image choices for ${title}`);
+  const open = element('button', '⋯'); open.type = 'button'; open.title = 'Review illustrative images';
+  open.setAttribute('aria-label', 'Review illustrative images'); open.setAttribute('popovertarget', details.id);
+  open.dataset.imageAction = `${storyId}:review`;
+  const close = element('button', 'Close image review'); close.type = 'button';
+  close.addEventListener('click', () => { openImageReviews.delete(storyId); details.hidePopover(); open.focus(); });
+  details.append(close, element('h3', title));
+  details.addEventListener('toggle', event => {
+    if (!details.isConnected) return;
+    if ((event as ToggleEvent).newState === 'open') {
       openImageReviews.add(storyId);
       const state = commonsSearches.get(storyId);
       if (state && !state.searched && !state.loading) {
-        suggestionObserver.observe(details);
+        suggestionObserver.observe(control);
       }
     } else openImageReviews.delete(storyId);
   });
+  queueMicrotask(() => { if (details.isConnected && openImageReviews.has(storyId)) details.showPopover(); });
   const current = selection.latest.get(voter)?.vote.candidateId;
   for (const { candidate, count } of selection.scores) {
     const figure = element('figure');
@@ -212,16 +264,7 @@ function imageReview(storyId: string, title: string) {
     const selected = current === candidate.id;
     const button = element('button', selected ? 'Withdraw approval' : `Upvote image (${count})`);
     button.type = 'button'; button.disabled = voteBusy; button.setAttribute('aria-pressed', String(selected));
-    button.addEventListener('click', async () => {
-      const session = imageSession, account = voter;
-      voteBusy = true; voteMessage = 'Waiting for your signer and relay confirmation…'; renderWorld();
-      try {
-        if (!session || !account || !window.nostr) throw new Error('Reconnect your Nostr signer to approve images.');
-        await session.vote(window.nostr, account, storyId, selected ? null : candidate.id);
-        voteMessage = 'Vote published.';
-      } catch (error) { voteMessage = error instanceof Error ? error.message : 'Could not publish your vote. Please retry.'; }
-      finally { voteBusy = false; renderWorld(); }
-    });
+    button.addEventListener('click', () => void castImageVote(storyId, selected ? null : candidate.id));
     figure.append(button); details.append(figure);
   }
   {
@@ -230,6 +273,7 @@ function imageReview(storyId: string, title: string) {
     const label = element('label', 'Search reusable images for a person, place or subject');
     const sourceLabel = element('label', 'Image source');
     const sourceSelect = element('select'); sourceSelect.setAttribute('aria-label', 'Image source');
+    sourceSelect.dataset.imageAction = `${storyId}:source`;
     for (const [value, text] of [['all', 'All sources'], ['commons', 'Wikimedia Commons'], ['openverse', 'Openverse'], ['flickr', 'Flickr via Openverse'], ['eu', 'EU audiovisual library']]) {
       const option = element('option', text); option.value = value!; sourceSelect.append(option);
     }
@@ -237,6 +281,7 @@ function imageReview(storyId: string, title: string) {
     sourceSelect.addEventListener('change', () => { if (state) { state.source = sourceSelect.value as ImageSource; void findCommons(storyId, state.query); } });
     sourceLabel.append(sourceSelect);
     const input = element('input'); input.type = 'search'; input.value = state?.query || title; input.maxLength = 200; input.required = true;
+    input.dataset.imageAction = `${storyId}:search`;
     label.append(input);
     input.addEventListener('input', () => { if (state) state.query = input.value; });
     const submit = element('button', state?.loading ? 'Searching images…' : 'Search images'); submit.type = 'submit'; submit.disabled = !!state?.loading;
@@ -259,18 +304,44 @@ function imageReview(storyId: string, title: string) {
       figure.append(preview, commonsCaption(image), publish); details.append(figure);
     }
   }
-  return details;
+  control.append(open, details);
+  return control;
 }
 async function publishCommons(storyId: string, image: CommonsImage) {
   const session = imageSession, account = voter, signer = window.nostr;
-  if (!session || !account || !signer) return;
+  if (!session || !account || !signer || voteBusy) return;
+  const prior = session.selection(storyId).latest.get(account)?.vote.candidateId || null;
   voteBusy = true; voteMessage = 'Approve two signer requests: the image candidate, then your vote.'; renderWorld();
   try {
     const id = await session.propose(signer, account, storyId, image);
     await session.vote(signer, account, storyId, id);
+    rememberImageAction(storyId, 'vote', prior);
+    skippedImages.set(choiceKey(storyId), (skippedImages.get(choiceKey(storyId)) || []).filter(page => page !== image.filePage));
     voteMessage = 'Image and approval published.';
   } catch (error) { voteMessage = error instanceof Error ? error.message : 'Could not publish the image. Please retry.'; }
   finally { voteBusy = false; renderWorld(); }
+}
+function imageControls(storyId: string, title: string, image: CommonsImage | null | undefined) {
+  const controls = element('div', '', 'image-controls');
+  if (image) {
+    const candidateId = 'id' in image && typeof image.id === 'string' ? image.id : null;
+    const selected = candidateId && imageSession?.selection(storyId).latest.get(voter!)?.vote.candidateId === candidateId;
+    const label = selected ? 'Withdraw approval' : candidateId ? 'Approve suggested image' : 'Publish and upvote image';
+    const up = element('button', selected ? '✓' : '↑'); up.type = 'button'; up.title = label; up.setAttribute('aria-label', label);
+    up.setAttribute('aria-pressed', String(!!selected)); up.dataset.imageAction = `${storyId}:up`;
+    up.disabled = voteBusy || (!candidateId && voter !== relayConfig.pubkey);
+    up.addEventListener('click', () => { if (candidateId) void castImageVote(storyId, selected ? null : candidateId); else void publishCommons(storyId, image); });
+    const down = element('button', '↓'); down.type = 'button'; down.title = 'Skip image for me'; down.setAttribute('aria-label', 'Skip image for me');
+    down.dataset.imageAction = `${storyId}:down`; down.disabled = voteBusy;
+    down.addEventListener('click', () => skipImage(storyId, image));
+    controls.append(up, down);
+  }
+  const undo = element('button', '↶'); undo.type = 'button'; undo.title = 'Undo image choice'; undo.setAttribute('aria-label', 'Undo image choice');
+  undo.dataset.imageAction = `${storyId}:undo`; undo.disabled = voteBusy || !imageHistory.get(choiceKey(storyId))?.length;
+  undo.addEventListener('click', () => void undoImage(storyId)); controls.append(undo);
+  const review = imageReview(storyId, title);
+  if (review) controls.append(review);
+  return controls;
 }
 async function findCommons(storyId: string, query: string, suggest = false) {
   if (!searchImages || commonsSearches.get(storyId)?.loading) return;
@@ -302,7 +373,7 @@ function element<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, c
   return node;
 }
 function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessage: string) {
-  for (const review of target.querySelectorAll('.image-review')) suggestionObserver.unobserve(review);
+  for (const review of target.querySelectorAll('.image-review-control')) suggestionObserver.unobserve(review);
   target.replaceChildren();
   const usePlaceholder = target.id === 'stringer-news';
   const wire = target.id === 'world-news';
@@ -321,16 +392,23 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
     // Publisher photos stay hidden, regardless of URL parameters or stored metadata.
     const selection = wire && story.noteId ? imageSession?.selection(story.noteId) : null;
     const trusted = hasSigner() && voter && imageSession?.canVote(voter);
-    const suggested = wire && story.noteId && trusted && !selection?.winner
-      ? selection?.scores[0]?.candidate || commonsSearches.get(story.noteId)?.results[0] : null;
-    const commons = selection?.winner || suggested;
+    const commons = wire && story.noteId && trusted
+      ? imageOptions(story.noteId).find(image => !skippedImages.get(choiceKey(story.noteId!))?.includes(image.filePage))
+      : selection?.winner;
+    const suggested = commons && commons.filePage !== selection?.winner?.filePage ? commons : null;
     const imageData = wire ? commons : story.image;
     const imageUrl = wire ? commons?.url : safeImageUrl(imageData?.url) || localImage;
+    let wireFigure: HTMLElement | null = null;
+    if (wire) {
+      article.classList.add('with-image');
+      wireFigure = element('figure', '', 'story-media wire-thumbnail');
+      article.append(wireFigure);
+    }
     if (imageUrl) {
-      const figure = element('figure', '', 'story-media');
+      const figure = wireFigure || element('figure', '', 'story-media');
       const image = element('img');
       image.alt = imageData?.alt || '';
-      image.width = 240; image.height = 240;
+      image.width = wire ? 120 : 240; image.height = wire ? 80 : 240;
       image.loading = index === 0 ? 'eager' : 'lazy';
       image.decoding = 'async'; image.referrerPolicy = 'no-referrer';
       let triedLocal = imageUrl === localImage;
@@ -340,7 +418,11 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
           image.src = localImage;
           return;
         }
-        if (wire) { figure.remove(); article.classList.remove('with-image'); return; }
+        if (wire) {
+          const failed = image.closest('a') || image;
+          failed.replaceWith(element('span', 'Image unavailable', 'image-search-status'));
+          return;
+        }
         const placeholder = element('div', '', 'story-placeholder');
         placeholder.setAttribute('aria-hidden', 'true');
         image.replaceWith(placeholder);
@@ -354,9 +436,9 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
         imageLink.append(image);
         figure.append(imageLink);
       } else figure.append(image);
-      if (commons) figure.append(commonsCaption(commons));
+      if (commons) { const caption = commonsCaption(commons); caption.tabIndex = 0; figure.append(caption); }
       if (!wire && story.image?.credit) figure.append(element('figcaption', story.image.credit));
-      article.classList.add('with-image'); article.append(figure);
+      article.classList.add('with-image'); if (!wire) article.append(figure);
     } else if (usePlaceholder) {
       showPlaceholder();
     }
@@ -384,24 +466,16 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
     }
     body.append(meta);
     if (suggested && story.noteId) {
-      body.append(element('p', 'Needs approval — only visible to trusted accounts.', 'image-approval-status'));
-      if (!('id' in suggested) && voter === relayConfig.pubkey) {
-        const approve = element('button', 'Publish and upvote image', 'suggested-image-approve');
-        approve.type = 'button'; approve.disabled = voteBusy;
-        const storyId = story.noteId;
-        approve.addEventListener('click', () => void publishCommons(storyId, suggested));
-        body.append(approve);
-      }
-    } else if (wire && story.noteId && trusted && !selection?.winner) {
+      const pending = element('p', 'Needs approval', 'image-approval-status');
+      pending.title = 'Needs approval — only visible to trusted accounts.';
+      pending.setAttribute('aria-label', pending.title); wireFigure?.insertBefore(pending, wireFigure.querySelector('figcaption'));
+    } else if (wire && story.noteId && trusted && !commons) {
       const state = commonsSearches.get(story.noteId);
-      body.append(element('p', state?.error || (state?.searched
-        ? 'No reusable image found. Open image review to refine the search.'
+      wireFigure?.append(element('p', state?.error || (state?.searched
+        ? state.results.length ? 'No more suggestions. Undo a skip or search again.' : 'No reusable image found. Open image review to refine the search.'
         : 'Finding a suggested image…'), state?.error ? 'warning' : 'image-search-status'));
     }
-    if (wire && story.noteId) {
-      const review = imageReview(story.noteId, story.title);
-      if (review) body.append(review);
-    }
+    if (wire && story.noteId && trusted) wireFigure?.insertBefore(imageControls(story.noteId, story.title, commons), wireFigure.querySelector('figcaption'));
     article.append(body); target.append(article);
   }
   if (!target.children.length && emptyMessage) target.append(element('p', emptyMessage, 'empty'));
@@ -486,6 +560,9 @@ function renderStatuses() {
 }
 function renderWorld() {
   if (!snapshot) return;
+  const focused = document.activeElement as HTMLElement | null;
+  const focusAction = focused?.dataset.imageAction;
+  const selectionRange = focused instanceof HTMLInputElement ? [focused.selectionStart, focused.selectionEnd] : null;
   const current = snapshot;
   syncImages();
   const selected = selectedSources();
@@ -503,6 +580,11 @@ function renderWorld() {
   }
   renderStatuses();
   updateStoryVisibility();
+  if (focusAction) queueMicrotask(() => {
+    const next = [...document.querySelectorAll<HTMLElement>('[data-image-action]')].find(node => node.dataset.imageAction === focusAction);
+    next?.focus({ preventScroll: true });
+    if (next instanceof HTMLInputElement && selectionRange) next.setSelectionRange(selectionRange[0] ?? 0, selectionRange[1] ?? 0);
+  });
 }
 function render() {
   renderStories(requiredElement('#stringer-news'), shuffledStringerStories(displayedSnapshot().sources.stringer!.stories), loading ? '' : 'Courageous stories are currently unavailable. Visit the Stringer collection below.');
