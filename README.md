@@ -66,3 +66,46 @@ Production HTML permits indexing; every preview receives server-rendered `noinde
 Preview publishing and archive tests use Python 3.10+ from the GitHub Ubuntu runner, with only standard-library modules. `npm run test:previews` also exercises generated-branch persistence and cleanup using a local temporary Git repository. Browser checks exercise the real combined production/preview build at desktop and mobile sizes.
 
 Dependabot opens weekly npm and GitHub Action update pull requests. A weekly audit checks for newly disclosed dependency vulnerabilities even without source changes. Repository admins can require the CI jobs in a branch protection rule; workflows alone do not prevent direct pushes.
+
+## Commons images and trusted approvals
+
+The public reader supports optional Commons image candidates delivered through Nostr. Candidate discovery/matching and publication belong to the separate backend; this repository does not search Commons or publish candidate events. Until a publisher supplies the candidate contract below, headlines continue without Commons images.
+
+Image approvals use direct follows (`p` tags) in the latest verified kind-3 list from the configured Stringer public key. They are not transitive. The list is read from the same configured relays as the news. No additional whitelist or private keys are stored by the site. A missing list disables approval; an empty list removes all approval eligibility. Contact-list changes affect existing approvals immediately when received. All readers converge after receiving the same signed events; relay outages can temporarily produce different views.
+
+A reader explicitly connects a NIP-07 signer to review candidates. Eligible readers can approve one candidate per news note, switch their choice, or withdraw. Everyone sees the candidate with the most active trusted approvals, with one approval sufficient. Ties favor the earliest active approving vote, then the lexically lowest candidate event ID. Changing a vote resets its approval time. Only the latest valid vote per author/story counts (latest timestamp, then lowest event ID). Votes are public, and are scoped to exact news-note IDs rather than URLs or clusters.
+
+### Publisher contract (version 1)
+
+The existing signed manifest optionally adds `imageCandidates: { "<news-note-id>": ["<candidate-event-id>"] }`. Only global publisher story IDs in that manifest are eligible, with one to five unique candidate IDs each. Invalid entries are ignored without rejecting the news. Removing a candidate or its story from the manifest removes its image and eligibility; an obsolete vote is not transferred to a replacement news note. Existing manifests need no migration.
+
+Each candidate is a kind-1 note signed by Stringer's configured publishing key, with human-readable `content` and exactly one root reference:
+
+```json
+[
+  ["e", "<news-note-id>", "", "root"],
+  ["stringer-image-v1", "<JSON metadata>"]
+]
+```
+
+Metadata fields are `version: 1`, `url`, `filePage`, `title`, `alt`, `creator`, `attribution`, `license`, and `licenseUrl`. All text must be nonempty plain text, at most 2,000 characters per field. `url` must be an HTTPS image URL under `upload.wikimedia.org/wikipedia/commons/`; `filePage` must be an HTTPS `commons.wikimedia.org/wiki/File:` URL. Neither may contain credentials, nondefault ports, query strings or fragments. Serve a suitably sized thumbnail. No image bytes go into Nostr events.
+
+Supported license identifiers are `CC0-1.0`, `PDM-1.0`, and `CC-BY-<version>` / `CC-BY-SA-<version>` for versions 1.0, 2.0, 2.5, 3.0 and 4.0. The HTTPS `creativecommons.org` license URL must match the identifier exactly (for example `https://creativecommons.org/licenses/by-sa/4.0/`). The candidate publisher must verify the Commons source, applicable license, attribution requirements, and subject relevance. It should leave uncertain matches absent and supply attribution text that preserves any required credit. Metadata can be obtained from Commons `imageinfo` / `extmetadata`; the reader does not infer a license or fetch article images.
+
+### Vote contract (version 1)
+
+A vote is a kind-1 note signed by the voting user's key, with human-readable `content` and these tags:
+
+```json
+[
+  ["e", "<news-note-id>", "", "root"],
+  ["t", "stringer-image-vote-v1"],
+  ["stringer-image-vote-v1", "{\"version\":1,\"candidateId\":\"<candidate-event-id>\"}"]
+]
+```
+
+Publish a newer vote with `candidateId: null` to withdraw. A new candidate ID changes the choice. The UI requires a later second than the previous vote, verifies the signer's returned event against the requested payload, and reports publication only after a configured relay accepts it. Signer refusal, account changes and relay failures leave the previous choice intact. Standard likes and unrelated replies do not count. A latest signed choice for an unavailable candidate contributes no approval and supersedes earlier choices; removing a candidate cannot resurrect an older vote.
+
+The image session runs independently of headline loading. It fetches verified candidates by ID, subscribes to the trust list and live votes, and loads latest-vote history through batches of 50 author/story filters with at most three history requests in flight and a six-second timeout. Signed image events are cached separately (up to 5 MB) and reverified on recovery; cached counts are never trusted. Cached approvals can be displayed offline, but voting requires a current live trust-list response. Sessions are disposed when the manifest's candidate mapping changes or the page closes.
+
+Illustrations display Commons attribution, file and license links, and an explicit illustrative-image label. Publisher image metadata remains stripped, including in old snapshots; Stringer's approved photos remain separate. A failed Commons image leaves the headline readable.

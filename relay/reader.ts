@@ -166,3 +166,5 @@ export async function readRelaySnapshot(config: ReaderConfig, report: (message: 
 export function cachedRelaySnapshot(config: ReaderConfig) {
   return readCachedCollection(config.pubkey)?.snapshot ?? null;
 }
+
+export { ImageSession } from './images.js';

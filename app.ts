@@ -1,5 +1,6 @@
 import { readResponseText } from './response.js';
 import type { SourceState, Snapshot } from './relay/types.js';
+import type { Candidate, ImageSession } from './relay/images.js';
 import type { DisplayStory } from './news-model.js';
 import type { FeedLoadTiming } from './relay/reader.js';
 import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from './news-model.js';
@@ -42,6 +43,87 @@ let loadDuration = 0;
 let loadOutcome = '';
 let loadStage = '';
 let feedTimings: Record<string, FeedLoadTiming> = {};
+let ImageSessionClass: typeof ImageSession | null = null;
+let imageSession: ImageSession | null = null;
+let imageRefsKey = '';
+let voter: string | null = null;
+let voteBusy = false;
+let voteMessage = '';
+const openImageReviews = new Set<string>();
+const imageToolbar = element('div', '', 'image-toolbar');
+imageToolbar.hidden = true;
+requiredElement('#world-news').before(imageToolbar);
+function syncImages() {
+  const refs = snapshot?.imageCandidates || {};
+  const key = JSON.stringify(refs);
+  if (key !== imageRefsKey && ImageSessionClass) {
+    imageSession?.close();
+    imageSession = null;
+    imageRefsKey = key;
+    if (Object.keys(refs).length) imageSession = new ImageSessionClass(relayConfig, refs, () => renderWorld());
+  }
+  imageToolbar.replaceChildren();
+  imageToolbar.hidden = !imageSession;
+  if (!imageSession) return;
+  const connect = element('button', voter ? 'Disconnect Nostr' : 'Connect Nostr');
+  connect.type = 'button'; connect.disabled = voteBusy;
+  connect.addEventListener('click', async () => {
+    if (voter) { voter = null; voteMessage = ''; renderWorld(); return; }
+    try {
+      if (!window.nostr?.getPublicKey || !window.nostr?.signEvent) throw new Error('Install a NIP-07 Nostr signer to approve images.');
+      const key = await window.nostr.getPublicKey();
+      if (!/^[0-9a-f]{64}$/.test(key)) throw new Error('The signer returned an invalid account.');
+      voter = key; voteMessage = ''; renderWorld();
+    } catch (error) { voteMessage = error instanceof Error ? error.message : 'Could not connect to your signer.'; renderWorld(); }
+  });
+  imageToolbar.append(connect);
+  let status = voter && imageSession.trustLive && !imageSession.follows.has(voter)
+    ? 'This account is not followed by Stringer and cannot approve images.' : voteMessage;
+  if (!status && voter) status = !imageSession.trustLive ? 'Waiting for Stringer’s follow list.' : imageSession.follows.has(voter)
+    ? 'You can approve illustrative images.' : 'This account is not followed by Stringer and cannot approve images.';
+  const message = element('p', status); message.setAttribute('role', 'status'); imageToolbar.append(message);
+}
+function commonsCaption(candidate: Candidate) {
+  const caption = element('figcaption');
+  caption.append(document.createTextNode(`Illustrative image · ${candidate.creator} · ${candidate.attribution} · `));
+  for (const [label, url] of [[candidate.title, candidate.filePage], [candidate.license, candidate.licenseUrl]] as const) {
+    if (caption.lastChild?.nodeType === Node.ELEMENT_NODE) caption.append(document.createTextNode(' · '));
+    const link = element('a', label); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; caption.append(link);
+  }
+  return caption;
+}
+function imageReview(storyId: string) {
+  if (!voter || !imageSession?.trustLive || !imageSession.follows.has(voter)) return null;
+  const selection = imageSession.selection(storyId);
+  if (!selection.scores.length) return null;
+  const details = element('details', '', 'image-review'); details.open = openImageReviews.has(storyId);
+  details.append(element('summary', 'Review illustrative images'));
+  details.addEventListener('toggle', () => { if (details.open) openImageReviews.add(storyId); else openImageReviews.delete(storyId); });
+  const current = selection.latest.get(voter)?.vote.candidateId;
+  for (const { candidate, count } of selection.scores) {
+    const figure = element('figure');
+    const img = element('img'); img.src = candidate.url; img.alt = candidate.alt;
+    img.width = 120; img.height = 80; img.loading = 'lazy'; img.referrerPolicy = 'no-referrer';
+    figure.append(img, commonsCaption(candidate));
+    const selected = current === candidate.id;
+    const button = element('button', selected ? 'Withdraw approval' : `Upvote image (${count})`);
+    button.type = 'button'; button.disabled = voteBusy; button.setAttribute('aria-pressed', String(selected));
+    button.addEventListener('click', async () => {
+      const session = imageSession, account = voter;
+      voteBusy = true; voteMessage = 'Waiting for your signer and relay confirmation…'; renderWorld();
+      try {
+        if (!session || !account || !window.nostr) throw new Error('Reconnect your Nostr signer to approve images.');
+        await session.vote(window.nostr, account, storyId, selected ? null : candidate.id);
+        voteMessage = 'Vote published.';
+      } catch (error) { voteMessage = error instanceof Error ? error.message : 'Could not publish your vote. Please retry.'; }
+      finally { voteBusy = false; renderWorld(); }
+    });
+    figure.append(button); details.append(figure);
+  }
+  return details;
+}
+window.addEventListener('pagehide', () => imageSession?.close());
+window.addEventListener('pageshow', event => { if (event.persisted && snapshot) { imageRefsKey = ''; renderWorld(); } });
 // Per-page random ranks keep the complete collection stable during polling.
 const stringerOrder = new Map<string, number>();
 function shuffledStringerStories(stories: DisplayStory[]) {
@@ -73,8 +155,9 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
       article.prepend(placeholder);
     };
     // Publisher photos stay hidden, regardless of URL parameters or stored metadata.
-    const imageData = wire ? null : story.image;
-    const imageUrl = wire ? null : safeImageUrl(imageData?.url) || localImage;
+    const commons = wire && story.noteId ? imageSession?.selection(story.noteId).winner : null;
+    const imageData = wire ? commons : story.image;
+    const imageUrl = wire ? commons?.url : safeImageUrl(imageData?.url) || localImage;
     if (imageUrl) {
       const figure = element('figure', '', 'story-media');
       const image = element('img');
@@ -89,13 +172,22 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
           image.src = localImage;
           return;
         }
+        if (wire) { figure.remove(); article.classList.remove('with-image'); return; }
         const placeholder = element('div', '', 'story-placeholder');
         placeholder.setAttribute('aria-hidden', 'true');
         image.replaceWith(placeholder);
       });
       image.src = imageUrl;
-      figure.append(image);
-      if (imageData?.credit) figure.append(element('figcaption', imageData.credit));
+      if (wire && commons) {
+        figure.classList.add('wire-thumbnail');
+        const imageLink = element('a');
+        imageLink.href = commons.filePage; imageLink.target = '_blank'; imageLink.rel = 'noopener noreferrer';
+        imageLink.setAttribute('aria-label', `View ${commons.title} on Wikimedia Commons`);
+        imageLink.append(image);
+        figure.append(imageLink);
+      } else figure.append(image);
+      if (commons) figure.append(commonsCaption(commons));
+      if (!wire && story.image?.credit) figure.append(element('figcaption', story.image.credit));
       article.classList.add('with-image'); article.append(figure);
     } else if (usePlaceholder) {
       showPlaceholder();
@@ -123,6 +215,10 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
       meta.firstElementChild!.after(separator);
     }
     body.append(meta);
+    if (wire && story.noteId) {
+      const review = imageReview(story.noteId);
+      if (review) body.append(review);
+    }
     article.append(body); target.append(article);
   }
   if (!target.children.length && emptyMessage) target.append(element('p', emptyMessage, 'empty'));
@@ -206,7 +302,9 @@ function renderStatuses() {
   summary.title = notes.join('\n');
 }
 function renderWorld() {
-  const current = snapshot!;
+  if (!snapshot) return;
+  const current = snapshot;
+  syncImages();
   const selected = selectedSources();
   const worldPaused = selected.length > 0 && selected.every(id => current.sources[id]!.status === 'paused');
   const list = requiredElement('#world-news');
@@ -242,6 +340,7 @@ async function load() {
     let next;
     if (relayConfig.enabled) {
       const reader = await import('./relay-reader.js');
+      ImageSessionClass = reader.ImageSession;
       if (!snapshot) {
         snapshot = reader.cachedRelaySnapshot(relayConfig);
         if (snapshot) render();

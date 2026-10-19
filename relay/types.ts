@@ -21,6 +21,7 @@ export interface SourceState {
   unavailable?: number;
 }
 export interface Snapshot {
+  imageCandidates?: Record<string, string[]>;
   schemaVersion: number;
   generatedAt: string;
   sources: Record<string, SourceState>;
