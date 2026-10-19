@@ -1,15 +1,17 @@
+import type { Snapshot } from '../relay/types.ts';
+import { browserExternals } from '../scripts/browser-build.ts';
 import test from 'node:test';
 import { build } from 'esbuild';
 import assert from 'node:assert/strict';
 import { readFile, mkdir } from 'node:fs/promises';
 import { generateSecretKey, getPublicKey, finalizeEvent } from 'nostr-tools';
-import { launchBrowser } from '../scripts/browser.mjs';
-import { PORTUGUESE_SOURCES } from '../portuguese-sources.js';
-import { SOURCES } from '../news-model.js';
+import { launchBrowser } from '../scripts/browser.ts';
+import { PORTUGUESE_SOURCES } from '../portuguese-sources.ts';
+import { SOURCES } from '../news-model.ts';
 
 const time = new Date(Date.now() - 60_000).toISOString();
 const keys = new Map(PORTUGUESE_SOURCES.map(source => [source.id, generateSecretKey()]));
-const catalogue = PORTUGUESE_SOURCES.map(source => ({...source, feeds: [{...source.feeds[0], pubkey: getPublicKey(keys.get(source.id))}]}));
+const catalogue = PORTUGUESE_SOURCES.map(source => ({...source, feeds: [{...source.feeds[0], pubkey: getPublicKey(keys.get(source.id)!)}]}));
 const headlines = new Map([
   ['pt-cnnbrasil', 'Manchete original — ação e informação'],
   ['pt-observador', 'Outra manchete original, sem tradução'],
@@ -19,8 +21,8 @@ const events = catalogue.filter(source => headlines.has(source.id)).map(source =
   created_at: Math.floor(Date.parse(time) / 1000),
   content: headlines.get(source.id) + '\n\nResumo e imagem que não devem aparecer.\n\nhttps://images.example.org/publisher-photo.jpg',
   tags: [['proxy', source.feeds[0].url + '#' + encodeURIComponent('https://news.example.org/' + source.id), 'rss']],
-}, keys.get(source.id)));
-const baseline = {schemaVersion: 2, generatedAt: time, sources: Object.fromEntries(SOURCES.map(source => [source.id,
+}, keys.get(source.id)!));
+const baseline: Snapshot = {schemaVersion: 2, generatedAt: time, sources: Object.fromEntries(SOURCES.map(source => [source.id,
   {stories: [], attemptedAt: time, lastSuccessAt: null, status: 'paused', error: null}]))};
 baseline.sources.stringer = {stories: [{title: 'Original Stringer reporting', credits: 'Synthetic Reporter',
   url: 'https://example.org/stringer-report', summary: 'Original reporting stays in its original language.',
@@ -28,16 +30,15 @@ baseline.sources.stringer = {stories: [{title: 'Original Stringer reporting', cr
   attemptedAt: time, lastSuccessAt: time, status: 'success', error: null};
 
 test('Portuguese editions share all sources and preferences, localize only UI, refresh and recover from unavailable mirrors', async () => {
-  const syntheticBundle = await build({entryPoints: ['app.js'], bundle: true, write: false, platform: 'browser', format: 'esm', target: 'es2022',
-    external: ['./news-model.js', './relay-config.js', './stringer-media.js', './relay-reader.js', './portuguese-reader.js'],
-    plugins: [{name: 'synthetic-catalogue', setup(builder) {
-      builder.onLoad({filter: /portuguese-sources\.js$/}, () => ({loader: 'js', contents: `export const ATOMSTR_RELAY='wss://nostr.data.haus';export const PORTUGUESE_SOURCES=${JSON.stringify(catalogue)};`}));
+  const syntheticBundle = await build({entryPoints: ['app.ts'], bundle: true, write: false, platform: 'browser', format: 'esm', target: 'es2022',
+    plugins: [browserExternals, {name: 'synthetic-catalogue', setup(builder) {
+      builder.onLoad({filter: /portuguese-sources\.ts$/}, () => ({loader: 'js', contents: `export const ATOMSTR_RELAY='wss://nostr.data.haus';export const PORTUGUESE_SOURCES=${JSON.stringify(catalogue)};`}));
     }}]});
   const browser = await launchBrowser();
   try {
     for (const prefix of ['/', '/stringer-news/']) {
       const page = await browser.newPage({viewport: {width: 375, height: 1000}});
-      const errors = [], requested = [];
+      const errors: string[] = [], requested: string[] = [];
       let unavailable = false, subscriptions = 0;
       page.on('pageerror', error => errors.push(error.message));
       page.on('request', request => requested.push(request.url()));
@@ -73,11 +74,11 @@ test('Portuguese editions share all sources and preferences, localize only UI, r
       assert.equal(await page.locator('html').getAttribute('lang'), 'pt-BR');
       assert.equal(await page.locator('#world-title').textContent(), 'Notícias em português');
       assert.equal(await page.locator('#global-newswire article').count(), 3);
-      assert.ok((await page.locator('#global-newswire h3').allTextContents()).includes(headlines.get('pt-cnnbrasil')));
+      assert.ok((await page.locator('#global-newswire h3').allTextContents()).includes(headlines.get('pt-cnnbrasil')!));
       assert.equal(await page.locator('#global-newswire img').count(), 0);
       assert.equal(await page.locator('#global-newswire .summary').count(), 0);
-      assert.equal(await page.evaluate(() => window.pwned), undefined);
-      assert.ok((await page.locator('#world-news time').first().getAttribute('title')).includes('espelho Atomstr'));
+      assert.equal(await page.evaluate(() => ('pwned' in window ? window.pwned : undefined)), undefined);
+      assert.ok((await page.locator('#world-news time').first().getAttribute('title'))!.includes('espelho Atomstr'));
       assert.equal(await page.locator('#stringer-news h3').textContent(), 'Original Stringer reporting');
       assert.equal(await page.locator('#stringer-news img').count(), 1);
       await page.locator('#source-picker > summary').click();
@@ -95,12 +96,12 @@ test('Portuguese editions share all sources and preferences, localize only UI, r
       assert.equal(await page.locator('html').getAttribute('lang'), 'pt-PT');
       assert.equal(await page.locator('#global-newswire article').count(), 2);
       assert.equal(await page.locator('.source-help').textContent(), 'As suas escolhas ficam guardadas neste navegador.');
-      assert.match(await page.locator('#source-count').textContent(), /97 de 98 ativas/);
+      assert.match((await page.locator('#source-count').textContent())!, /97 de 98 ativas/);
       unavailable = true;
       await page.clock.fastForward(300_000);
       await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
       assert.equal(await page.locator('#global-newswire article').count(), 2, 'Previously verified stories survive an unavailable mirror');
-      assert.match(await page.locator('#world-status').textContent(), /atualização indisponível/);
+      assert.match((await page.locator('#world-status').textContent())!, /atualização indisponível/);
       await page.setViewportSize({width: 1280, height: 1000});
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       await mkdir('.test-output', {recursive: true});

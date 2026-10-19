@@ -20,7 +20,8 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
-      - run: npm run check
+      - name: Strict TypeScript check (reader, scripts, workers and tests)
+        run: npm run check
       - run: npm run build
       - run: npm test
       - run: npx playwright install --with-deps chromium

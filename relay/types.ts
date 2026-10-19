@@ -1,4 +1,9 @@
 export interface Story {
+  source?: string;
+  mayRequireSubscription?: boolean;
+  articles?: Story[];
+  atomstr?: boolean;
+  mirroredVia?: string;
   noteId?: string;
   clusterId?: string;
   title: string;
@@ -12,10 +17,12 @@ export interface Story {
   image: { url: string; alt: string; credit: string } | null;
 }
 export interface SourceState {
+  unavailable?: number;
+  pending?: number;
   stories: Story[];
   attemptedAt: string;
   lastSuccessAt: string | null;
-  status: 'success' | 'failure' | 'paused';
+  status: 'success' | 'failure' | 'paused' | 'loading';
   error: string | null;
 }
 export interface Snapshot {
@@ -23,3 +30,20 @@ export interface Snapshot {
   generatedAt: string;
   sources: Record<string, SourceState>;
 }
+
+export interface Source {
+  id: string;
+  name: string;
+  mayRequireSubscription?: boolean;
+}
+export interface AtomstrFeed {
+  readonly url: string;
+  readonly pubkey: string;
+  readonly social?: string;
+}
+export interface AtomstrSource extends Source {
+  readonly homepage?: string;
+  readonly feeds: readonly AtomstrFeed[];
+}
+export interface ContentPermission { text: boolean; summaries: boolean; images: boolean }
+export type ContentPermissions = Readonly<Record<string, ContentPermission>>;

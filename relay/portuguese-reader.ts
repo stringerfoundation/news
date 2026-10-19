@@ -1,13 +1,15 @@
+import type { Event, Filter } from 'nostr-tools';
+import type { AtomstrSource, SourceState, Story } from './types.ts';
 import { verifyEvent } from 'nostr-tools';
 import { SimplePool } from 'nostr-tools/pool';
-import { safeUrl, newestFirst, uniqueStories, NEWSWIRE_LIMIT } from '../news-model.js';
-import { ATOMSTR_RELAY } from '../portuguese-sources.js';
+import { safeUrl, newestFirst, uniqueStories, NEWSWIRE_LIMIT } from '../news-model.ts';
+import { ATOMSTR_RELAY } from '../portuguese-sources.ts';
 
 const cachePrefix = 'stringer-atomstr-v1:';
 const maxAge = 7 * 24 * 60 * 60 * 1000;
 
 // A pinned Atomstr signature and exact NIP-48 feed provenance are both required.
-export function parseAtomstrEvent(event, source, now = Date.now()) {
+export function parseAtomstrEvent(event: Event, source: AtomstrSource, now = Date.now()) {
   if (!event || event.kind !== 1 || typeof event.content !== 'string' ||
       event.content.length > 50_000 || !Array.isArray(event.tags) || event.tags.length > 256 ||
       !Number.isInteger(event.created_at) || event.created_at <= 0 || event.created_at * 1000 > now + 60_000) return null;
@@ -25,7 +27,7 @@ export function parseAtomstrEvent(event, source, now = Date.now()) {
     ...(feed.social ? { mirroredVia: feed.social } : {}) };
 }
 
-function verifiedSource(events, source, now) {
+function verifiedSource(events: Event[], source: AtomstrSource, now: number) {
   const valid = events.flatMap(event => {
     const story = parseAtomstrEvent(event, source, now);
     return story ? [{ event, story }] : [];
@@ -37,12 +39,12 @@ function verifiedSource(events, source, now) {
   const ids = new Set(stories.map(story => story.noteId));
   return { stories, events: candidates.filter(item => ids.has(item.event.id)).map(item => item.event) };
 }
-function unavailable(source, attemptedAt, previous) {
+function unavailable(source: AtomstrSource, attemptedAt: string, previous?: SourceState): SourceState {
   return { stories: previous?.stories || [], attemptedAt, lastSuccessAt: previous?.lastSuccessAt || null,
     status: 'failure', error: `No verified publications available from the ${source.name} Atomstr mirror` };
 }
 
-export function cachedPortugueseSources(sources, now = Date.now()) {
+export function cachedPortugueseSources(sources: readonly AtomstrSource[], now = Date.now()): Record<string, SourceState> {
   return Object.fromEntries(sources.map(source => {
     const attemptedAt = new Date(now).toISOString();
     try {
@@ -58,10 +60,10 @@ export function cachedPortugueseSources(sources, now = Date.now()) {
 }
 
 export async function readPortugueseSources({sources, onUpdate = () => {}, query,
-  previous = cachedPortugueseSources(sources), now = () => Date.now()} = {}) {
+  previous = cachedPortugueseSources(sources), now = () => Date.now()}: {sources: readonly AtomstrSource[]; onUpdate?: (id: string, entry: SourceState) => void; query?: (filter: Filter) => Promise<Event[]>; previous?: Record<string, SourceState>; now?: () => number}) {
   const pool = query ? null : new SimplePool();
-  const read = query || (filter => pool.querySync([ATOMSTR_RELAY], filter, {maxWait: 8000}));
-  const result = {};
+  const read = query || (filter => pool!.querySync([ATOMSTR_RELAY], filter, {maxWait: 8000}));
+  const result: Record<string, SourceState> = {};
   let next = 0;
   try {
     // Bounded parallel subscriptions keep the catalogue from opening one connection per source.
@@ -69,7 +71,7 @@ export async function readPortugueseSources({sources, onUpdate = () => {}, query
       while (next < sources.length) {
         const source = sources[next++];
         const attemptedAt = new Date(now()).toISOString();
-        let entry;
+        let entry: SourceState;
         try {
           const events = await read({kinds: [1], authors: [...new Set(source.feeds.map(feed => feed.pubkey))],
             since: Math.floor((now() - maxAge) / 1000), limit: NEWSWIRE_LIMIT});

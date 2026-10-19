@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import worker, { routeFor } from './worker.mjs';
-const request = (path, method = 'GET') => new Request('https://example.org' + path, { method });
+import worker, { routeFor } from './worker.ts';
+const request = (path: string, method = 'GET') => new Request('https://example.org' + path, { method });
 test('only homepage and namespaced reader assets reach Pages', () => {
   for (const path of ['/', '/?utm_source=fixture']) assert.equal(routeFor(request(path)).kind, 'home');
   for (const path of ['/donate', '/mission', '/awards', '/assets/site.css', '/robots.txt', '/sitemap.xml'])
@@ -18,11 +18,11 @@ test('apex NIP-05 identifies the Stringer profile directly with browser CORS sup
   assert.equal(response.status, 200);
   assert.equal(response.headers.get('location'), null);
   assert.equal(response.headers.get('access-control-allow-origin'), '*');
-  assert.match(response.headers.get('content-type'), /^application\/json/);
+  assert.match(response.headers.get('content-type')!, /^application\/json/);
   const identity = await response.json();
   const pubkey = 'b8225dbedf6ae7949e880e7979e975d8e6f238f32d318bc4a562ecb198fcd707';
   assert.deepEqual(identity.names, { _: pubkey });
-  assert.ok(identity.relays[pubkey].every(url => url.startsWith('wss://')));
+  assert.ok(identity.relays[pubkey].every((url: string) => url.startsWith('wss://')));
   for (const method of ['HEAD', 'OPTIONS']) {
     const result = await worker.fetch(request('/.well-known/nostr.json', method), {});
     assert.equal(result.status, method === 'OPTIONS' ? 204 : 200);
@@ -32,7 +32,7 @@ test('apex NIP-05 identifies the Stringer profile directly with browser CORS sup
 });
 test('existing-page methods, query, headers and body pass to the origin unchanged', async t => {
   const original = request('/donate?source=fixture', 'POST');
-  t.mock.method(globalThis, 'fetch', async outgoing => {
+  t.mock.method(globalThis, 'fetch', async (outgoing: RequestInfo | URL) => {
     assert.equal(outgoing, original);
     return new Response('Existing donation page');
   });
@@ -40,7 +40,7 @@ test('existing-page methods, query, headers and body pass to the origin unchange
   assert.equal(await response.text(), 'Existing donation page');
 });
 test('Pages asset requests retain query but omit visitor credentials', async t => {
-  t.mock.method(globalThis, 'fetch', async (url, options) => {
+  t.mock.method(globalThis, 'fetch', async (url: RequestInfo | URL, options: RequestInit) => {
     assert.equal(String(url), 'https://pages.example.org/app.js?v=1');
     assert.equal(new Headers(options.headers).get('cookie'), null);
     assert.equal(new Headers(options.headers).get('authorization'), null);
@@ -57,8 +57,8 @@ test('unavailable reader origin reports failure', async t => {
 });
 
 test('GitHub project Pages keeps its repository path for homepage and assets', async t => {
-  const visited = [];
-  t.mock.method(globalThis, 'fetch', async (url, options) => {
+  const visited: string[] = [];
+  t.mock.method(globalThis, 'fetch', async (url: RequestInfo | URL, options: RequestInit) => {
     visited.push(String(url));
     assert.equal(options.redirect, 'manual');
     return new Response(null, { headers: { 'content-type': 'text/html' } });

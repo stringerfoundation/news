@@ -1,16 +1,17 @@
+import type { Snapshot, Story } from '../relay/types.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { SOURCES, validateSnapshot, worldStories, worldGroups, applyContentPermissions } from '../news-model.js';
-import { collect, parseFeed } from '../scripts/collect.mjs';
+import { SOURCES, validateSnapshot, worldStories, worldGroups, applyContentPermissions } from '../news-model.ts';
+import { collect, parseFeed } from '../scripts/collect.ts';
 
 const time = '2026-09-10T11:00:00.000Z';
-const makeSnapshot = () => ({ schemaVersion: 2, generatedAt: time,
+const makeSnapshot = (): Snapshot => ({ schemaVersion: 2, generatedAt: time,
   sources: Object.fromEntries(SOURCES.map(source => [source.id, {
     stories: [], attemptedAt: time, lastSuccessAt: null, status: 'paused', error: null,
   }])) });
-const story = (url, publishedAt = time) => ({ title: 'Synthetic headline', url, publishedAt, summary: '', image: null });
-function add(snapshot, source, stories) {
+const story = (url: string, publishedAt = time) => ({ title: 'Synthetic headline', url, publishedAt, summary: '', image: null });
+function add(snapshot: Snapshot, source: string, stories: Story[]) {
   snapshot.sources[source] = { stories, attemptedAt: time, lastSuccessAt: time, status: 'success', error: null };
 }
 const cna = readFileSync(new URL('./fixtures/cna.xml', import.meta.url), 'utf8');
@@ -49,7 +50,7 @@ test('legacy snapshots missing only CNA normalize without mutation or invented s
   assert.deepEqual(normalized.sources.cna.stories, []);
   assert.equal(legacy.sources.cna, undefined);
   assert.equal(applyContentPermissions(legacy).sources.cna.status, 'failure');
-  for (const mutate of [s => delete s.sources.bbc, s => s.sources.cna = null, s => s.sources.other = {}]) {
+  for (const mutate of [(s: {sources: Record<string, unknown>}) => delete s.sources.bbc, (s: {sources: Record<string, unknown>}) => s.sources.cna = null, (s: {sources: Record<string, unknown>}) => s.sources.other = {}]) {
     const invalid = structuredClone(legacy); mutate(invalid);
     assert.throws(() => validateSnapshot(invalid));
   }
@@ -57,8 +58,8 @@ test('legacy snapshots missing only CNA normalize without mutation or invented s
 
 test('CNA failure recovers both legacy and current snapshots; production collection skips image enrichment', async () => {
   const previous = makeSnapshot(); delete previous.sources.cna;
-  const requested = [];
-  const run = (previousSnapshot, failed) => collect({ previousSnapshot, now: () => time, log: () => {},
+  const requested: string[] = [];
+  const run = (previousSnapshot: Snapshot, failed: boolean) => collect({ previousSnapshot, now: () => time, log: () => {},
     request: async url => {
       requested.push(url);
       const source = SOURCES.find(source => source.url === url);

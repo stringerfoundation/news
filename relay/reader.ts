@@ -1,7 +1,7 @@
 import { SimplePool } from 'nostr-tools/pool';
 import type { Event, Filter } from 'nostr-tools';
-import type { Snapshot } from './types.js';
-import { assemble, readManifest, MANIFEST_KIND, MANIFEST_KEY } from './protocol.js';
+import type { Snapshot } from './types.ts';
+import { assemble, readManifest, MANIFEST_KIND, MANIFEST_KEY } from './protocol.ts';
 export interface ReaderConfig {
   pubkey: string;
   relays: string[];

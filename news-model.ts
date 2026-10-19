@@ -1,3 +1,5 @@
+import type { Story, Snapshot, Source, SourceState, ContentPermissions } from './relay/types.ts';
+import type { Manifest } from './relay/protocol.ts';
 export const SOURCES = Object.freeze([
   { id: 'bbc', name: 'BBC World', url: 'https://feeds.bbci.co.uk/news/world/rss.xml' },
   { id: 'nyt', name: 'NYT World', mayRequireSubscription: true, url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml' },
@@ -7,17 +9,17 @@ export const SOURCES = Object.freeze([
   { id: 'stringer', name: 'Stringer', url: 'https://stringerjournalism.org/courageous-stories' },
 ]);
 // Only these publisher article hosts may be fetched for image metadata.
-export const ARTICLE_IMAGE_HOSTS = Object.freeze({
+export const ARTICLE_IMAGE_HOSTS: Readonly<Record<string, string[]>> = Object.freeze({
   bbc: ['www.bbc.com', 'www.bbc.co.uk'],
   nyt: ['www.nytimes.com'],
   aljazeera: ['www.aljazeera.com'],
   dw: ['www.dw.com'],
 });
 // Publication scope is recorded in LEGAL.md.
-export const CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(SOURCES.map(source => [source.id,
+export const CONTENT_PERMISSIONS: ContentPermissions = Object.freeze(Object.fromEntries(SOURCES.map(source => [source.id,
   Object.freeze({ text: true, summaries: source.id === 'stringer', images: source.id === 'stringer' })
 ])));
-export function permittedStories(sourceId, stories, permissions = CONTENT_PERMISSIONS) {
+export function permittedStories(sourceId: string, stories: Story[], permissions = CONTENT_PERMISSIONS) {
   const permission = permissions[sourceId];
   if (permission?.text !== true) return [];
   return stories.map(story => ({
@@ -28,7 +30,7 @@ export function permittedStories(sourceId, stories, permissions = CONTENT_PERMIS
     image: permission.images === true ? story.image ?? null : null,
   }));
 }
-export function applyContentPermissions(snapshot, permissions = CONTENT_PERMISSIONS) {
+export function applyContentPermissions(snapshot: Snapshot, permissions = CONTENT_PERMISSIONS): Snapshot {
   const sources = normalizeSourceSet(snapshot.sources, snapshot.generatedAt);
   return { ...snapshot, sources: Object.fromEntries(SOURCES.map(source => {
     const entry = sources[source.id];
@@ -39,34 +41,34 @@ export function applyContentPermissions(snapshot, permissions = CONTENT_PERMISSI
 }
 export const NEWSWIRE_LIMIT = 30;
 export const STALE_MS = 2 * 60 * 60 * 1000;
-export function safeUrl(value) {
+export function safeUrl(value: unknown) {
   if (typeof value !== 'string') return null;
   try { const url = new URL(value); return /^https?:$/.test(url.protocol) && !url.username && !url.password ? url.href : null; } catch { return null; }
 }
-export function safeImageUrl(value) {
+export function safeImageUrl(value: unknown) {
   const url = safeUrl(value);
   return url && new URL(url).protocol === 'https:' ? url : null;
 }
-export function urlIdentity(value) {
+export function urlIdentity(value: string) {
   const url = new URL(value); url.hash = ''; return url.href;
 }
-export function newestFirst(a, b) {
+export function newestFirst(a: Pick<Story, "publishedAt">, b: Pick<Story, "publishedAt">) {
   return (b.publishedAt ? Date.parse(b.publishedAt) : -Infinity) - (a.publishedAt ? Date.parse(a.publishedAt) : -Infinity) || 0;
 }
-export function uniqueStories(stories) {
+export function uniqueStories<T extends {url: string}>(stories: T[]): T[] {
   const seen = new Set();
   return stories.filter(story => { const key = urlIdentity(story.url); if (seen.has(key)) return false; seen.add(key); return true; });
 }
-export function worldStories(snapshot, selectedSources = SOURCES.map(source => source.id), sourceRegistry = SOURCES) {
+export function worldStories(snapshot: Pick<Snapshot, "sources">, selectedSources = SOURCES.map(source => source.id), sourceRegistry: readonly Source[] = SOURCES) {
   return uniqueStories(sourceRegistry.filter(s => s.id !== 'stringer' && selectedSources.includes(s.id)).flatMap(source => snapshot.sources[source.id].stories.map(story => ({ ...story, source: source.name, mayRequireSubscription: source.mayRequireSubscription === true }))).sort(newestFirst));
 }
-export function worldGroups(snapshot, selectedSources, sourceRegistry = SOURCES) {
-  const groups = new Map();
-  const chronological = (a, b) => newestFirst(a, b) || (a.noteId || a.url).localeCompare(b.noteId || b.url);
+export function worldGroups(snapshot: Pick<Snapshot, "sources">, selectedSources?: string[], sourceRegistry: readonly Source[] = SOURCES) {
+  const groups = new Map<string, ReturnType<typeof worldStories>>();
+  const chronological = (a: Story, b: Story) => newestFirst(a, b) || (a.noteId || a.url).localeCompare(b.noteId || b.url);
   for (const story of worldStories(snapshot, selectedSources, sourceRegistry)) {
     const key = story.clusterId || story.noteId || story.url;
     if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(story);
+    groups.get(key)!.push(story);
   }
   return [...groups.values()].map(articles => {
     const newest = [...articles].sort(chronological)[0];
@@ -74,10 +76,12 @@ export function worldGroups(snapshot, selectedSources, sourceRegistry = SOURCES)
     return { ...articles[0], articles, publishedAt: newest.publishedAt, sortId: newest.noteId || newest.url };
   }).sort((a, b) => newestFirst(a, b) || a.sortId.localeCompare(b.sortId));
 }
-const nonempty = value => typeof value === 'string' && !!value.trim();
-const timestamp = value => typeof value === 'string' && /^\d{4}-\d\d-\d\dT/.test(value) && Number.isFinite(Date.parse(value));
+const nonempty = (value: unknown) => typeof value === 'string' && !!value.trim();
+const timestamp = (value: unknown) => typeof value === 'string' && /^\d{4}-\d\d-\d\dT/.test(value) && Number.isFinite(Date.parse(value));
 // Only CNA may be absent in collections published before it was introduced.
-export function normalizeSourceSet(sources, generatedAt, relay = false) {
+export function normalizeSourceSet(sources: Manifest['sources'], generatedAt: string, relay: true): Manifest['sources'];
+export function normalizeSourceSet(sources: Snapshot['sources'], generatedAt: string, relay?: false): Snapshot['sources'];
+export function normalizeSourceSet(sources: Snapshot['sources'] | Manifest['sources'], generatedAt: string, relay = false) {
   if (!sources || typeof sources !== 'object' || Array.isArray(sources) ||
       Object.keys(sources).some(id => !SOURCES.some(source => source.id === id)) ||
       SOURCES.some(source => source.id !== 'cna' && !Object.hasOwn(sources, source.id))) {
@@ -89,12 +93,13 @@ export function normalizeSourceSet(sources, generatedAt, relay = false) {
     lastSuccessAt: null, status: 'failure', error: 'CNA is not available in this collection',
   } };
 }
-export function validateSnapshot(value) {
+export function validateSnapshot(input: unknown): Snapshot {
+  const value = input as Snapshot;
   if (!value || ![1, 2].includes(value.schemaVersion) || !timestamp(value.generatedAt) || !value.sources) throw new Error('Invalid news snapshot');
   const sources = normalizeSourceSet(value.sources, value.generatedAt);
-  if (sources !== value.sources) value = { ...value, sources };
+  const normalized = sources === value.sources ? value : { ...value, sources };
   for (const source of SOURCES) {
-    const entry = value.sources[source.id];
+    const entry = normalized.sources[source.id];
     if (!entry || !Array.isArray(entry.stories) || !timestamp(entry.attemptedAt) || !['success', 'failure', 'paused'].includes(entry.status) || !(entry.lastSuccessAt === null || timestamp(entry.lastSuccessAt))) throw new Error(`Invalid ${source.id} metadata`);
     if (Date.parse(entry.attemptedAt) > Date.parse(value.generatedAt) || (entry.lastSuccessAt && Date.parse(entry.lastSuccessAt) > Date.parse(entry.attemptedAt))) throw new Error('Invalid collection chronology');
     if (entry.status === 'paused' && (entry.stories.length || entry.lastSuccessAt !== null || entry.error !== null)) throw new Error('Invalid paused source');
@@ -111,22 +116,22 @@ export function validateSnapshot(value) {
       if (source.id === 'stringer' && (!nonempty(story.credits) || !nonempty(story.summary))) throw new Error('Invalid Stringer story');
     }
   }
-  return value;
+  return normalized;
 }
-export function sourceMessage(source, entry) {
+export function sourceMessage(source: Source, entry: SourceState) {
   const last = entry.lastSuccessAt ? formatLocalDateTime(entry.lastSuccessAt) : null;
   const collected = last ? `last collected ${last}` : 'No collection available';
   if (entry.status === 'failure') return `${source.name}: refresh unavailable. ${collected}`;
   return `${source.name}: ${collected}${entry.stories.length ? '' : '. No published stories in this collection.'}`;
 }
-export function formatLocalDateTime(value, locale = 'en-US') {
+export function formatLocalDateTime(value: string | Date, locale = 'en-US') {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return 'Date unavailable';
   return new Intl.DateTimeFormat(locale, {
     year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: locale === 'en-US', timeZoneName: 'short',
   }).format(date);
 }
-export function formatPublicationDate(value, locale = 'en-US') {
+export function formatPublicationDate(value: unknown, locale = 'en-US') {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return 'Date unavailable';
   const date = new Date(`${value}T00:00:00Z`);
   if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) return 'Date unavailable';

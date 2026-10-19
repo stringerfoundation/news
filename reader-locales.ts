@@ -1,5 +1,12 @@
+import fr from './locales/fr.ts';
+import es from './locales/es.ts';
+import ar from './locales/ar.ts';
+import zh from './locales/zh.ts';
+import ru from './locales/ru.ts';
+import nl from './locales/nl.ts';
+import de from './locales/de.ts';
 // Interface translations only. Reporting is always displayed in its original language.
-const portuguese = {
+const portuguese: Readonly<Record<string, string>> = {
   'Close menu': 'Fechar menu', 'Open menu': 'Abrir menu', 'Sources': 'Fontes',
   'Choose news sources': 'Escolha as fontes de notícias', 'Enable all': 'Ativar todas',
   'Your choices are saved in this browser.': 'Suas escolhas são salvas neste navegador.',
@@ -55,7 +62,7 @@ const portuguese = {
   'Stories belong to their original publishers. Follow each headline to read or watch the original reporting.': 'As reportagens pertencem às fontes originais. Siga cada manchete para ler ou assistir à reportagem original.',
   'Preview images, including social media cards, belong to their rights holders. No endorsement or reuse rights implied. Rights or removal:': 'As imagens de prévia, incluindo cartões de redes sociais, pertencem aos respectivos titulares. A exibição não implica endosso nem direitos de reutilização. Direitos ou remoção:',
 };
-const portugal = {
+const portugal: Readonly<Record<string, string>> = {
   'Your choices are saved in this browser.': 'As suas escolhas ficam guardadas neste navegador.',
   'Search sources': 'Pesquisar fontes', 'No matching sources.': 'Nenhuma fonte corresponde à pesquisa.',
   'May require subscription': 'Pode exigir subscrição', 'Donate now': 'Faça um donativo', 'Donate': 'Fazer um donativo',
@@ -68,13 +75,32 @@ const portugal = {
   'Local time ({zone})': 'Hora local ({zone})', ' Showing previously collected stories.': ' A mostrar notícias obtidas anteriormente.',
   'Our mission': 'A nossa missão', 'Explore the Stringer collection': 'Explore a coleção da Stringer',
 };
-export function localeForLanguage(language) {
-  return language === 'pt-PT' ? 'pt-PT' : language === 'pt-BR' || language === 'pt' ? 'pt-BR' : 'en-US';
+export const EDITIONS = [
+  {path: '', locale: 'en-US', label: 'EN', direction: 'ltr'},
+  {path: 'br', locale: 'pt-BR', label: 'Português (Brasil)', direction: 'ltr'},
+  {path: 'pt', locale: 'pt-PT', label: 'Português (Portugal)', direction: 'ltr'},
+  {path: 'fr', locale: 'fr', label: 'Français', direction: 'ltr'},
+  {path: 'es', locale: 'es', label: 'Español', direction: 'ltr'},
+  {path: 'ar', locale: 'ar', label: 'العربية', direction: 'rtl'},
+  {path: 'zh', locale: 'zh', label: '中文', direction: 'ltr'},
+  {path: 'ru', locale: 'ru', label: 'Русский', direction: 'ltr'},
+  {path: 'nl', locale: 'nl', label: 'Nederlands', direction: 'ltr'},
+  {path: 'de', locale: 'de', label: 'Deutsch', direction: 'ltr'},
+] as const;
+export type Locale = typeof EDITIONS[number]['locale'];
+const dictionaries: Readonly<Record<string, Readonly<Record<string, string>>>> = {fr, es, ar, zh, ru, nl, de};
+export function localeForLanguage(language: string): Locale {
+  const normalized = language.toLowerCase();
+  if (normalized === 'pt-pt') return 'pt-PT';
+  const base = normalized.split('-')[0];
+  if (base === 'pt') return 'pt-BR';
+  return EDITIONS.find(edition => edition.locale === base)?.locale ?? 'en-US';
 }
-export function translator(locale) {
-  return (message, values = {}) => {
+export function translator(language: string) {
+  const locale = localeForLanguage(language);
+  return (message: string, values: Record<string, string | number> = {}) => {
     const translated = locale === 'pt-PT' ? portugal[message] ?? portuguese[message] ?? message
-      : locale === 'pt-BR' ? portuguese[message] ?? message : message;
+      : locale === 'pt-BR' ? portuguese[message] ?? message : dictionaries[locale]?.[message] ?? message;
     return translated.replace(/\{([a-zA-Z]+)\}/g, (whole, key) => values[key] === undefined ? whole : String(values[key]));
   };
 }

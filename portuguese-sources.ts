@@ -1,8 +1,9 @@
+import type { AtomstrSource } from './relay/types.ts';
 // Portuguese-language sources identified in the public Atomstr catalogue on 2026-10-16.
 // Keys belong to Atomstr mirrors, not publisher-owned Nostr accounts.
 // RSS aliases and topic feeds are grouped by source; no feeds are registered remotely.
 export const ATOMSTR_RELAY = 'wss://nostr.data.haus';
-export const PORTUGUESE_SOURCES = Object.freeze([
+export const PORTUGUESE_SOURCES: readonly AtomstrSource[] = Object.freeze([
   {"id":"pt-actualidadereligiosa","name":"Actualidade Religiosa","homepage":"https://actualidadereligiosa.blogspot.com","feeds":[{"url":"https://actualidadereligiosa.blogspot.com/feeds/posts/default?alt=rss","pubkey":"95cd1be28e3093719d9ea4cb18b9dafcaecb1c6113706cf38d9f99db44122558"}]},
   {"id":"pt-agenciabrasil","name":"Agência Brasil","homepage":"http://agenciabrasil.ebc.com.br","feeds":[{"url":"http://agenciabrasil.ebc.com.br/rss/economia/feed.xml","pubkey":"cd9b1e5666bc80aea18becf6cf0e42062f219d515f5ad880422613ef4498b8a2"},{"url":"http://agenciabrasil.ebc.com.br/rss/direitos-humanos/feed.xml","pubkey":"48ef2837462cfddb2eed727c11620868c7a48c111d618831c28c59a60e90e354"}]},
   {"id":"pt-agendadopoder","name":"Agenda do Poder","homepage":"https://agendadopoder.com.br","feeds":[{"url":"https://agendadopoder.com.br/feed/","pubkey":"4273e9abb870526549c7fde955aae7c1029dde9457b6dd1c1a93bef21a058cc0"}]},
@@ -101,4 +102,4 @@ export const PORTUGUESE_SOURCES = Object.freeze([
   {"id":"pt-valor","name":"Valor Econômico (perfil Bluesky)","homepage":"https://bsky.app/profile/valoreconomico.bsky.social","feeds":[{"url":"https://bsky.app/profile/valoreconomico.bsky.social/rss","pubkey":"e4426249d7d0d3142caa305afc4d536997e575b0c7810abab7fc36b1bacb9ef2","social":"Bluesky"}]},
   {"id":"pt-vrum","name":"Vrum","homepage":"https://www.vrum.com.br","feeds":[{"url":"https://www.vrum.com.br/feed","pubkey":"9794253dafecd41fde23e8753dd37c4efc4d3f15ef73d4a7641b464932b630e9"}]},
   {"id":"pt-willtirando","name":"Will Tirando","homepage":"http://www.willtirando.com.br","feeds":[{"url":"http://www.willtirando.com.br/rss/","pubkey":"94146551bb0fbc474f220496ac550e0f324d71f6dd1683fd7fae8f5ae757203f"}]},
-].map(source => Object.freeze({ ...source, feeds: Object.freeze(source.feeds.map(Object.freeze)) })));
+].map(source => Object.freeze({ ...source, feeds: Object.freeze(source.feeds.map(feed => Object.freeze(feed))) })));

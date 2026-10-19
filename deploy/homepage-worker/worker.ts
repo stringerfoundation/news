@@ -1,4 +1,13 @@
-import relayConfig from '../../relay-config.js';
+import type { Element as WorkerElement } from '@cloudflare/workers-types';
+// HTMLRewriter is supplied by the worker runtime; keep native fetch types for Node tests.
+interface Rewriter {
+  on(selector: string, handler: {element(element: WorkerElement): void}): Rewriter;
+  transform(response: Response): Response;
+}
+declare const HTMLRewriter: {new(): Rewriter};
+interface Environment { PUBLIC_HOST?: string; PAGES_ORIGIN?: string; PUBLIC_INDEXING?: string }
+type Route = {kind: 'identity'} | {kind: 'legacy'} | {kind: 'missing'} | {kind: 'home' | 'asset'; path: string};
+import relayConfig from '../../relay-config.ts';
 
 const prefix = '/news-assets/';
 const files = new Set([
@@ -8,7 +17,7 @@ const files = new Set([
   'assets/favicon-16.png', 'assets/favicon-32.png',
   'assets/favicon-192.png', 'assets/favicon-180.png',
 ]);
-export function routeFor(request) {
+export function routeFor(request: Request): Route {
   const url = new URL(request.url);
   if (url.pathname === '/.well-known/nostr.json' && ['GET', 'HEAD', 'OPTIONS'].includes(request.method))
     return { kind: 'identity' };
@@ -20,7 +29,7 @@ export function routeFor(request) {
     ? { kind: 'asset', path: '/' + path } : { kind: 'missing' };
 }
 export default {
-  async fetch(request, env) {
+  async fetch(request: Request, env: Environment) {
     const route = routeFor(request);
     if (route.kind === 'identity') {
       const headers = {
@@ -41,11 +50,13 @@ export default {
       // A separate origin is used only for workers.dev preview requests.
       if (new URL(request.url).hostname === env.PUBLIC_HOST) return fetch(request);
       const legacy = new URL(request.url);
+      if (!env.PUBLIC_HOST) return new Response('Invalid origin configuration', {status: 503});
       legacy.host = env.PUBLIC_HOST;
       legacy.protocol = 'https:';
       return fetch(new Request(legacy, request));
     }
     if (route.kind === 'missing') return new Response('Not found', { status: 404 });
+    if (!env.PAGES_ORIGIN) return new Response('Invalid origin configuration', {status: 503});
     const target = new URL(env.PAGES_ORIGIN);
     if (target.protocol !== 'https:') return new Response('Invalid origin configuration', { status: 503 });
     target.pathname = target.pathname.replace(/\/$/, '') + route.path;

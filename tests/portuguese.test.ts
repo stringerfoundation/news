@@ -1,18 +1,19 @@
+import type { EventTemplate } from 'nostr-tools';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools';
-import { PORTUGUESE_SOURCES, ATOMSTR_RELAY } from '../portuguese-sources.js';
-import { parseAtomstrEvent, readPortugueseSources, cachedPortugueseSources } from '../relay/portuguese-reader.js';
-import { translator, localeForLanguage } from '../reader-locales.js';
-import { localizedReaderHtml } from '../scripts/reader-html.mjs';
-import { worldGroups, safeUrl, formatLocalDateTime, formatPublicationDate } from '../news-model.js';
+import { PORTUGUESE_SOURCES, ATOMSTR_RELAY } from '../portuguese-sources.ts';
+import { parseAtomstrEvent, readPortugueseSources, cachedPortugueseSources } from '../relay/portuguese-reader.ts';
+import { translator, localeForLanguage } from '../reader-locales.ts';
+import { localizedReaderHtml } from '../scripts/reader-html.ts';
+import { worldGroups, safeUrl, formatLocalDateTime, formatPublicationDate } from '../news-model.ts';
 import { load } from 'cheerio';
 
 const secret = generateSecretKey(), pubkey = getPublicKey(secret);
 const now = Date.parse('2026-10-16T12:00:00.000Z');
 const source = {id: 'pt-synthetic', name: 'Fonte de teste', feeds: [{url: 'https://example.org/feed', pubkey}]};
-const event = (options = {}, key = secret) => finalizeEvent({kind: 1, created_at: now / 1000 - 30,
+const event = (options: Partial<EventTemplate> = {}, key = secret) => finalizeEvent({kind: 1, created_at: now / 1000 - 30,
   tags: [['proxy', source.feeds[0].url + '#' + encodeURIComponent('https://example.org/report?q=1#section'), 'rss']],
   content: 'Manchete original — ação e ciência\n\nResumo que nunca deve aparecer.\n\nhttps://images.example.org/photo.jpg\n\nhttps://example.org/report', ...options}, key);
 
@@ -34,6 +35,7 @@ test('Portuguese editions share the complete pinned source catalogue, including 
 test('Atomstr extraction verifies pinned identity and feed provenance, strips summaries/images, and keeps original Unicode titles', () => {
   const note = event();
   const story = parseAtomstrEvent(note, source, now);
+  assert.ok(story);
   assert.equal(story.title, 'Manchete original — ação e ciência');
   assert.equal(story.url, 'https://example.org/report?q=1#section');
   assert.equal(story.summary, ''); assert.equal(story.image, null);
@@ -52,14 +54,17 @@ test('Atomstr extraction verifies pinned identity and feed provenance, strips su
 
 test('untrusted remote markup stays literal text and cannot select an image enclosure as the original URL', () => {
   const story = parseAtomstrEvent(event({content: '<img src=x onerror=alert(1)>\n\nhttps://images.example.org/photo.jpg'}), source, now);
+  assert.ok(story);
   assert.equal(story.title, '<img src=x onerror=alert(1)>');
   assert.equal(story.url, 'https://example.org/report?q=1#section');
   assert.equal(story.image, null);
 });
 
 test('mirror queries are bounded, recover verified cache on outages, and never invent a successful check', async () => {
-  const storage = new Map();
-  globalThis.localStorage = {getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value)};
+  const storage = new Map<string, string>();
+  const originalStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const memoryStorage: Storage = {getItem: key => storage.get(key) ?? null, setItem: (key, value) => { storage.set(key, value); }, get length() { return storage.size; }, clear: () => storage.clear(), key: index => [...storage.keys()][index] ?? null, removeItem: key => { storage.delete(key); }};
+  Object.defineProperty(globalThis, 'localStorage', {configurable: true, value: memoryStorage});
   try {
     let reads = 0, updates = 0;
     const fresh = await readPortugueseSources({sources: [source], now: () => now, query: async filter => {
@@ -79,7 +84,7 @@ test('mirror queries are bounded, recover verified cache on outages, and never i
     assert.equal(empty[source.id].lastSuccessAt, null);
     storage.set('stringer-atomstr-v1:' + source.id, JSON.stringify({checkedAt: new Date(now).toISOString(), events: [{...event(), content: 'forged'}]}));
     assert.equal(cachedPortugueseSources([source], now)[source.id].stories.length, 0);
-  } finally { delete globalThis.localStorage; }
+  } finally { if (originalStorage) Object.defineProperty(globalThis, 'localStorage', originalStorage); else Reflect.deleteProperty(globalThis, 'localStorage'); }
 });
 
 test('publisher RSS is preferred over social aliases and edition grouping uses the supplied registry', async () => {
@@ -109,7 +114,7 @@ test('Portuguese pages use relative shared assets, distinct language variants, a
     assert.equal($('#source-count').text(), '98 de 98 ativas');
     assert.equal($('.source-help').text(), translator(locale)('Your choices are saved in this browser.'));
     assert.match($('.source-provenance').text(), /Espelhos do Atomstr/);
-    assert.equal($('meta[name="description"]').attr('content').includes('portuguesa'), true);
+    assert.equal($('meta[name="description"]').attr('content')!.includes('portuguesa'), true);
     const date = new Date('2026-10-16T10:45:00Z');
     const expected = new Intl.DateTimeFormat(locale, {year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false,timeZoneName:'short'}).format(date);
     assert.equal(formatLocalDateTime(date, locale), expected);

@@ -12,13 +12,15 @@ The private collector and dashboard continue running independently on the operat
 
 ## Development
 
+All application, relay, build, worker and test source is TypeScript, checked with strict `tsc` settings. Node runs erasable TypeScript directly; esbuild emits the public JavaScript modules into `_site`. Source files and development tooling are excluded from the published asset allowlist. Private Wrangler configuration should point to `deploy/homepage-worker/worker.ts` or `deploy/news-redirect/worker.ts`.
+
 Use Node 24 or newer:
 
 ```sh
 npm ci
 npm run check
-npm test
 npm run build
+npm test
 npx playwright install chromium
 npm run test:browser
 ```
@@ -37,9 +39,11 @@ To roll back the Pages origin, restore the previous `PAGES_ORIGIN` in private op
 
 Original project code is licensed under the [MIT License](LICENSE). This license does not grant rights to Stringer names, trademarks, logos, reporting, photographs, or third-party content. Those materials retain their respective rights and permissions; see `LEGAL.md`. Dependency licenses remain applicable.
 
-## Portuguese editions
+## Language editions
 
-The Pages build includes `/br/` (Brazilian Portuguese) and `/pt/` (European Portuguese), sharing the pinned catalogue in `portuguese-sources.js`. On the project site these resolve beneath `/stringer-news/`. The edition links and shared assets remain relative. The locale pages preserve the same UTC build stamp as the English reader.
+The Pages build includes `/fr/` (French), `/es/` (Spanish), `/ar/` (Arabic), `/zh/` (Simplified Chinese), `/ru/` (Russian), `/nl/` (Dutch), and `/de/` (German). These editions use the same global publisher headlines as the English reader. Arabic uses a right-to-left interface; story text keeps its original direction.
+
+It also includes `/br/` (Brazilian Portuguese) and `/pt/` (European Portuguese), sharing the pinned catalogue in `portuguese-sources.ts`. On the project site these resolve beneath `/stringer-news/`. The edition links and shared assets remain relative. The locale pages preserve the same UTC build stamp as the English reader.
 
 These editions translate the interface only; headlines and Stringer reporting remain in their original languages. Portuguese headlines are read directly from the configured Atomstr relay and require both a pinned mirror signature and matching RSS provenance. Publisher summaries and photos are discarded. Mirror timestamps and social-feed fallbacks are labeled, and unavailable mirrors retain previously verified stories without claiming a successful refresh. BR and PT share source choices in browser storage; the English reader continues to enable every publisher.
 
