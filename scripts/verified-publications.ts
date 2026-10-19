@@ -1,6 +1,11 @@
 // Reviewed dates for exact original URLs only; dates are never inferred
 // from URL paths, search crawl dates, related articles, or modification times.
-export const VERIFIED_PUBLICATIONS = new Map([
+// Each review establishes either an instant or a calendar date, with its evidence.
+export type ReviewedPublication = { evidence: string } & (
+  | { publishedAt: string; publicationDate?: never }
+  | { publicationDate: string; publishedAt?: never }
+);
+export const VERIFIED_PUBLICATIONS: ReadonlyMap<string, ReviewedPublication> = new Map<string, ReviewedPublication>([
   ['https://www.instagram.com/reel/DMsRo8JNRY8/?igsh=MWc5aXJiZml4c2l4cA==', {
     publicationDate: '2025-07-29',
     evidence: 'Publication date supplied by the site owner for this exact Instagram reel on 25 September 2026.',

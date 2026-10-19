@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { readdir, readFile, lstat } from 'node:fs/promises';
 import { load } from 'cheerio';
 import { resolve, relative } from 'node:path';
-async function walk(dir) {
-  const paths = [];
+async function walk(dir: string): Promise<string[]> {
+  const paths: string[] = [];
   for (const entry of await readdir(dir)) {
     const path = `${dir}/${entry}`, stat = await lstat(path);
     assert.equal(stat.isSymbolicLink(), false, `No symlinks in Pages artifact: ${path}`);
@@ -32,7 +32,9 @@ test('built HTML, module imports and Stringer photos resolve under a GitHub proj
     const js = await readFile(`_site/${file}`, 'utf8');
     for (const match of js.matchAll(/(?:from\s*|import\s*\()(['"])(\.\/[^'"\s]+)\1/g)) urls.push(match[2]);
   }
-  const media = await import('../../_site/stringer-media.js');
+  // Resolve dynamically so the generated artifact is checked at runtime, outside source compilation.
+  const mediaPath = '../../_site/stringer-media.js';
+  const media: typeof import('../../stringer-media.ts') = await import(mediaPath);
   for (const story of media.STRINGER_MEDIA.values()) if (story.image) urls.push(story.image);
   for (const value of urls) {
     if (!value || !value.startsWith('./')) continue;
@@ -43,7 +45,7 @@ test('built HTML, module imports and Stringer photos resolve under a GitHub proj
     await readFile(path);
   }
   for (const value of $('script[src],link[rel="stylesheet"]').toArray().map(el => $(el).attr('src') || $(el).attr('href')))
-    if (value.startsWith('./')) assert.match(value, /\?v=[a-f0-9]{16}$/, 'Versioned module and stylesheet URLs');
+    if (value?.startsWith('./')) assert.match(value, /\?v=[a-f0-9]{16}$/, 'Versioned module and stylesheet URLs');
 });
 
 test('footer links the build timestamp to the exact source commit beside the GitHub icon', async () => {
@@ -53,7 +55,7 @@ test('footer links the build timestamp to the exact source commit beside the Git
   assert.equal(footer.attr('hidden'), undefined);
   assert.equal(footer.find('.build-commit').attr('href'), `https://github.com/stringerfoundation/news/commit/${revision}`);
   assert.match(footer.find('.build-commit').text(), /^Build \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC$/);
-  assert.ok(Number.isFinite(Date.parse(footer.find('.build-commit time').attr('datetime'))));
+  assert.ok(Number.isFinite(Date.parse(footer.find('.build-commit time').attr('datetime') ?? '')));
   assert.equal(footer.find('.build-repository').attr('href'), 'https://github.com/stringerfoundation/news');
   assert.equal(footer.find('.build-repository svg').length, 1);
 });

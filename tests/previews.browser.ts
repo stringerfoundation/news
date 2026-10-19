@@ -1,11 +1,13 @@
+import type { Browser } from '@playwright/test';
+import type { AddressInfo } from 'node:net';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFile, mkdir, rm } from 'node:fs/promises';
 import { resolve, relative } from 'node:path';
-import { launchBrowser } from '../scripts/browser.mjs';
-import { SOURCES } from '../news-model.js';
+import { launchBrowser } from '../scripts/browser.ts';
+import { SOURCES } from '../news-model.ts';
 
 test('built production and PR previews preserve relative assets, indexing and mobile behavior', async () => {
   const root = resolve('.test-output/previews-browser');
@@ -20,7 +22,7 @@ test('built production and PR previews preserve relative assets, indexing and mo
       summary: 'Synthetic test fixture.', credits: 'Fixture author', publishedAt: at, image: null })),
   }])) };
   const server = createServer(async (request, response) => {
-    const url = new URL(request.url, 'http://localhost');
+    const url = new URL(request.url ?? '/', 'http://localhost');
     const name = url.pathname.replace(/^\/news\//, '') || 'index.html';
     const path = resolve(root, name.endsWith('/') ? name + 'index.html' : name);
     if (relative(root, path).startsWith('..')) { response.writeHead(404).end(); return; }
@@ -31,27 +33,27 @@ test('built production and PR previews preserve relative assets, indexing and mo
       response.end(data);
     } catch { response.writeHead(404).end(); }
   });
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  let browser;
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  let browser: Browser | undefined;
   try {
     browser = await launchBrowser();
     for (const width of [375, 1280]) for (const preview of [false, true]) {
       const page = await browser.newPage({ viewport: { width, height: 1000 } });
-      const errors = [], failedAssets = [];
+      const errors: string[] = [], failedAssets: string[] = [];
       page.on('pageerror', error => errors.push(error.message));
       page.on('response', response => { if (response.url().includes('/news/') && !response.ok()) failedAssets.push(response.url()); });
       const path = '/news/' + (preview ? 'pr-preview/18/' : '');
-      await page.goto(`http://127.0.0.1:${server.address().port}${path}`);
+      await page.goto(`http://127.0.0.1:${(server.address() as AddressInfo).port}${path}`);
       await page.waitForSelector('#world-news article');
       const robots = await page.locator('meta[name="robots"]').getAttribute('content');
-      assert.equal(robots.includes('noindex'), preview);
+      assert.equal(robots?.includes('noindex'), preview);
       assert.equal(await page.locator('#world-news article').count(), 30);
       if (width === 375) assert.equal(await page.locator('#world-news article:not([hidden])').count(), 5);
       else {
         const bounds = await page.evaluate(() => {
-          const cards = [...document.querySelectorAll('#world-news article')].filter(card => !card.hidden);
-          const last = cards.at(-1).getBoundingClientRect();
-          return { bottom: last.bottom, height: last.height, reportingBottom: document.querySelector('#stringer-news').getBoundingClientRect().bottom };
+          const cards = [...document.querySelectorAll<HTMLElement>('#world-news article')].filter(card => !card.hidden);
+          const last = cards.at(-1)!.getBoundingClientRect();
+          return { bottom: last.bottom, height: last.height, reportingBottom: document.querySelector<HTMLElement>('#stringer-news')!.getBoundingClientRect().bottom };
         });
         assert.ok(bounds.bottom <= bounds.reportingBottom + bounds.height + 1);
       }
@@ -72,6 +74,6 @@ test('built production and PR previews preserve relative assets, indexing and mo
     }
   } finally {
     await browser?.close();
-    await new Promise(resolve => { server.close(resolve); server.closeAllConnections(); });
+    await new Promise<void>(resolve => { server.close(() => resolve()); server.closeAllConnections(); });
   }
 });

@@ -6,9 +6,8 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
-    "allowJs": true,
-    "checkJs": false,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "lib": [
       "ES2023",
@@ -21,7 +20,9 @@
   },
   "include": [
     "*.ts",
+    "scripts/**/*.ts",
+    "tests/**/*.ts",
     "relay/**/*.ts",
-    "tests/relay/**/*.ts"
+    "deploy/**/*.ts"
   ]
 }

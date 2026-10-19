@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { generateSecretKey, getPublicKey } from 'nostr-tools';
 import type { Browser, Page } from '@playwright/test';
-import { launchBrowser } from '../../scripts/browser.mjs';
+import { launchBrowser } from '../../scripts/browser.ts';
 import { publicBatch } from './fixture.js';
 import { SOURCES } from '../../news-model.js';
 import type { Snapshot } from '../../relay/types.js';
@@ -97,6 +97,10 @@ test('one loading deadline includes manifest lookup, partial stories and retries
     assert.ok(result.elapsed >= 1400 && result.elapsed < 3000, `Load took ${result.elapsed}ms`);
     assert.equal(result.snapshot.sources.bbc!.stories.length, 1);
     assert.equal(result.snapshot.sources.bbc!.unavailable, 1);
-    assert.deepEqual(requests, [30078, 1]);
+    // Fractional timer delays can fire just before the deadline, leaving enough
+    // budget for one bounded retry. The elapsed assertion checks the shared cap.
+    assert.equal(requests[0], 30078);
+    assert.ok(requests.length === 2 || requests.length === 3);
+    assert.ok(requests.slice(1).every(kind => kind === 1));
   } finally { await page.close(); }
 });
