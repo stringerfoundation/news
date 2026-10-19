@@ -1,6 +1,6 @@
-import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=504da13f7eea42d7";
-import relayConfig from "./relay-config.js?v=504da13f7eea42d7";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=504da13f7eea42d7";
+import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=8e3e68fbf6a13dd9";
+import relayConfig from "./relay-config.js?v=8e3e68fbf6a13dd9";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=8e3e68fbf6a13dd9";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -155,6 +155,16 @@ function updateStoryVisibility() {
     section.button.textContent = `Show ${section.expanded ? "fewer" : "more"} ${section.label}`;
     section.button.setAttribute("aria-label", section.button.textContent);
   }
+  if (!mobileLayout.matches) {
+    const stringer = requiredElement("#stringer-news");
+    if (!stringer.querySelector("article")) return;
+    const bottom = stringer.getBoundingClientRect().bottom;
+    let reachedEnd = false;
+    for (const card of requiredElement("#world-news").querySelectorAll("article")) {
+      card.hidden = reachedEnd;
+      if (!reachedEnd && card.getBoundingClientRect().bottom >= bottom) reachedEnd = true;
+    }
+  }
 }
 for (const section of sections) {
   section.button.addEventListener("click", () => {
@@ -253,7 +263,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=504da13f7eea42d7");
+      const reader = await import("./relay-reader.js?v=8e3e68fbf6a13dd9");
       if (!snapshot) {
         snapshot = reader.cachedRelaySnapshot(relayConfig);
         if (snapshot) render();
@@ -309,6 +319,10 @@ async function load() {
     else renderStatuses();
   }
 }
+const layoutObserver = new ResizeObserver(updateStoryVisibility);
+layoutObserver.observe(requiredElement("#stringer-news"));
+window.addEventListener("resize", updateStoryVisibility);
+document.fonts.ready.then(updateStoryVisibility);
 setInterval(() => {
   renderStatuses();
   if (!document.hidden && Date.now() - lastAttempt >= interval) load();
