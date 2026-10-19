@@ -1,9 +1,10 @@
+import { readerSource } from './reader-source.mjs';
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { readFile, mkdir } from 'node:fs/promises';
 import { launchBrowser } from '../scripts/browser.mjs';
-import { SOURCES, worldStories } from '../news-model.js';
+import { SOURCES, worldStories } from '../news-model.ts';
 import { collect, snapshotUrl } from '../scripts/collect.mjs';
 let server, browser, base, snapshot;
 const thumbnail = await readFile(new URL('../assets/favicon-192.png', import.meta.url));
@@ -20,11 +21,18 @@ before(async()=>{
     const pathname=new URL(req.url,'http://localhost').pathname.replace(/^\/stringer-news(?=\/)/,'');
     const file=pathname==='/'?'index.html':pathname.slice(1);
     if(!['index.html','app.js','relay-config.js','news-model.js','stringer-media.js','style.css','assets/stringer-logo.png','assets/favicon-16.png','assets/favicon-32.png','assets/favicon-192.png','assets/favicon-180.png','data/news.json'].includes(file) && !/^assets\/stringer-thumbnails\/[a-zA-Z0-9-]+\.png$/.test(file)){res.writeHead(404);res.end();return;}
-    try{let body=file==='data/news.json'?JSON.stringify(snapshot):await readFile(new URL('../'+file,import.meta.url));
-    // These regression tests exercise the legacy static reader; relay coverage lives in public.browser.ts.
-    if(file==='relay-config.js') body='export default {enabled:false};';
-    // Explicit fictional grants keep enabled-feed regression coverage independent of production policy.
-    if(file==='news-model.js') body=body.toString().replace("text: true, summaries: source.id === 'stringer', images: source.id === 'stringer'", 'text: true, summaries: true, images: true');res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.json')?'application/json':file.endsWith('.png')?'image/png':'text/html');res.end(body)}catch{res.writeHead(404);res.end()}
+    try {
+      let body;
+      if (file === 'data/news.json') body = JSON.stringify(snapshot);
+      // Static-reader fixtures disable relays and grant fictional publisher reuse permissions.
+      else if (file === 'relay-config.js') body = 'export default {enabled:false};';
+      else if (file.endsWith('.js')) body = await readerSource(file, source => file === 'news-model.js'
+        ? source.replace("text: true, summaries: source.id === 'stringer', images: source.id === 'stringer'", 'text: true, summaries: true, images: true')
+        : source);
+      else body = await readFile(new URL('../'+file, import.meta.url));
+      res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.json')?'application/json':file.endsWith('.png')?'image/png':'text/html');
+      res.end(body);
+    } catch { res.writeHead(404); res.end(); }
   });
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));base=`http://127.0.0.1:${server.address().port}`;
   browser=await launchBrowser();
@@ -82,7 +90,7 @@ test('news timestamps use the browser time zone and visibly label it', async () 
   for (const timezoneId of ['America/New_York', 'Asia/Tokyo']) {
     const page = await browser.newPage({ locale: 'en-US', timezoneId });
     await mockStoryImages(page);
-    await page.route('**/news-model.js', async route=>route.fulfill({contentType:'text/javascript',body:await readFile(new URL('../news-model.js',import.meta.url),'utf8')}));
+    await page.route('**/news-model.js', async route=>route.fulfill({contentType:'text/javascript',body:await readerSource('news-model.js')}));
     await page.goto(base);
     const time = page.locator('#world-news time').first();
     await time.waitFor();
@@ -352,7 +360,7 @@ test('desktop shows every individual headline without grouping or subscription l
   const data = structuredClone(snapshot);
   for (const source of SOURCES.filter(source => source.id !== 'stringer'))
     for (const story of data.sources[source.id].stories) story.clusterId = 'shared-event';
-  await page.route('**/news-model.js', async route => route.fulfill({ contentType: 'text/javascript', body: (await readFile(new URL('../news-model.js', import.meta.url), 'utf8')).replace('headlineOnly: sourceId', 'clusterId: story.clusterId, headlineOnly: sourceId') }));
+  await page.route('**/news-model.js', async route => route.fulfill({ contentType: 'text/javascript', body: await readerSource('news-model.js', source => source.replace('headlineOnly: sourceId', 'clusterId: story.clusterId, headlineOnly: sourceId')) }));
   await page.route('**/data/news.json', route => route.fulfill({ json: data }));
   await page.reload();
   await page.waitForSelector('#world-news article');
@@ -390,7 +398,7 @@ test('reader hides publisher thumbnails and preserves Stringer photos', async ()
   await mockStoryImages(page);
   const imageRequests = [];
   page.on('request', request=> { if(request.resourceType()==='image') imageRequests.push(request.url()); });
-  await page.route('**/news-model.js', async route=>route.fulfill({contentType:'text/javascript',body:await readFile(new URL('../news-model.js',import.meta.url),'utf8')}));
+  await page.route('**/news-model.js', async route=>route.fulfill({contentType:'text/javascript',body:await readerSource('news-model.js')}));
   await page.goto(base + '/');
   await page.waitForSelector('#stringer-news article');
   assert.ok(await page.locator('#world-news article').count() > 0);

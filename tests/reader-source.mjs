@@ -1,0 +1,8 @@
+import { readFile } from 'node:fs/promises';
+import { transform } from 'esbuild';
+// Browser fixtures exercise the same TypeScript compiler and public JS paths as the build.
+export async function readerSource(file, edit = source => source) {
+  const path = file.replace(/\.js$/, '.ts');
+  const source = edit(await readFile(new URL(`../${path}`, import.meta.url), 'utf8'));
+  return (await transform(source, { loader: 'ts', format: 'esm', target: 'es2022' })).code;
+}

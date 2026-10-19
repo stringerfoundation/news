@@ -1,7 +1,12 @@
 // Exact article matches from the approved Stringer collection. Photo URLs were
 // captured from Stringer's courageous-stories page; dates are from the
 // production news snapshot of 2026-09-24T21:46:27.470Z. Unknown dates stay unknown.
-export const STRINGER_MEDIA = new Map([
+export interface StringerMedia {
+  image: string;
+  publishedAt: string | null;
+  publicationDate: string | null;
+}
+export const STRINGER_MEDIA = new Map<string, StringerMedia>([
   [
     "https://www.telegraph.co.uk/global-health/terror-and-security/injured-ukrainian-soldiers-taking-up-tattooing-as-therapy/",
     {

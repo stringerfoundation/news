@@ -5,10 +5,12 @@ const builtAt = new Date().toISOString();
 await rm('_site', { recursive: true, force: true });
 await mkdir('_site/assets/stringer-thumbnails', { recursive: true });
 await mkdir('_site/.well-known', { recursive: true });
-await build({ entryPoints: ['relay/reader.ts'], outfile: '_site/relay-reader.js', bundle: true,
+await build({ entryPoints: ['relay-reader.ts'], outfile: '_site/relay-reader.js', bundle: true,
   platform: 'browser', format: 'esm', target: 'es2022' });
 const files = ['index.html', 'style.css', 'app.js', 'news-model.js', 'relay-config.js', 'stringer-media.js'];
-for (const file of files) await copyFile(file, `_site/${file}`);
+for (const file of files.filter(file => !file.endsWith('.js'))) await copyFile(file, `_site/${file}`);
+await build({ entryPoints: ['app.ts', 'news-model.ts', 'relay-config.ts', 'stringer-media.ts'],
+  outdir: '_site', platform: 'browser', format: 'esm', target: 'es2022' });
 for (const file of ['stringer-logo.png', 'nostr-banner.png', 'favicon-16.png', 'favicon-32.png', 'favicon-192.png', 'favicon-180.png'])
   await copyFile(`assets/${file}`, `_site/assets/${file}`);
 for (const file of await readdir('assets/stringer-thumbnails')) {
