@@ -1,18 +1,18 @@
 import type { Snapshot, SourceState, Story } from './relay/types.js';
 import type { Manifest } from './relay/protocol.js';
 export type SourceId = 'bbc' | 'nyt' | 'aljazeera' | 'dw' | 'cna' | 'stringer';
-export interface Source { id: SourceId; name: string; url: string; mayRequireSubscription?: boolean; }
+export interface Source { id: SourceId; name: string; url: string; homepage: string; linkLabel?: string; mayRequireSubscription?: boolean; }
 export interface ContentPermission { text: boolean; summaries: boolean; images: boolean; }
 export type ContentPermissions = Readonly<Record<string, ContentPermission | undefined>>;
 export interface SourceInfo { id: string; name: string; mayRequireSubscription?: boolean; }
 export interface DisplayStory extends Story { source?: string; mayRequireSubscription?: boolean; }
 export const SOURCES: readonly Source[] = Object.freeze([
-  { id: 'bbc', name: 'BBC World', url: 'https://feeds.bbci.co.uk/news/world/rss.xml' },
-  { id: 'nyt', name: 'NYT World', mayRequireSubscription: true, url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml' },
-  { id: 'aljazeera', name: 'Al Jazeera', url: 'https://www.aljazeera.com/xml/rss/all.xml' },
-  { id: 'dw', name: 'DW', url: 'https://rss.dw.com/rdf/rss-en-all' },
-  { id: 'cna', name: 'CNA', url: 'https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml&category=6311' },
-  { id: 'stringer', name: 'Stringer', url: 'https://stringerjournalism.org/courageous-stories' },
+  { id: 'bbc', homepage: 'https://www.bbc.com/news', linkLabel: 'BBC News', name: 'BBC World', url: 'https://feeds.bbci.co.uk/news/world/rss.xml' },
+  { id: 'nyt', homepage: 'https://www.nytimes.com/section/world', linkLabel: 'The New York Times', name: 'NYT World', mayRequireSubscription: true, url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml' },
+  { id: 'aljazeera', homepage: 'https://www.aljazeera.com/', linkLabel: 'Al Jazeera', name: 'Al Jazeera', url: 'https://www.aljazeera.com/xml/rss/all.xml' },
+  { id: 'dw', homepage: 'https://www.dw.com/', linkLabel: 'DW', name: 'DW', url: 'https://rss.dw.com/rdf/rss-en-all' },
+  { id: 'cna', homepage: 'https://www.channelnewsasia.com/world', linkLabel: 'CNA', name: 'CNA', url: 'https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml&category=6311' },
+  { id: 'stringer', homepage: 'https://stringerjournalism.org/courageous-stories', linkLabel: 'Stringer', name: 'Stringer', url: 'https://stringerjournalism.org/courageous-stories' },
 ]);
 // Only these publisher article hosts may be fetched for image metadata.
 export const ARTICLE_IMAGE_HOSTS = Object.freeze({

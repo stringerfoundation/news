@@ -1,4 +1,5 @@
-import type { Snapshot } from './relay/types.js';
+import { readResponseText } from './response.js';
+import type { SourceState, Snapshot } from './relay/types.js';
 import type { DisplayStory } from './news-model.js';
 import type { FeedLoadTiming } from './relay/reader.js';
 import { localeForLanguage, translator } from './reader-locales.ts';
@@ -82,6 +83,12 @@ if (sourceSearch) {
 }
 const interval = 5 * 60 * 1000;
 let snapshot: Snapshot | null = null;
+// Current collection metadata stays intact; fallback stories are a display concern.
+const retainedSources = new Map<string, SourceState>();
+function displayedSnapshot(): Snapshot {
+  return { ...snapshot!, sources: Object.fromEntries(Object.entries(snapshot!.sources).map(([id, source]) =>
+    [id, retainedSources.get(id) ?? source])) };
+}
 let loading = false;
 let lastAttempt = 0;
 let loadStarted = 0;
@@ -129,7 +136,7 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
       const figure = element('figure', '', 'story-media');
       const image = element('img');
       image.alt = imageData?.alt || '';
-      image.width = wire ? 120 : 240; image.height = wire ? 80 : 240;
+      image.width = 240; image.height = 240;
       image.loading = index === 0 ? 'eager' : 'lazy';
       image.decoding = 'async'; image.referrerPolicy = 'no-referrer';
       let triedLocal = imageUrl === localImage;
@@ -247,14 +254,16 @@ function renderStatuses() {
     const sources = group === 'stringer' ? SOURCES.filter(s => s.id === 'stringer') : publisherSources.filter(s => !disabledSources.has(s.id));
     for (const source of sources) {
       const entry = snapshot.sources[source.id]!;
-      if (entry.status === 'paused' || entry.status === 'loading') continue;
+      if (entry.status === 'paused') continue;
+      const retained = retainedSources.get(source.id);
+      if (retained) notes.push(`${source.name} · Showing ${retained.stories.length} previously collected stories${retained.lastSuccessAt ? ` from ${formatLocalDateTime(retained.lastSuccessAt)}` : ''}.`);
       if (relayConfig.enabled) {
         const counts = [];
         if ((entry.unavailable ?? 0) > 0 && !loading) counts.push(t('{count} unavailable', {count: entry.unavailable!}));
         if ((entry.pending ?? 0) > 0) counts.push(t('{count} queued', {count: entry.pending!}));
         if (counts.length) notes.push(`${source.name} · ${counts.join(' · ')}`);
       }
-      if (entry.status === 'failure' && !(loading && entry.unavailable)) target.append(element('p', t('{source}: refresh unavailable.{retained}', {source: source.name, retained: t(entry.stories.length ? ' Showing previously collected stories.' : ' No stories available.')}), 'warning'));
+      if (entry.status === 'failure' && !(loading && entry.unavailable)) target.append(element('p', t('{source}: refresh unavailable.{retained}', {source: source.name, retained: t((retained?.stories.length || entry.stories.length) ? ' Showing previously collected stories.' : ' No stories available.')}), 'warning'));
     }
   }
   if (atomstrEdition) {
@@ -278,7 +287,7 @@ function renderWorld() {
   const selected = selectedSources();
   const worldPaused = selected.length > 0 && selected.every(id => current.sources[id]!.status === 'paused');
   const list = requiredElement('#world-news');
-  const stories = worldStories(current, selected, publisherSources);
+  const stories = worldStories(displayedSnapshot(), selected, publisherSources);
   renderStories(list, atomstrEdition ? stories.slice(0, 300) : stories,
     !selected.length ? t('No sources selected.') : loading ? '' : worldPaused ? t('Global headlines are currently unavailable.') : t('No headlines available in this collection.'));
   if (!selected.length) {
@@ -287,15 +296,9 @@ function renderWorld() {
   }
   if (worldPaused && !atomstrEdition) {
     const links = element('p', '', 'publisher-links');
-    for (const [id, name, url] of [
-      ['bbc', 'BBC News', 'https://www.bbc.com/news'],
-      ['nyt', 'The New York Times', 'https://www.nytimes.com/section/world'],
-      ['aljazeera', 'Al Jazeera', 'https://www.aljazeera.com/'],
-      ['dw', 'DW', 'https://www.dw.com/'],
-      ['cna', 'CNA', 'https://www.channelnewsasia.com/world'],
-    ] as const) {
+    for (const { id, name, homepage, linkLabel } of SOURCES.filter(source => source.id !== 'stringer')) {
       if (!selected.includes(id)) continue;
-      const link = element('a', name); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer';
+      const link = element('a', linkLabel || name); link.href = homepage; link.target = '_blank'; link.rel = 'noopener noreferrer';
       if (links.childNodes.length) links.append(document.createTextNode(' · '));
       links.append(link);
     }
@@ -306,20 +309,8 @@ function renderWorld() {
 }
 function render() {
   if (!snapshot) return;
-  renderStories(requiredElement('#stringer-news'), shuffledStringerStories(snapshot.sources.stringer!.stories), loading ? '' : t('Courageous stories are currently unavailable. Visit the Stringer collection below.'));
+  renderStories(requiredElement('#stringer-news'), shuffledStringerStories(displayedSnapshot().sources.stringer!.stories), loading ? '' : t('Courageous stories are currently unavailable. Visit the Stringer collection below.'));
   renderWorld();
-}
-function preserveStoriesDuringRefresh(
-  previous: Snapshot['sources'][string] | undefined,
-  current: Snapshot['sources'][string],
-) {
-  if (!previous || current.status === 'paused' ||
-    !(previous.stories.length > current.stories.length || !current.stories.length)) return current;
-  return {
-    ...current,
-    stories: previous.stories,
-    lastSuccessAt: current.lastSuccessAt || previous.lastSuccessAt,
-  };
 }
 async function load() {
   if (atomstrEdition) return loadAtomstr();
@@ -350,9 +341,11 @@ async function load() {
         if (snapshot && Date.parse(partial.generatedAt) < Date.parse(snapshot.generatedAt)) return;
         // Preserve already displayed stories while the rest of the update arrives.
         for (const source of SOURCES) {
-          partial.sources[source.id] = preserveStoriesDuringRefresh(
-            snapshot?.sources[source.id], partial.sources[source.id]!,
-          );
+          const current = partial.sources[source.id]!;
+          const previous = retainedSources.get(source.id) ?? snapshot?.sources[source.id];
+          if (previous && current.status !== 'paused' && previous.stories.length > current.stories.length)
+            retainedSources.set(source.id, previous);
+          else retainedSources.delete(source.id);
         }
         snapshot = partial;
         render();
@@ -363,9 +356,10 @@ async function load() {
     } else {
       const response = await fetch(new URL('./data/news.json', import.meta.url), { cache: 'no-cache', credentials: 'omit', signal: AbortSignal.timeout(15000) });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      next = applyContentPermissions(validateSnapshot(await response.json()));
+      next = applyContentPermissions(validateSnapshot(JSON.parse(await readResponseText(response))));
     }
     if (snapshot && Date.parse(next.generatedAt) < Date.parse(snapshot.generatedAt)) throw new Error('Older snapshot returned');
+    retainedSources.clear();
     snapshot = next; render();
     loadOutcome = 'Loaded';
     feedback.textContent = '';

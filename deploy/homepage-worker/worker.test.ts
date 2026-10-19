@@ -21,7 +21,7 @@ test('only homepage and namespaced reader assets reach Pages', () => {
   for (const path of ['/', '/?utm_source=fixture']) assert.equal(routeFor(request(path)).kind, 'home');
   for (const path of ['/donate', '/mission', '/awards', '/assets/site.css', '/robots.txt', '/sitemap.xml'])
     assert.equal(routeFor(request(path)).kind, 'legacy');
-  for (const path of ['/news-assets/app.js', '/news-assets/relay-reader.js', '/news-assets/assets/stringer-thumbnails/photo-1.png'])
+  for (const path of ['/news-assets/app.js', '/news-assets/response.js', '/news-assets/publications.js', '/news-assets/relay-reader.js', '/news-assets/assets/stringer-thumbnails/photo-1.png'])
     assert.equal(routeFor(request(path)).kind, 'asset');
   for (const path of ['/news-assets/private.csv', '/news-assets/', '/news-assets/dashboard/index.html', '/news-assets/wire-images.js'])
     assert.equal(routeFor(request(path)).kind, 'missing');

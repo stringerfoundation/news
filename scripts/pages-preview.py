@@ -31,7 +31,8 @@ EDITION_FILES = {
     'atomstr-reader.js',
     *{f'{edition}/index.html' for edition in EDITION_PATHS},
 }
-FILES = REQUIRED_FILES | EDITION_FILES
+SHARED_MODULE_FILES = {'response.js', 'publications.js'}
+FILES = REQUIRED_FILES | EDITION_FILES | SHARED_MODULE_FILES
 
 
 def allowed(path):
@@ -62,6 +63,8 @@ def unpack(data, destination):
         raise ValueError('Incomplete site artifact')
     if files.keys() & EDITION_FILES and not EDITION_FILES.issubset(files):
         raise ValueError('Incomplete multilingual site artifact')
+    if files.keys() & SHARED_MODULE_FILES and not SHARED_MODULE_FILES.issubset(files):
+        raise ValueError('Incomplete shared module set')
     destination.mkdir(parents=True, exist_ok=True)
     for name, contents in files.items():
         target = destination / name

@@ -1,6 +1,7 @@
 import { EDITIONS } from '../reader-locales.ts';
 import { localizedReaderHtml } from './reader-html.ts';
 import { browserExternals } from './browser-build.ts';
+import { PUBLIC_MODULES, PUBLIC_IMAGES, isPublicAsset } from '../public-assets.ts';
 import { build } from 'esbuild';
 import { mkdir, copyFile, readFile, writeFile, readdir, rm } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
@@ -15,14 +16,14 @@ await build({ entryPoints: ['relay-reader.ts'], outfile: '_site/relay-reader.js'
   platform: 'browser', format: 'esm', target: 'es2022' });
 await build({entryPoints: ['atomstr-reader.ts'], outfile: '_site/atomstr-reader.js', bundle: true, platform: 'browser', format: 'esm', target: 'es2022'});
 await build({entryPoints: ['app.ts'], outfile: '_site/app.js', bundle: true, platform: 'browser', format: 'esm', target: 'es2022', plugins: [browserExternals]});
-const files = ['index.html', 'style.css', 'app.js', 'news-model.js', 'relay-config.js', 'stringer-media.js'];
+const files = ['index.html', 'style.css', ...PUBLIC_MODULES.map(name => `${name}.js`)];
 for (const file of files.filter(file => !file.endsWith('.js'))) await copyFile(file, `_site/${file}`);
-await build({ entryPoints: ['news-model.ts', 'relay-config.ts', 'stringer-media.ts'],
+await build({ entryPoints: PUBLIC_MODULES.filter(name => name !== 'app').map(name => `${name}.ts`),
   outdir: '_site', platform: 'browser', format: 'esm', target: 'es2022' });
-for (const file of ['stringer-logo.png', 'nostr-banner.png', 'favicon-16.png', 'favicon-32.png', 'favicon-192.png', 'favicon-180.png'])
+for (const file of PUBLIC_IMAGES)
   await copyFile(`assets/${file}`, `_site/assets/${file}`);
 for (const file of await readdir('assets/stringer-thumbnails')) {
-  if (!/^[a-zA-Z0-9-]+\.png$/.test(file)) throw new Error(`Unexpected thumbnail: ${file}`);
+  if (!isPublicAsset(`assets/stringer-thumbnails/${file}`)) throw new Error(`Unexpected thumbnail: ${file}`);
   await copyFile(`assets/stringer-thumbnails/${file}`, `_site/assets/stringer-thumbnails/${file}`);
 }
 await copyFile('.well-known/nostr.json', '_site/.well-known/nostr.json');
