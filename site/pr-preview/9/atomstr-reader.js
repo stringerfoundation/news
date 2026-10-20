@@ -7670,7 +7670,7 @@ function parseAtomstrEvent(event, source, now2 = Date.now()) {
   } catch {
     return null;
   }
-  const title = (event.content.split(/\r?\n/, 1)[0] ?? "").trim();
+  const title = event.content.split(/\r?\n/, 1)[0].trim();
   if (!url || !title || title.length > 1e3) return null;
   return {
     title,

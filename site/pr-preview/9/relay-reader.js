@@ -7898,14 +7898,7 @@ async function readRelaySnapshot(config, report = () => {
       "#d": [MANIFEST_KEY],
       limit: 5
     });
-    const valid = manifests.filter((event3) => {
-      try {
-        readManifest(event3, config.pubkey);
-        return true;
-      } catch {
-        return false;
-      }
-    }).sort((a, b) => b.created_at - a.created_at || a.id.localeCompare(b.id));
+    const valid = manifests.sort((a, b) => b.created_at - a.created_at || a.id.localeCompare(b.id));
     const event2 = valid[0];
     if (!event2) throw new Error("No valid collection");
     const manifest = readManifest(event2, config.pubkey);
