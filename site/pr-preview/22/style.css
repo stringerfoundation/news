@@ -167,6 +167,8 @@
   .story .meta { margin-top: 7px; }
 }
 @media (max-width: 767px) {
+  /* System fonts retain reliable weights when downloaded fonts are restricted. */
+  h1, h2, h3 { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; font-synthesis: weight; }
   .page-intro { padding-top: 12px; padding-bottom: 14px; }
   .page-intro .eyebrow { margin-bottom: 6px; }
   .page-intro h1 { font-size: 24px; }
