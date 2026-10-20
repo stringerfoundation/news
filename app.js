@@ -64,7 +64,7 @@ function renderStories(target, stories, emptyMessage) {
       const figure = element('figure', '', 'story-media');
       const image = element('img');
       image.alt = imageData?.alt || '';
-      image.width = wire ? 120 : 240; image.height = wire ? 80 : 240;
+      image.width = 240; image.height = 240;
       image.loading = index === 0 ? 'eager' : 'lazy';
       image.decoding = 'async'; image.referrerPolicy = 'no-referrer';
       let triedLocal = imageUrl === localImage;
@@ -79,14 +79,7 @@ function renderStories(target, stories, emptyMessage) {
         image.replaceWith(placeholder);
       });
       image.src = imageUrl;
-      if (wire) {
-        figure.classList.add('wire-thumbnail');
-        const imageLink = element('a');
-        imageLink.href = url; imageLink.target = '_blank'; imageLink.rel = 'noopener noreferrer';
-        imageLink.setAttribute('aria-label', `Read ${story.title} at the original source`);
-        imageLink.append(image);
-        figure.append(imageLink);
-      } else figure.append(image);
+      figure.append(image);
       if (imageData?.credit) figure.append(element('figcaption', imageData.credit));
       article.classList.add('with-image'); article.append(figure);
     } else if (usePlaceholder) {
@@ -98,15 +91,13 @@ function renderStories(target, stories, emptyMessage) {
     if (story.summary) body.append(element('p', story.summary, 'summary'));
     const meta = element('div', '', 'meta');
     meta.append(element('span', story.source || new URL(url).hostname.replace(/^www\./, ''), 'source'));
-    // The publisher may still serve an older signed collection; the owner confirmed this exact reel's date.
-    const reviewedDate = target.id === 'stringer-news' && story.url === 'https://www.instagram.com/reel/DMsRo8JNRY8/?igsh=MWc5aXJiZml4c2l4cA==' ? '2025-07-29' : null;
     const publishedAt = story.publishedAt || approvedMedia?.publishedAt;
     if (publishedAt) {
       const time = element('time', formatLocalDateTime(publishedAt));
       time.title = `Local time (${Intl.DateTimeFormat().resolvedOptions().timeZone})`;
       time.dateTime = publishedAt; meta.append(time);
-    } else if (story.publicationDate || approvedMedia?.publicationDate || reviewedDate) {
-      const publicationDate = story.publicationDate || approvedMedia?.publicationDate || reviewedDate;
+    } else if (story.publicationDate || approvedMedia?.publicationDate) {
+      const publicationDate = story.publicationDate || approvedMedia?.publicationDate;
       const time = element('time', formatPublicationDate(publicationDate));
       time.dateTime = publicationDate; time.title = 'Publication date; source does not provide a confirmed time zone and time'; meta.append(time);
     } else if (story.credits) {
@@ -193,14 +184,13 @@ function renderWorld() {
   renderStories(list, worldStories(snapshot, selected), loading ? '' : worldPaused ? 'Global headlines are currently unavailable.' : 'No headlines available in this collection.');
   if (worldPaused) {
     const links = element('p', '', 'publisher-links');
-    for (const [id, name, url] of [
-      ['bbc', 'BBC News', 'https://www.bbc.com/news'],
-      ['nyt', 'The New York Times', 'https://www.nytimes.com/section/world'],
-      ['aljazeera', 'Al Jazeera', 'https://www.aljazeera.com/'],
-      ['dw', 'DW', 'https://www.dw.com/'],
-      ['cna', 'CNA', 'https://www.channelnewsasia.com/world'],
+    for (const [name, url] of [
+      ['BBC News', 'https://www.bbc.com/news'],
+      ['The New York Times', 'https://www.nytimes.com/section/world'],
+      ['Al Jazeera', 'https://www.aljazeera.com/'],
+      ['DW', 'https://www.dw.com/'],
+      ['CNA', 'https://www.channelnewsasia.com/world'],
     ]) {
-      if (!selected.includes(id)) continue;
       const link = element('a', name); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer';
       if (links.childNodes.length) links.append(document.createTextNode(' · '));
       links.append(link);
