@@ -16,7 +16,7 @@
     "test:relay": "tsx --test tests/relay/*.test.ts",
     "test:relay-browser": "tsx --test tests/relay/*.browser.ts",
     "test:artifact": "node --test tests/artifact/*.test.mjs",
-    "test:coverage": "c8 node tests/coverage/run.mjs"
+    "test:coverage": "c8 --100 --per-file node tests/coverage/run.mjs"
   },
   "dependencies": {
     "cheerio": "1.2.0",

@@ -140,15 +140,15 @@ function renderStatuses() {
   relayDetails.replaceChildren();
   const notes = [];
   const seconds = ((loading ? performance.now() - loadStarted : loadDuration) / 1000).toFixed(1);
-  const timing = loading ? `Loading · ${seconds} s elapsed` : loadOutcome ? `${loadOutcome} in ${seconds} s` : '';
-  if (timing) notes.push(loading ? `${loadStage} Total elapsed: ${seconds} s.` : `Latest feed load: ${timing.toLowerCase()}.`);
+  const timing = loading ? `Loading · ${seconds} s elapsed` : `${loadOutcome} in ${seconds} s`;
+  notes.push(loading ? `${loadStage} Total elapsed: ${seconds} s.` : `Latest feed load: ${timing.toLowerCase()}.`);
   if (Object.keys(feedTimings).length) {
     notes.push('Story retrieval from news relays:');
     for (const source of SOURCES) {
       const feed = feedTimings[source.id];
       if (!feed) continue;
       const elapsed = ((feed.durationMs ?? performance.now() - feed.startedAt) / 1000).toFixed(1);
-      const state = feed.state === 'loading' && !loading ? 'partial' : feed.state;
+      const state = feed.state;
       const description = state === 'empty' ? 'no published stories'
         : state === 'loaded' ? `loaded in ${elapsed} s`
         : state === 'loading' ? `loading · ${elapsed} s elapsed · ${feed.received}/${feed.total} stories`
@@ -174,7 +174,7 @@ function renderStatuses() {
   for (const note of notes) relayDetails.append(element('p', note));
   relayStatus.hidden = notes.length === 0;
   const summary = relayStatus.querySelector('summary');
-  summary.textContent = timing ? `Feed status · ${timing.toLowerCase()}` : 'Feed status';
+  summary.textContent = `Feed status · ${timing.toLowerCase()}`;
   summary.title = notes.join('\n');
 }
 function renderWorld() {
