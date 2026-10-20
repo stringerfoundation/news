@@ -45,3 +45,19 @@ test('invalid identity claims and non-success HTTP responses never produce a ver
   for (const body of [null, {}, { names: null }, { names: 'invalid' }])
     assert.equal(await verifyAddress('reporter@identity.test', pubkey, async () => new Response(JSON.stringify(body))), null);
 });
+
+test('identity lookup without a profile uses only an explicitly configured, independently verified fallback', async t => {
+  const {SimplePool} = await import('nostr-tools/pool');
+  const {readIdentity} = await import('../../relay/identity.js');
+  let claimed: string | null = null;
+  t.mock.method(SimplePool.prototype, 'subscribeMany', (_relays: string[], _filter: unknown, callbacks: {onevent: (event: ReturnType<typeof profile>) => void; oneose: () => void}) => {
+    queueMicrotask(() => { if (claimed) callbacks.onevent(profile(JSON.stringify({nip05: claimed}))); callbacks.oneose(); });
+    return {close: async () => {}};
+  });
+  t.mock.method(SimplePool.prototype, 'destroy', () => {});
+  t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({names: {_: pubkey}})));
+  assert.equal(await readIdentity(pubkey, ['wss://relay.test']), null);
+  assert.equal(await readIdentity(pubkey, ['wss://relay.test'], '_@identity.test'), 'identity.test');
+  claimed = 'unknown@identity.test';
+  assert.equal(await readIdentity(pubkey, ['wss://relay.test'], claimed), null);
+});

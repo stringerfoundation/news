@@ -33,7 +33,7 @@ export async function searchOpenverse(query: string, request: typeof fetch = fet
   if (!Array.isArray(data.results)) throw new Error('Invalid image search response.');
   const images: CommonsImage[] = [];
   for (const item of data.results) {
-    if (item.mature || !plain(item.source) || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(item.id || '') || item.source === 'wikimedia' || (filter && !filter.split(',').includes(item.source || ''))) continue;
+    if (item.mature || !plain(item.source) || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(item.id || '') || item.source === 'wikimedia' || (filter && !filter.split(',').includes(item.source!))) continue;
     const license = item.license === 'cc0' ? 'CC0-1.0' : item.license === 'pdm' ? 'PDM-1.0'
       : ['by', 'by-sa'].includes(item.license || '') ? `CC-${item.license!.toUpperCase()}-${item.license_version}` : '';
     try {

@@ -161,10 +161,12 @@ export class ImageSession {
       } catch { /* Ignore malformed trust lists. */ }
     });
     const ids = [...new Set(Object.values(refs).flat())];
-    for (let i = 0; i < ids.length; i += 100)
-      this.subscribe({ kinds: [1], authors: [config.pubkey], ids: ids.slice(i, i + 100), limit: 100 }, false);
+    for (let i = 0; i < ids.length; i += 20)
+      this.subscribe({ kinds: [1], authors: [config.pubkey], ids: ids.slice(i, i + 20), limit: 20 }, false);
     // Cached trust can display cached approvals; voting requires a live policy response.
-    this.subscribe({ kinds: [1], authors: [config.pubkey], '#e': Object.keys(this.refs), '#t': [IMAGE_MARKER], limit: 750 }, false);
+    const stories = Object.keys(this.refs);
+    for (let i = 0; i < stories.length; i += 20)
+      this.subscribe({ kinds: [1], authors: [config.pubkey], '#e': stories.slice(i, i + 20), '#t': [IMAGE_MARKER], limit: 20 }, false);
     this.listenVotes();
   }
   canVote(pubkey: string) {
@@ -182,16 +184,18 @@ export class ImageSession {
     const authors = [...this.follows], stories = Object.keys(this.refs);
     if (!authors.length || !stories.length) return;
     // One live subscription per relay, plus batched latest-vote history filters.
-    this.subscribe({ kinds: [1], authors, '#e': stories, '#t': [VOTE_MARKER], limit: 0 }, true);
+    // Verify authors locally: a large follow list must never become an oversized relay filter.
+    for (let i = 0; i < stories.length; i += 20)
+      this.subscribe({ kinds: [1], '#e': stories.slice(i, i + 20), '#t': [VOTE_MARKER], limit: 0 }, true);
     const total = stories.length * authors.length;
     let cursor = 0;
     const worker = async () => {
       while (!this.stopped && generation === this.voteGeneration) {
         // Generate only the next batch: large follow lists must not allocate the
         // complete story-by-author product or open thousands of subscriptions.
-        const index = cursor++, offset = Math.floor(index / this.config.relays.length) * 50;
+        const index = cursor++, offset = Math.floor(index / this.config.relays.length) * 5;
         if (offset >= total) return;
-        const filters: Filter[] = Array.from({ length: Math.min(50, total - offset) }, (_, n) => {
+        const filters: Filter[] = Array.from({ length: Math.min(5, total - offset) }, (_, n) => {
           const pair = offset + n;
           return { kinds: [1], authors: [authors[pair % authors.length]!], '#e': [stories[Math.floor(pair / authors.length)]!], '#t': [VOTE_MARKER], limit: 1 };
         });
@@ -231,8 +235,8 @@ export class ImageSession {
         if (!this.refs[candidate.storyId]!.includes(event.id)) this.refs[candidate.storyId]!.push(event.id);
         this.candidates.set(event.id, candidate);
       } else {
-        const vote = readVote(event, this.refs);
         if (!this.follows.has(event.pubkey)) return;
+        const vote = readVote(event, this.refs);
         for (const [id, old] of this.events) {
           if (old.kind !== 1 || old.pubkey !== event.pubkey || !old.tags.some(t => t[0] === VOTE_MARKER)) continue;
           const prior = readVote(old, this.refs);

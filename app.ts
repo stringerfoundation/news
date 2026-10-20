@@ -46,7 +46,7 @@ let loadStage = '';
 let feedTimings: Record<string, FeedLoadTiming> = {};
 let ImageSessionClass: typeof ImageSession | null = null;
 let searchImages: typeof import('./relay/open-images.js').searchImages | null = null;
-let commonsSubject: typeof import('./relay/commons.js').commonsSubject = title => title;
+let commonsSubject: typeof import('./relay/commons.js').commonsSubject;
 interface CommonsSearch { query: string; source: ImageSource; issues: string[]; loading: boolean; results: CommonsImage[]; error: string; searched: boolean }
 const commonsSearches = new Map<string, CommonsSearch>();
 const suggestionQueue = new Set<string>();
@@ -86,9 +86,9 @@ interface ImageAction { kind: 'skip' | 'vote' | 'choose'; chosen: CommonsImage |
 const chosenImages = new Map<string, CommonsImage>();
 const skippedImages = new Map<string, string[]>();
 const imageHistory = new Map<string, ImageAction[]>();
-const choiceKey = (storyId: string) => `${voter}:${storyId}`;
-function rememberImageAction(storyId: string, kind: ImageAction['kind'], candidateId: string | null) {
-  const key = choiceKey(storyId), history = imageHistory.get(key) || [];
+const choiceKey = (storyId: string, account = voter) => `${account}:${storyId}`;
+function rememberImageAction(storyId: string, kind: ImageAction['kind'], candidateId: string | null, account = voter) {
+  const key = choiceKey(storyId, account), history = imageHistory.get(key) || [];
   history.push({ kind, candidateId, chosen: chosenImages.get(key) || null, skipped: [...(skippedImages.get(key) || [])] });
   imageHistory.set(key, history.slice(-100));
 }
@@ -117,18 +117,20 @@ async function castImageVote(storyId: string, candidateId: string | null, rememb
   if (!session || !account || !signer || voteBusy) return false;
   const prior = session.selection(storyId).latest.get(account)?.vote.candidateId || null;
   voteBusy = true; voteMessage = 'Waiting for your signer and relay confirmation…'; renderWorld();
+  let published = false;
   try {
     const previousTime = session.selection(storyId).latest.get(account)?.event.created_at;
     const delay = previousTime ? (previousTime + 1) * 1000 - Date.now() : 0;
     if (delay > 0 && delay < 2000) await new Promise(resolve => setTimeout(resolve, delay));
     await session.vote(signer, account, storyId, candidateId);
-    if (remember) rememberImageAction(storyId, 'vote', prior);
+    if (remember) rememberImageAction(storyId, 'vote', prior, account);
     const image = candidateId ? session.candidates.get(candidateId) : null;
-    if (image) skippedImages.set(choiceKey(storyId), (skippedImages.get(choiceKey(storyId)) || []).filter(page => page !== image.filePage));
+    if (image) skippedImages.set(choiceKey(storyId, account), (skippedImages.get(choiceKey(storyId, account)) || []).filter(page => page !== image.filePage));
     voteMessage = remember ? 'Vote published.' : 'Previous approval restored.';
-    return true;
-  } catch (error) { voteMessage = error instanceof Error ? error.message : 'Could not publish your vote. Please retry.'; return false; }
+    published = true;
+  } catch (error) { voteMessage = error instanceof Error ? error.message : 'Could not publish your vote. Please retry.'; }
   finally { voteBusy = false; renderWorld(); }
+  return published;
 }
 const imageToolbar = element('div', '', 'image-toolbar');
 imageToolbar.hidden = true;
@@ -137,7 +139,7 @@ function syncImages() {
   const refs = snapshot?.imageCandidates || {};
   const storyIds = Object.entries(snapshot?.sources || {}).filter(([id]) => id !== 'stringer').flatMap(([, source]) => source.stories.flatMap(story => story.noteId ? [story.noteId] : []));
   const key = JSON.stringify([refs, storyIds]);
-  if (key !== imageRefsKey && ImageSessionClass) {
+  if (key !== imageRefsKey && ImageSessionClass && (!loading || !imageSession)) {
     imageSession?.close();
     imageSession = null;
     imageRefsKey = key;
@@ -195,8 +197,7 @@ function renderNostrAccount() {
   imageToolbar.append(connect);
   let status = voter && imageSession?.trustLive && !imageSession.canVote(voter)
     ? 'This account is not followed by Stringer and cannot approve images.' : voteMessage;
-  if (!status && voter && imageSession) status = imageSession.canVote(voter) ? 'You can approve illustrative images.' : !imageSession.trustLive
-    ? 'Waiting for Stringer’s follow list.' : 'This account is not followed by Stringer and cannot approve images.';
+  if (!status && voter && imageSession) status = imageSession.canVote(voter) ? 'You can approve illustrative images.' : 'Waiting for Stringer’s follow list.';
   const message = element('p', status); message.setAttribute('role', 'status'); imageToolbar.append(message);
 }
 function detectNostr() {
@@ -294,10 +295,10 @@ function imageReview(storyId: string, title: string) {
     for (const [value, text] of [['all', 'All sources'], ['commons', 'Wikimedia Commons'], ['openverse', 'Openverse'], ['flickr', 'Flickr via Openverse'], ['eu', 'EU audiovisual library'], ['wellcome', 'Wellcome Collection via Openverse'], ['smithsonian', 'Smithsonian via Openverse'], ['europeana', 'Europeana via Openverse']]) {
       const option = element('option', text); option.value = value!; sourceSelect.append(option);
     }
-    sourceSelect.value = state?.source || 'all'; sourceSelect.disabled = !!state?.loading;
+    sourceSelect.value = state!.source; sourceSelect.disabled = !!state?.loading;
     sourceSelect.addEventListener('change', () => { if (state) { state.source = sourceSelect.value as ImageSource; void findCommons(storyId, state.query); } });
     sourceLabel.append(sourceSelect);
-    const input = element('input'); input.type = 'search'; input.value = state?.query || title; input.maxLength = 200; input.required = true;
+    const input = element('input'); input.type = 'search'; input.value = state!.query; input.maxLength = 200; input.required = true;
     input.dataset.imageAction = `${storyId}:search`;
     label.append(input);
     input.addEventListener('input', () => { if (state) state.query = input.value; });
@@ -332,8 +333,8 @@ async function publishCommons(storyId: string, image: CommonsImage) {
   try {
     const id = await session.propose(signer, account, storyId, image);
     await session.vote(signer, account, storyId, id);
-    rememberImageAction(storyId, 'vote', prior);
-    skippedImages.set(choiceKey(storyId), (skippedImages.get(choiceKey(storyId)) || []).filter(page => page !== image.filePage));
+    rememberImageAction(storyId, 'vote', prior, account);
+    skippedImages.set(choiceKey(storyId, account), (skippedImages.get(choiceKey(storyId, account)) || []).filter(page => page !== image.filePage));
     voteMessage = 'Image and approval published.';
   } catch (error) { voteMessage = error instanceof Error ? error.message : 'Could not publish the image. Please retry.'; }
   finally { voteBusy = false; renderWorld(); }
@@ -604,7 +605,7 @@ function renderWorld() {
   if (focusAction) queueMicrotask(() => {
     const next = [...document.querySelectorAll<HTMLElement>('[data-image-action]')].find(node => node.dataset.imageAction === focusAction);
     next?.focus({ preventScroll: true });
-    if (next instanceof HTMLInputElement && selectionRange) next.setSelectionRange(selectionRange[0] ?? 0, selectionRange[1] ?? 0);
+    if (next instanceof HTMLInputElement && selectionRange) next.setSelectionRange(selectionRange[0]!, selectionRange[1]!);
   });
 }
 function render() {
@@ -661,7 +662,7 @@ async function load() {
     if (snapshot && Date.parse(next.generatedAt) < Date.parse(snapshot.generatedAt)) throw new Error('Older snapshot returned');
     retainedSources.clear();
     snapshot = next; render();
-    loadOutcome = 'Loaded';
+    loadOutcome = Object.values(next.sources).some(source => source.unavailable) ? 'Partially loaded' : 'Loaded';
     feedback.textContent = '';
   } catch (error) {
     loadOutcome = 'Failed';
@@ -692,3 +693,6 @@ document.fonts.ready.then(updateStoryVisibility);
 setInterval(() => { renderStatuses(); if (!document.hidden && Date.now() - lastAttempt >= interval) load(); }, 30_000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastAttempt >= interval) load(); });
 load();
+
+// Image commands share the same eligibility and signer checks as their UI controls.
+export { connectNostr, detectNostr, imageOptions, imageReview, skipImage, undoImage, castImageVote, publishCommons, findCommons, loadSuggestions, renderWorld, syncImages };

@@ -124,12 +124,12 @@ export async function readRelaySnapshot(config: ReaderConfig, report: (message: 
         progressTimer = setTimeout(publishProgress, 100);
     };
     const batches: Promise<Event[]>[] = [];
-    for (let i = 0; i < requestedIds.length; i += 100)
+    for (let i = 0; i < requestedIds.length; i += 20)
       batches.push(query({
-          ids: requestedIds.slice(i, i + 100),
+          ids: requestedIds.slice(i, i + 20),
           authors: [config.pubkey],
           kinds: [1],
-          limit: 100,
+          limit: 20,
         }, receive));
     stories.push(...(await Promise.all(batches)).flat());
     const received = new Set(stories.map((story) => story.id));
@@ -138,8 +138,8 @@ export async function readRelaySnapshot(config: ReaderConfig, report: (message: 
     if (missing.length && performance.now() < deadline) {
       report(`Received ${received.size} published notes. Retrying ${missing.length} missing notes…`);
       const retries: Promise<Event[]>[] = [];
-      for (let i = 0; i < missing.length; i += 100)
-        retries.push(query({ ids: missing.slice(i, i + 100), authors: [config.pubkey], kinds: [1], limit: 100 }, receive));
+      for (let i = 0; i < missing.length; i += 20)
+        retries.push(query({ ids: missing.slice(i, i + 20), authors: [config.pubkey], kinds: [1], limit: 20 }, receive));
       stories.push(...(await Promise.all(retries)).flat());
     }
     const cacheKey = `stringer-relay:${config.pubkey}`;
@@ -154,6 +154,10 @@ export async function readRelaySnapshot(config: ReaderConfig, report: (message: 
     }
     const snapshot = assemble(event, stories, config.pubkey, true);
     updateTimings(true);
+    const unavailable = Object.values(snapshot.sources).reduce((count, source) => count + (source.unavailable || 0), 0);
+    report(unavailable
+      ? `Finished loading available stories. ${unavailable} published notes are unavailable from the relays.`
+      : 'Finished loading published stories.');
     try {
       localStorage.setItem(cacheKey, JSON.stringify({ manifest: event, stories }));
     } catch {

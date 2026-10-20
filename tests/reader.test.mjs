@@ -138,6 +138,7 @@ test('reader retries missing notes and fills gaps only from a verified matching 
   const result = await readRelaySnapshot(config, (m) => messages.push(m));
   assert.equal(result.sources.stringer.stories.length, 2);
   assert.ok(messages.some((m) => m.includes('Retrying 1')));
+  assert.equal(messages.at(-1), 'Finished loading published stories.');
 });
 test('reader reports partial timing and rejects unusable cached events', async (t) => {
   const batch = fixture(2);
@@ -180,7 +181,7 @@ test('empty manifests complete without story subscriptions', async (t) => {
   assert.equal((await readRelaySnapshot(config)).sources.stringer.stories.length, 0);
   assert.equal(mock.calls.length, 1);
 });
-test('more than 100 story IDs use bounded batches and recover on retry', async (t) => {
+test('large collections respect a relay’s 20-ID array limit and recover on retry', async (t) => {
   const batch = fixture(101);
   storage(t);
   const mock = relay(t, batch, {
@@ -188,7 +189,7 @@ test('more than 100 story IDs use bounded batches and recover on retry', async (
       attempt <= 2 ? [] : batch.events.filter((e) => filter.ids.includes(e.id)),
   });
   assert.equal((await readRelaySnapshot(config)).sources.stringer.stories.length, 101);
-  assert.ok(mock.calls.every((f) => !f.ids || f.ids.length <= 100));
+  assert.ok(mock.calls.every((f) => !f.ids || f.ids.length <= 20));
 });
 test('legacy assignments are requested, while new inline groups need no reply fetch', async (t) => {
   const batch = fixture(),
