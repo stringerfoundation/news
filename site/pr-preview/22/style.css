@@ -188,9 +188,11 @@
   .desk .story .summary { display: none; }
   .desk .story-media img { width: 64px; height: 48px; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 4px; }
   .desk .story-placeholder { width: 48px; }
-  .desk .story h3, .desk .story:first-child.with-image h3, .desk .story:first-child h3 { font-size: 16px; line-height: 1.3; font-weight: 600; }
+  .desk .story { color: #291a14; --muted: #514139; }
+  .desk .story .source { color: inherit; }
+  .desk .story h3, .desk .story:first-child.with-image h3, .desk .story:first-child h3 { font-size: 16px; line-height: 1.3; font-weight: 700; }
   .desk .story .credits { margin-top: 5px; font-size: 11px; line-height: 1.3; }
-  .desk .story .meta { margin-top: 5px; font-size: 10px; line-height: 1.3; gap: 3px 6px; }
+  .desk .story .meta { margin-top: 5px; font-size: 11px; line-height: 1.4; gap: 3px 6px; }
   .collection-link { padding: 10px 0; font-size: 12px; }
   .intro-motif { position: absolute; width: 90px; height: 45px; right: -28px; bottom: 18px; opacity: .12; }
   .story.with-image { grid-template-columns: 96px minmax(0, 1fr); gap: 14px; }
