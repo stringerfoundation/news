@@ -1,7 +1,7 @@
-import { readResponseText } from "./response.js?v=c54eb118e494517e";
-import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=c54eb118e494517e";
-import relayConfig from "./relay-config.js?v=c54eb118e494517e";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=c54eb118e494517e";
+import { readResponseText } from "./response.js?v=6ba554e31f0f285e";
+import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=6ba554e31f0f285e";
+import relayConfig from "./relay-config.js?v=6ba554e31f0f285e";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=6ba554e31f0f285e";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -40,7 +40,7 @@ let loadStage = "";
 let feedTimings = {};
 let ImageSessionClass = null;
 let searchImages = null;
-let commonsSubject = (title) => title;
+let commonsSubject;
 const commonsSearches = /* @__PURE__ */ new Map();
 const suggestionQueue = /* @__PURE__ */ new Set();
 let activeSuggestions = 0;
@@ -84,9 +84,9 @@ const openImageReviews = /* @__PURE__ */ new Set();
 const chosenImages = /* @__PURE__ */ new Map();
 const skippedImages = /* @__PURE__ */ new Map();
 const imageHistory = /* @__PURE__ */ new Map();
-const choiceKey = (storyId) => `${voter}:${storyId}`;
-function rememberImageAction(storyId, kind, candidateId) {
-  const key = choiceKey(storyId), history = imageHistory.get(key) || [];
+const choiceKey = (storyId, account = voter) => `${account}:${storyId}`;
+function rememberImageAction(storyId, kind, candidateId, account = voter) {
+  const key = choiceKey(storyId, account), history = imageHistory.get(key) || [];
   history.push({ kind, candidateId, chosen: chosenImages.get(key) || null, skipped: [...skippedImages.get(key) || []] });
   imageHistory.set(key, history.slice(-100));
 }
@@ -120,23 +120,24 @@ async function castImageVote(storyId, candidateId, remember = true) {
   voteBusy = true;
   voteMessage = "Waiting for your signer and relay confirmation\u2026";
   renderWorld();
+  let published = false;
   try {
     const previousTime = session.selection(storyId).latest.get(account)?.event.created_at;
     const delay = previousTime ? (previousTime + 1) * 1e3 - Date.now() : 0;
     if (delay > 0 && delay < 2e3) await new Promise((resolve) => setTimeout(resolve, delay));
     await session.vote(signer, account, storyId, candidateId);
-    if (remember) rememberImageAction(storyId, "vote", prior);
+    if (remember) rememberImageAction(storyId, "vote", prior, account);
     const image = candidateId ? session.candidates.get(candidateId) : null;
-    if (image) skippedImages.set(choiceKey(storyId), (skippedImages.get(choiceKey(storyId)) || []).filter((page) => page !== image.filePage));
+    if (image) skippedImages.set(choiceKey(storyId, account), (skippedImages.get(choiceKey(storyId, account)) || []).filter((page) => page !== image.filePage));
     voteMessage = remember ? "Vote published." : "Previous approval restored.";
-    return true;
+    published = true;
   } catch (error) {
     voteMessage = error instanceof Error ? error.message : "Could not publish your vote. Please retry.";
-    return false;
   } finally {
     voteBusy = false;
     renderWorld();
   }
+  return published;
 }
 const imageToolbar = element("div", "", "image-toolbar");
 imageToolbar.hidden = true;
@@ -145,7 +146,7 @@ function syncImages() {
   const refs = snapshot?.imageCandidates || {};
   const storyIds = Object.entries(snapshot?.sources || {}).filter(([id]) => id !== "stringer").flatMap(([, source]) => source.stories.flatMap((story) => story.noteId ? [story.noteId] : []));
   const key = JSON.stringify([refs, storyIds]);
-  if (key !== imageRefsKey && ImageSessionClass) {
+  if (key !== imageRefsKey && ImageSessionClass && (!loading || !imageSession)) {
     imageSession?.close();
     imageSession = null;
     imageRefsKey = key;
@@ -169,7 +170,7 @@ async function connectNostr() {
   try {
     const key = await signer.getPublicKey();
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=c54eb118e494517e");
+    const identity = await import("./relay-reader.js?v=6ba554e31f0f285e");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -222,7 +223,7 @@ function renderNostrAccount() {
   });
   imageToolbar.append(connect);
   let status = voter && imageSession?.trustLive && !imageSession.canVote(voter) ? "This account is not followed by Stringer and cannot approve images." : voteMessage;
-  if (!status && voter && imageSession) status = imageSession.canVote(voter) ? "You can approve illustrative images." : !imageSession.trustLive ? "Waiting for Stringer\u2019s follow list." : "This account is not followed by Stringer and cannot approve images.";
+  if (!status && voter && imageSession) status = imageSession.canVote(voter) ? "You can approve illustrative images." : "Waiting for Stringer\u2019s follow list.";
   const message = element("p", status);
   message.setAttribute("role", "status");
   imageToolbar.append(message);
@@ -357,7 +358,7 @@ function imageReview(storyId, title) {
       option.value = value;
       sourceSelect.append(option);
     }
-    sourceSelect.value = state?.source || "all";
+    sourceSelect.value = state.source;
     sourceSelect.disabled = !!state?.loading;
     sourceSelect.addEventListener("change", () => {
       if (state) {
@@ -368,7 +369,7 @@ function imageReview(storyId, title) {
     sourceLabel.append(sourceSelect);
     const input = element("input");
     input.type = "search";
-    input.value = state?.query || title;
+    input.value = state.query;
     input.maxLength = 200;
     input.required = true;
     input.dataset.imageAction = `${storyId}:search`;
@@ -422,8 +423,8 @@ async function publishCommons(storyId, image) {
   try {
     const id = await session.propose(signer, account, storyId, image);
     await session.vote(signer, account, storyId, id);
-    rememberImageAction(storyId, "vote", prior);
-    skippedImages.set(choiceKey(storyId), (skippedImages.get(choiceKey(storyId)) || []).filter((page) => page !== image.filePage));
+    rememberImageAction(storyId, "vote", prior, account);
+    skippedImages.set(choiceKey(storyId, account), (skippedImages.get(choiceKey(storyId, account)) || []).filter((page) => page !== image.filePage));
     voteMessage = "Image and approval published.";
   } catch (error) {
     voteMessage = error instanceof Error ? error.message : "Could not publish the image. Please retry.";
@@ -748,7 +749,7 @@ function renderWorld() {
   if (focusAction) queueMicrotask(() => {
     const next = [...document.querySelectorAll("[data-image-action]")].find((node) => node.dataset.imageAction === focusAction);
     next?.focus({ preventScroll: true });
-    if (next instanceof HTMLInputElement && selectionRange) next.setSelectionRange(selectionRange[0] ?? 0, selectionRange[1] ?? 0);
+    if (next instanceof HTMLInputElement && selectionRange) next.setSelectionRange(selectionRange[0], selectionRange[1]);
   });
 }
 function render() {
@@ -770,7 +771,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=c54eb118e494517e");
+      const reader = await import("./relay-reader.js?v=6ba554e31f0f285e");
       ImageSessionClass = reader.ImageSession;
       searchImages = reader.searchImages;
       commonsSubject = reader.commonsSubject;
@@ -806,7 +807,7 @@ async function load() {
     retainedSources.clear();
     snapshot = next;
     render();
-    loadOutcome = "Loaded";
+    loadOutcome = Object.values(next.sources).some((source) => source.unavailable) ? "Partially loaded" : "Loaded";
     feedback.textContent = "";
   } catch (error) {
     loadOutcome = "Failed";
@@ -843,3 +844,17 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden && Date.now() - lastAttempt >= interval) load();
 });
 load();
+export {
+  castImageVote,
+  connectNostr,
+  detectNostr,
+  findCommons,
+  imageOptions,
+  imageReview,
+  loadSuggestions,
+  publishCommons,
+  renderWorld,
+  skipImage,
+  syncImages,
+  undoImage
+};

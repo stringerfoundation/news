@@ -7989,9 +7989,11 @@ var ImageSession = class {
       }
     });
     const ids = [...new Set(Object.values(refs).flat())];
-    for (let i3 = 0; i3 < ids.length; i3 += 100)
-      this.subscribe({ kinds: [1], authors: [config.pubkey], ids: ids.slice(i3, i3 + 100), limit: 100 }, false);
-    this.subscribe({ kinds: [1], authors: [config.pubkey], "#e": Object.keys(this.refs), "#t": [IMAGE_MARKER], limit: 750 }, false);
+    for (let i3 = 0; i3 < ids.length; i3 += 20)
+      this.subscribe({ kinds: [1], authors: [config.pubkey], ids: ids.slice(i3, i3 + 20), limit: 20 }, false);
+    const stories = Object.keys(this.refs);
+    for (let i3 = 0; i3 < stories.length; i3 += 20)
+      this.subscribe({ kinds: [1], authors: [config.pubkey], "#e": stories.slice(i3, i3 + 20), "#t": [IMAGE_MARKER], limit: 20 }, false);
     this.listenVotes();
   }
   config;
@@ -8025,14 +8027,15 @@ var ImageSession = class {
     const generation = ++this.voteGeneration;
     const authors = [...this.follows], stories = Object.keys(this.refs);
     if (!authors.length || !stories.length) return;
-    this.subscribe({ kinds: [1], authors, "#e": stories, "#t": [VOTE_MARKER], limit: 0 }, true);
+    for (let i3 = 0; i3 < stories.length; i3 += 20)
+      this.subscribe({ kinds: [1], "#e": stories.slice(i3, i3 + 20), "#t": [VOTE_MARKER], limit: 0 }, true);
     const total = stories.length * authors.length;
     let cursor = 0;
     const worker = async () => {
       while (!this.stopped && generation === this.voteGeneration) {
-        const index = cursor++, offset = Math.floor(index / this.config.relays.length) * 50;
+        const index = cursor++, offset = Math.floor(index / this.config.relays.length) * 5;
         if (offset >= total) return;
-        const filters = Array.from({ length: Math.min(50, total - offset) }, (_, n) => {
+        const filters = Array.from({ length: Math.min(5, total - offset) }, (_, n) => {
           const pair = offset + n;
           return { kinds: [1], authors: [authors[pair % authors.length]], "#e": [stories[Math.floor(pair / authors.length)]], "#t": [VOTE_MARKER], limit: 1 };
         });
@@ -8078,8 +8081,8 @@ var ImageSession = class {
         if (!this.refs[candidate.storyId].includes(event2.id)) this.refs[candidate.storyId].push(event2.id);
         this.candidates.set(event2.id, candidate);
       } else {
-        const vote = readVote(event2, this.refs);
         if (!this.follows.has(event2.pubkey)) return;
+        const vote = readVote(event2, this.refs);
         for (const [id, old] of this.events) {
           if (old.kind !== 1 || old.pubkey !== event2.pubkey || !old.tags.some((t) => t[0] === VOTE_MARKER)) continue;
           const prior = readVote(old, this.refs);
@@ -8408,12 +8411,12 @@ async function readRelaySnapshot(config, report = () => {
         progressTimer = setTimeout(publishProgress, 100);
     };
     const batches = [];
-    for (let i3 = 0; i3 < requestedIds.length; i3 += 100)
+    for (let i3 = 0; i3 < requestedIds.length; i3 += 20)
       batches.push(query({
-        ids: requestedIds.slice(i3, i3 + 100),
+        ids: requestedIds.slice(i3, i3 + 20),
         authors: [config.pubkey],
         kinds: [1],
-        limit: 100
+        limit: 20
       }, receive));
     stories.push(...(await Promise.all(batches)).flat());
     const received = new Set(stories.map((story) => story.id));
@@ -8421,8 +8424,8 @@ async function readRelaySnapshot(config, report = () => {
     if (missing.length && performance.now() < deadline) {
       report(`Received ${received.size} published notes. Retrying ${missing.length} missing notes\u2026`);
       const retries = [];
-      for (let i3 = 0; i3 < missing.length; i3 += 100)
-        retries.push(query({ ids: missing.slice(i3, i3 + 100), authors: [config.pubkey], kinds: [1], limit: 100 }, receive));
+      for (let i3 = 0; i3 < missing.length; i3 += 20)
+        retries.push(query({ ids: missing.slice(i3, i3 + 20), authors: [config.pubkey], kinds: [1], limit: 20 }, receive));
       stories.push(...(await Promise.all(retries)).flat());
     }
     const cacheKey = `stringer-relay:${config.pubkey}`;
@@ -8436,6 +8439,8 @@ async function readRelaySnapshot(config, report = () => {
     }
     const snapshot = assemble(event2, stories, config.pubkey, true);
     updateTimings(true);
+    const unavailable = Object.values(snapshot.sources).reduce((count, source) => count + (source.unavailable || 0), 0);
+    report(unavailable ? `Finished loading available stories. ${unavailable} published notes are unavailable from the relays.` : "Finished loading published stories.");
     try {
       localStorage.setItem(cacheKey, JSON.stringify({ manifest: event2, stories }));
     } catch {
@@ -8482,7 +8487,7 @@ async function searchOpenverse(query, request = fetch, provider = false) {
   if (!Array.isArray(data.results)) throw new Error("Invalid image search response.");
   const images = [];
   for (const item of data.results) {
-    if (item.mature || !plain2(item.source) || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(item.id || "") || item.source === "wikimedia" || filter && !filter.split(",").includes(item.source || "")) continue;
+    if (item.mature || !plain2(item.source) || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(item.id || "") || item.source === "wikimedia" || filter && !filter.split(",").includes(item.source)) continue;
     const license = item.license === "cc0" ? "CC0-1.0" : item.license === "pdm" ? "PDM-1.0" : ["by", "by-sa"].includes(item.license || "") ? `CC-${item.license.toUpperCase()}-${item.license_version}` : "";
     try {
       images.push(readIllustration({
