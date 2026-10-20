@@ -138,7 +138,7 @@ def apply_site(site, incoming, preview=None, sha=''):
     target = site if preview is None else site / 'pr-preview' / str(preview)
     if preview is None:
         for child in site.iterdir():
-            if child.name != 'pr-preview':
+            if child.name not in ('pr-preview', 'pr-screenshots'):
                 if child.is_dir():
                     shutil.rmtree(child)
                 else:
@@ -261,6 +261,15 @@ def prepare(api, state, incoming, plan_path):
     checkout_state(api, state)
     metadata = load_state(state / 'state.json')
     site = state / 'site'
+    saved_screenshots = metadata.setdefault('screenshots', {})
+    # Migrate existing images before temporary preview directories are pruned.
+    for number, build in metadata['previews'].items():
+        if not re.fullmatch(r'[1-9][0-9]*', number) or not re.fullmatch(r'[0-9a-f]{40}', build['sha']):
+            raise ValueError('Invalid stored preview identity')
+        old = site / 'pr-preview' / number / 'screenshots' / build['sha']
+        if build.get('screenshots') and old.is_dir():
+            shutil.copytree(old, site / 'pr-screenshots' / number / build['sha'], dirs_exist_ok=True)
+            saved_screenshots[number] = build.copy()
     pulls = api.items('pulls?state=open')
     open_numbers = {str(pull['number']) for pull in pulls}
     metadata['removed'] = sorted(set(metadata.get('removed', [])) | set(prune(site, metadata, pulls)))
@@ -282,9 +291,19 @@ def prepare(api, state, incoming, plan_path):
             continue
         previous = metadata['production'] if update == 'production' else metadata['previews'].get(update)
         build = {'sha': run['head_sha'], 'run': run['id'], 'attempt': run.get('run_attempt', 1)}
-        if previous and all(previous.get(key) == value for key, value in build.items()):
+        if previous and all(previous.get(key) == value for key, value in build.items()) and (
+                update == 'production' or update in saved_screenshots):
             continue
         artifacts = api.request(f"actions/runs/{run['id']}/artifacts")['artifacts']
+        screenshots = next((item for item in artifacts
+                            if item['name'] == 'preview-screenshots' and not item['expired']), None)
+        if update != 'production' and screenshots:
+            if screenshots['size_in_bytes'] > MAX_BYTES:
+                raise ValueError('Screenshot artifact exceeds size limit')
+            unpack_screenshots(api.request(f"actions/artifacts/{screenshots['id']}/zip", binary=True),
+                               site / 'pr-screenshots' / update / run['head_sha'])
+            build['screenshots'] = True
+            saved_screenshots[update] = build.copy()
         artifact = next((item for item in artifacts if item['name'] == ARTIFACT and not item['expired']), None)
         if not artifact:
             print(f"No checked site artifact for run {run['id']}; retain the last published build.")
@@ -301,40 +320,38 @@ def prepare(api, state, incoming, plan_path):
             metadata['production'] = build
         else:
             apply_site(site, incoming, update, run['head_sha'])
-            screenshots = next((item for item in artifacts
-                                if item['name'] == 'preview-screenshots' and not item['expired']), None)
-            if screenshots:
-                if screenshots['size_in_bytes'] > MAX_BYTES:
-                    raise ValueError('Screenshot artifact exceeds size limit')
-                unpack_screenshots(api.request(f"actions/artifacts/{screenshots['id']}/zip", binary=True),
-                                   site / 'pr-preview' / update / 'screenshots' / run['head_sha'])
-                build['screenshots'] = True
             metadata['previews'][update] = build
     if not metadata['production'] or not (site / 'index.html').is_file():
         print('No checked production build yet; wait for main CI before publishing previews.')
         return False
     # The branch contains generated assets and deployment metadata, never source.
     save_state(api, state, metadata)
-    plan_path.write_text(json.dumps({'previews': metadata['previews'], 'removed': metadata['removed']}))
+    plan_path.write_text(json.dumps({'previews': metadata['previews'], 'removed': metadata['removed'],
+                                    'screenshots': saved_screenshots}))
     return True
 
 
-def comment_body(repo, number, build, pages_url):
+def comment_body(repo, number, build, pages_url, closed=False):
     url = pages_url.rstrip('/') + '/pr-preview/' + str(number) + '/'
     body = (f'{MARKER}\n[Open preview]({url}) · commit '
             f"[`{build['sha'][:7]}`](https://github.com/{repo}/commit/{build['sha']})\n\n"
             'This preview updates after CI passes and is removed when the PR closes. Search engines are instructed not to index it.')
+    if closed:
+        body = (f"{MARKER}\nPreview removed because this PR is closed. Screenshots are retained.\n\n"
+                f"Commit [`{build['sha'][:7]}`](https://github.com/{repo}/commit/{build['sha']})")
     if build.get('screenshots'):
-        body += '\n\n### Automated screenshots\n\nCurrent build, using synthetic test data.'
+        body += '\n\n### Automated screenshots\n\nCaptured from the commit above using synthetic test data. Retained after merge or closure.'
         for name, label in zip(SCREENSHOTS, ('Mobile (375px)', 'Tablet (768px)', 'Desktop (1280px)')):
-            body += f"\n\n<details><summary>{label}</summary>\n\n![{label}]({url}screenshots/{build['sha']}/{name})\n\n</details>"
+            image_url = f"{pages_url.rstrip('/')}/pr-screenshots/{number}/{build['sha']}/{name}"
+            body += f"\n\n<details><summary>{label}</summary>\n\n![{label}]({image_url})\n\n</details>"
     return body
 
 
 def report(api, plan, pages_url):
     if not pages_url.startswith('https://'):
         raise ValueError('Invalid Pages deployment URL')
-    for number in dict.fromkeys([*plan['previews'], *plan['removed']]):
+    retained = plan.get('screenshots', {})
+    for number in dict.fromkeys([*plan['previews'], *plan['removed'], *retained]):
         pull = api.request('pulls/' + number)
         if number in plan['previews']:
             if pull['state'] != 'open':
@@ -343,12 +360,13 @@ def report(api, plan, pages_url):
         else:
             if pull['state'] == 'open':
                 continue
-            body = MARKER + '\nPreview removed because this PR is closed.'
+            body = (comment_body(api.repo, number, retained[number], pages_url, closed=True)
+                    if number in retained else MARKER + '\nPreview removed because this PR is closed.')
         comments = api.items(f'issues/{number}/comments')
         previous = next((item for item in comments if item['user']['login'] == 'github-actions[bot]' and MARKER in item['body']), None)
         if previous and previous['body'] != body:
             api.request(f"issues/comments/{previous['id']}", 'PATCH', {'body': body})
-        elif not previous and number in plan['previews']:
+        elif not previous and (number in plan['previews'] or number in retained):
             api.request(f'issues/{number}/comments', 'POST', {'body': body})
 
 
