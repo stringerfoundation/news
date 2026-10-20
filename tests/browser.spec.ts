@@ -87,6 +87,24 @@ test('all sources remain enabled without a source selector after polling and rel
     await page.close();
   }
 });
+test('mobile headings stay bold and readable without downloaded fonts', async () => {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await mockStoryImages(page);
+  await page.route('https://fonts.googleapis.com/**', route => route.abort());
+  await page.route('https://fonts.gstatic.com/**', route => route.abort());
+  await page.goto(base);
+  await page.waitForSelector('#stringer-news article');
+  for (const selector of ['h1', '#world-title', '#world-news h3', '#stringer-news h3']) {
+    const style = await page.locator(selector).first().evaluate(element => {
+      const css = getComputedStyle(element);
+      return { family: css.fontFamily, weight: css.fontWeight };
+    });
+    assert.doesNotMatch(style.family, /Montserrat|Barlow/);
+    assert.equal(style.weight, '700');
+  }
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await page.close();
+});
 test('old source preferences and unavailable storage cannot hide publishers', async () => {
   for (const saved of ['{bad', '{}', '[null]', '["retired-source"]', '["bbc","nyt","aljazeera","dw","cna"]', 'blocked']) {
     const page = await browser.newPage(); await mockStoryImages(page);
