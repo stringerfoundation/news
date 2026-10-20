@@ -9,7 +9,7 @@
   "scripts": {
     "check": "node scripts/check-syntax.ts",
     "test": "node --import tsx --test tests/*.test.ts tests/*.test.mjs deploy/homepage-worker/worker.test.ts",
-    "test:browser": "node --import tsx --test tests/browser.spec.ts tests/previews.browser.ts",
+    "test:browser": "node --import tsx --test tests/browser.spec.ts tests/previews.browser.ts tests/portuguese.browser.ts tests/multilingual.browser.ts",
     "build": "node scripts/build.ts",
     "lint": "eslint --flag unstable_native_nodejs_ts_config .",
     "typecheck": "tsc --noEmit",
@@ -43,6 +43,8 @@
     "include": [
       "*.ts",
       "relay/*.ts",
+      "locales/*.ts",
+      "sources/*.ts",
       "scripts/*.ts",
       "deploy/*/worker.ts",
       ".test-output/coverage/browser-sources/*.js"

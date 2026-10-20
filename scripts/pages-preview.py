@@ -327,7 +327,7 @@ def comment_body(repo, number, build, pages_url):
     if build.get('screenshots'):
         body += '\n\n### Automated screenshots\n\nCurrent build, using synthetic test data.'
         for name, label in zip(SCREENSHOTS, ('Mobile (375px)', 'Tablet (768px)', 'Desktop (1280px)')):
-            body += f"\n\n<details><summary>{label}</summary>\n\n![{label}]({url}screenshots/{build['sha']}/{name})\n\n</details>"
+            body += f"\n\n#### {label}\n\n![{label}]({url}screenshots/{build['sha']}/{name})"
     return body
 
 

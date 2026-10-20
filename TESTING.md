@@ -15,12 +15,16 @@ The command requires 100% statements, branches, functions, and lines for every
 source file. Missing files count as untested.
 
 Coverage includes the browser app and data model, relay implementation, worker
-entry points, and development scripts. Tests, third-party dependencies, the
+entry points, development scripts, translations, and language-specific publisher
+catalogues. Tests, third-party dependencies, the
 ESLint configuration, and TypeScript declarations are outside the source scope.
 Browser coverage is accepted only when the executed script matches the real
 source; mocked relay modules used in UI contract tests do not contribute.
 The relay bundle's source map attributes browser execution to the original
 TypeScript. Synthetic fixtures exercise relays without publishing any events.
+The multilingual app bundle and both relay bundles retain inline source maps
+only during coverage runs; browser fixtures use the same output location so
+their maps resolve to the original sources.
 
 `npm test` runs the unit tests; `npm run test:browser` runs the static reader
 browser tests; `npm run test:relay-browser` runs the relay integration test after

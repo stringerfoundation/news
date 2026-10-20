@@ -23,6 +23,8 @@
     "scripts/**/*.ts",
     "tests/**/*.ts",
     "relay/**/*.ts",
-    "deploy/**/*.ts"
+    "deploy/**/*.ts",
+    "locales/**/*.ts",
+    "sources/**/*.ts"
   ]
 }
