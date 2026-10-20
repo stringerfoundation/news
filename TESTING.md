@@ -36,3 +36,16 @@ public asset allowlist afterward.
 In the managed macOS sandbox, Chromium may abort before the tests start. Run the
 same tests with sandbox escalation; changing Chrome flags does not grant the
 required filesystem access.
+
+## PR coverage indicator
+
+After the `PR coverage report` workflow is merged into the default branch, every
+completed `Frontend coverage` run updates one bot comment on each matching open
+PR. The comment shows all four metrics for Node 24 and 26 and links to the CI run
+and annotated reports. Failed, cancelled, missing, expired, and malformed reports
+are labelled explicitly. Superseded commits and closed PRs are skipped.
+
+The reporting workflow uses default-branch code with read access to artifacts and
+permission to comment on PRs. It reads only bounded numeric summary JSON from
+ZIP artifacts and never extracts or executes PR code. Human comments are retained.
+Its tests run with `npm run test:previews` and mock all GitHub writes.
