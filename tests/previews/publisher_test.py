@@ -54,6 +54,36 @@ def run(event='pull_request', sha=SHA, number=18, run_id=100):
 
 
 class PublisherTests(unittest.TestCase):
+    def test_screenshots_validate_all_entries_before_writing(self):
+        png = b'\x89PNG\r\n\x1a\nfixture'
+        valid = {name: png for name in publisher.SCREENSHOTS}
+        for files in [valid, {**valid, '../escape.png': png}, {**valid, 'index.html': b'html'},
+                      {**valid, 'news-375.png': b'not png'}, {'news-375.png': png}]:
+            output = io.BytesIO()
+            with zipfile.ZipFile(output, 'w') as packed:
+                for name, contents in files.items():
+                    packed.writestr(name, contents)
+            with tempfile.TemporaryDirectory() as directory:
+                target = Path(directory) / 'screenshots'
+                if files == valid:
+                    publisher.unpack_screenshots(output.getvalue(), target)
+                    self.assertEqual({p.name for p in target.iterdir()}, set(valid))
+                else:
+                    with self.assertRaises(ValueError):
+                        publisher.unpack_screenshots(output.getvalue(), target)
+                    self.assertFalse(target.exists())
+
+    def test_screenshots_are_embedded_in_existing_preview_comment_only_when_available(self):
+        build = {'sha': SHA, 'screenshots': True}
+        body = publisher.comment_body(REPO, 18, build, 'https://example.github.io/news/')
+        self.assertIn(publisher.MARKER, body)
+        self.assertIn('[Open preview]', body)
+        for name in publisher.SCREENSHOTS:
+            self.assertIn(f'/pr-preview/18/screenshots/{SHA}/{name}', body)
+        self.assertIn('synthetic test data', body)
+        self.assertNotIn('Automated screenshots', publisher.comment_body(
+            REPO, 18, {'sha': SHA}, 'https://example.github.io/news/'))
+
     def test_extracts_only_complete_public_assets(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / 'incoming'
@@ -176,6 +206,10 @@ class PublisherTests(unittest.TestCase):
         self.assertIn('removed', api.writes[1][2]['body'])
 
     def test_reconcile_recovers_coalesced_events_and_retains_previous_builds(self):
+        screenshots = io.BytesIO()
+        with zipfile.ZipFile(screenshots, 'w') as packed:
+            for name in publisher.SCREENSHOTS:
+                packed.writestr(name, b'\x89PNG\r\n\x1a\nfixture')
         class API:
             repo, token = REPO, 'fixture'
             def items(self, path):
@@ -190,9 +224,13 @@ class PublisherTests(unittest.TestCase):
                 if '/runs?status=success&head_sha=' + SHA in path:
                     return {'workflow_runs': [run()]}
                 if path.endswith('/artifacts'):
-                    return {'artifacts': [{'id': 1, 'name': publisher.ARTIFACT, 'expired': False, 'size_in_bytes': 1000}]}
+                    return {'artifacts': [
+                        {'id': 1, 'name': publisher.ARTIFACT, 'expired': False, 'size_in_bytes': 1000},
+                        {'id': 2, 'name': 'preview-screenshots', 'expired': False, 'size_in_bytes': 1000}]}
                 if path == 'actions/artifacts/1/zip':
                     return archive()
+                if path == 'actions/artifacts/2/zip':
+                    return screenshots.getvalue()
                 raise AssertionError(path)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -202,6 +240,9 @@ class PublisherTests(unittest.TestCase):
             self.assertTrue((state / 'site/index.html').is_file())
             self.assertTrue((state / 'site/pr-preview/18/index.html').is_file())
             self.assertEqual(json.loads(plan.read_text())['previews']['18']['sha'], SHA)
+            self.assertTrue(json.loads(plan.read_text())['previews']['18']['screenshots'])
+            self.assertTrue((state / f'site/pr-preview/18/screenshots/{SHA}/news-375.png').is_file())
+            self.assertFalse((state / 'site/screenshots').exists())
 
         # Two PRs may share a head commit; each still needs its own preview and provenance.
         class SharedHeadAPI(API):
