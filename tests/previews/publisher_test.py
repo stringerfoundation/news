@@ -80,6 +80,10 @@ class PublisherTests(unittest.TestCase):
         self.assertIn('[Open preview]', body)
         for name in publisher.SCREENSHOTS:
             self.assertIn(f'/pr-preview/18/screenshots/{SHA}/{name}', body)
+        for label in ('Mobile (375px)', 'Tablet (768px)', 'Desktop (1280px)'):
+            self.assertIn(f'#### {label}\n\n![{label}](', body)
+        self.assertNotIn('<details', body)
+        self.assertNotIn('<summary', body)
         self.assertIn('synthetic test data', body)
         self.assertNotIn('Automated screenshots', publisher.comment_body(
             REPO, 18, {'sha': SHA}, 'https://example.github.io/news/'))
