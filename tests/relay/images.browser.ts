@@ -47,6 +47,7 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
       const url = new URL(route.request().url());
       if (['live.staticflickr.com', 'ec.europa.eu'].includes(url.hostname)) { await route.fulfill({ contentType: 'image/png', body: await readFile('assets/favicon-16.png') }); return; }
       if (url.hostname === 'api.openverse.org') {
+        if (url.pathname.endsWith('/stats/')) { await route.fulfill({ json: [{ source_name: 'smithsonian_libraries' }] }); return; }
         await route.fulfill({ json: { results: url.searchParams.get('q') === 'External sample' ? [{
           id: '12345678-1234-1234-1234-123456789abc', title: 'External example', creator: 'Flickr photographer', attribution: 'Flickr photographer · CC BY 4.0',
           url: 'https://live.staticflickr.com/1/123456789_example.jpg', foreign_landing_url: 'https://www.flickr.com/photos/example/123456789',
@@ -212,6 +213,8 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     await ownerPage.locator('.wire-thumbnail > .image-approval-status').waitFor();
     assert.equal(await ownerPage.locator('input[type="search"]').inputValue(), 'Emmanuel Macron');
     assert.equal(await reader.locator('#world-news img').count(), 0);
+    await ownerPage.getByRole('button', { name: 'Review illustrative images', exact: true }).click();
+    await ownerPage.getByRole('button', { name: 'Choose image: Emmanuel Macron portrait.jpg', exact: true }).click();
     await ownerPage.getByRole('button', { name: 'Publish and upvote image', exact: true }).click();
     await ownerPage.getByText('Image and approval published.', { exact: true }).waitFor();
     await reader.locator('#world-news .wire-thumbnail > a > img').waitFor();
@@ -297,9 +300,28 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     await firstCard.getByRole('button', { name: 'Undo image choice', exact: true }).click();
     assert.equal(await firstCard.locator('.wire-thumbnail > a').getAttribute('href'), originalImage);
     assert.equal(events.length, publishedCount, 'Local skips and their undo must never publish Nostr events');
+    let releaseSlow!: () => void;
+    const slowProviders = new Promise<void>(resolve => { releaseSlow = resolve; });
+    await multi.route('https://api.openverse.org/**', async route => {
+      await slowProviders;
+      await route.fulfill({ json: new URL(route.request().url()).pathname.endsWith('/stats/') ? [{ source_name: 'smithsonian_libraries' }] : { results: [] } });
+    });
     await firstCard.getByRole('button', { name: 'Review illustrative images', exact: true }).click();
     await firstCard.getByRole('dialog').waitFor();
     assert.deepEqual(heights, await multi.locator('#world-news article').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height)));
+    const alternative = firstCard.getByRole('button', { name: 'Choose image: Emmanuel Macron alternative.png', exact: true });
+    await alternative.waitFor();
+    await firstCard.getByRole('dialog').screenshot({ path: '.test-output/image-choices-modal.png' });
+    const choiceStart = Date.now();
+    await alternative.click();
+    releaseSlow();
+    assert.equal(await firstCard.getByRole('dialog').isVisible(), false);
+    assert.ok(Date.now() - choiceStart < 1500, 'Choosing an already loaded image must not wait for network or signatures');
+    assert.notEqual(await firstCard.locator('.wire-thumbnail > a').getAttribute('href'), originalImage);
+    await firstCard.getByRole('button', { name: 'Undo image choice', exact: true }).click();
+    assert.equal(await firstCard.locator('.wire-thumbnail > a').getAttribute('href'), originalImage);
+    assert.equal(events.length, publishedCount, 'Choosing and undoing an image must not publish Nostr events');
+    await firstCard.getByRole('button', { name: 'Review illustrative images', exact: true }).click();
     await multi.keyboard.press('Escape');
     assert.equal(await firstCard.getByRole('dialog').isVisible(), false);
     await multi.setViewportSize({ width: 1280, height: 1000 });

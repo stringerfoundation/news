@@ -82,18 +82,20 @@ let attemptedSigner: Window['nostr'];
 let voteBusy = false;
 let voteMessage = '';
 const openImageReviews = new Set<string>();
-interface ImageAction { kind: 'skip' | 'vote'; skipped: string[]; candidateId: string | null }
+interface ImageAction { kind: 'skip' | 'vote' | 'choose'; chosen: CommonsImage | null; skipped: string[]; candidateId: string | null }
+const chosenImages = new Map<string, CommonsImage>();
 const skippedImages = new Map<string, string[]>();
 const imageHistory = new Map<string, ImageAction[]>();
 const choiceKey = (storyId: string) => `${voter}:${storyId}`;
 function rememberImageAction(storyId: string, kind: ImageAction['kind'], candidateId: string | null) {
   const key = choiceKey(storyId), history = imageHistory.get(key) || [];
-  history.push({ kind, candidateId, skipped: [...(skippedImages.get(key) || [])] });
+  history.push({ kind, candidateId, chosen: chosenImages.get(key) || null, skipped: [...(skippedImages.get(key) || [])] });
   imageHistory.set(key, history.slice(-100));
 }
 function imageOptions(storyId: string) {
   const selection = imageSession?.selection(storyId);
-  const images = [...(selection?.winner ? [selection.winner] : []), ...(selection?.scores.map(score => score.candidate) || []), ...(commonsSearches.get(storyId)?.results || [])];
+  const chosen = chosenImages.get(choiceKey(storyId));
+  const images = [...(chosen ? [selection?.scores.find(score => score.candidate.filePage === chosen.filePage)?.candidate || chosen] : []), ...(selection?.winner ? [selection.winner] : []), ...(selection?.scores.map(score => score.candidate) || []), ...(commonsSearches.get(storyId)?.results || [])];
   return images.filter((image, index) => images.findIndex(other => other.filePage === image.filePage) === index);
 }
 function skipImage(storyId: string, image: CommonsImage) {
@@ -107,6 +109,7 @@ async function undoImage(storyId: string) {
   const key = choiceKey(storyId), history = imageHistory.get(key), action = history?.at(-1);
   if (!action || voteBusy) return;
   if (action.kind === 'vote' && !await castImageVote(storyId, action.candidateId, false)) return;
+  if (action.chosen) chosenImages.set(key, action.chosen); else chosenImages.delete(key);
   skippedImages.set(key, [...action.skipped]); history!.pop(); renderWorld();
 }
 async function castImageVote(storyId: string, candidateId: string | null, remember = true) {
@@ -234,38 +237,52 @@ function imageReview(storyId: string, title: string) {
   }
   const control = element('div', '', 'image-review-control'); control.dataset.storyId = storyId;
   if (!commonsSearches.get(storyId)?.searched) suggestionObserver.observe(control);
-  const details = element('div', '', 'image-review');
-  details.id = `image-review-${storyId}`; details.popover = 'auto';
-  details.setAttribute('role', 'dialog'); details.setAttribute('aria-label', `Image choices for ${title}`);
+  const details = element('dialog', '', 'image-review');
+  details.id = `image-review-${storyId}`;
+  details.setAttribute('aria-label', `Image choices for ${title}`);
   const open = element('button', '⋯'); open.type = 'button'; open.title = 'Review illustrative images';
-  open.setAttribute('aria-label', 'Review illustrative images'); open.setAttribute('popovertarget', details.id);
+  open.setAttribute('aria-label', 'Review illustrative images');
   open.dataset.imageAction = `${storyId}:review`;
-  const close = element('button', 'Close image review'); close.type = 'button';
-  close.addEventListener('click', () => { openImageReviews.delete(storyId); details.hidePopover(); open.focus(); });
-  details.append(close, element('h3', title));
-  details.addEventListener('toggle', event => {
-    if (!details.isConnected) return;
-    if ((event as ToggleEvent).newState === 'open') {
-      openImageReviews.add(storyId);
-      const state = commonsSearches.get(storyId);
-      if (state && !state.searched && !state.loading) {
-        suggestionObserver.observe(control);
-      }
-    } else openImageReviews.delete(storyId);
+  const closeReview = () => { openImageReviews.delete(storyId); details.close(); open.focus(); };
+  open.addEventListener('click', () => {
+    const visible = imageOptions(storyId).find(image => !skippedImages.get(choiceKey(storyId))?.includes(image.filePage));
+    if (visible) chosenImages.set(choiceKey(storyId), visible);
+    openImageReviews.add(storyId); details.showModal();
+    const state = commonsSearches.get(storyId);
+    if (state && !state.loading) void findCommons(storyId, state.query);
   });
-  queueMicrotask(() => { if (details.isConnected && openImageReviews.has(storyId)) details.showPopover(); });
+  const close = element('button', 'Close image review'); close.type = 'button';
+  close.addEventListener('click', closeReview);
+  details.addEventListener('cancel', () => { openImageReviews.delete(storyId); });
+  details.append(close, element('h3', title), element('p', 'Click an image to choose it. Approve it afterwards to share it with other readers.'));
+  queueMicrotask(() => { if (details.isConnected && openImageReviews.has(storyId)) details.showModal(); });
+  const grid = element('div', '', 'image-choice-grid');
+  const choose = (image: CommonsImage) => {
+    rememberImageAction(storyId, 'choose', null);
+    chosenImages.set(choiceKey(storyId), image);
+    skippedImages.set(choiceKey(storyId), (skippedImages.get(choiceKey(storyId)) || []).filter(page => page !== image.filePage));
+    closeReview(); renderWorld();
+    queueMicrotask(() => document.querySelector<HTMLButtonElement>(`[data-image-action="${storyId}:up"]`)?.focus());
+  };
+  const choiceButton = (image: CommonsImage, img: HTMLImageElement) => {
+    const button = element('button', '', 'image-choice'); button.type = 'button';
+    button.setAttribute('aria-label', `Choose image: ${image.title}`);
+    button.dataset.imageAction = `${storyId}:choose:${image.filePage}`;
+    button.setAttribute('aria-pressed', String(chosenImages.get(choiceKey(storyId))?.filePage === image.filePage));
+    button.append(img); button.addEventListener('click', () => choose(image));
+    return button;
+  };
   const current = selection.latest.get(voter)?.vote.candidateId;
   for (const { candidate, count } of selection.scores) {
     const figure = element('figure');
-    if (!selection.winner) figure.append(element('p', 'Needs approval — only visible to trusted accounts.', 'image-approval-status'));
     const img = element('img'); img.src = candidate.url; img.alt = candidate.alt;
     img.width = 120; img.height = 80; img.loading = 'lazy'; img.referrerPolicy = 'no-referrer';
-    figure.append(img, commonsCaption(candidate));
+    figure.append(choiceButton(candidate, img), commonsCaption(candidate));
     const selected = current === candidate.id;
     const button = element('button', selected ? 'Withdraw approval' : `Upvote image (${count})`);
     button.type = 'button'; button.disabled = voteBusy; button.setAttribute('aria-pressed', String(selected));
     button.addEventListener('click', () => void castImageVote(storyId, selected ? null : candidate.id));
-    figure.append(button); details.append(figure);
+    figure.append(button); grid.append(figure);
   }
   {
     const state = commonsSearches.get(storyId);
@@ -274,7 +291,7 @@ function imageReview(storyId: string, title: string) {
     const sourceLabel = element('label', 'Image source');
     const sourceSelect = element('select'); sourceSelect.setAttribute('aria-label', 'Image source');
     sourceSelect.dataset.imageAction = `${storyId}:source`;
-    for (const [value, text] of [['all', 'All sources'], ['commons', 'Wikimedia Commons'], ['openverse', 'Openverse'], ['flickr', 'Flickr via Openverse'], ['eu', 'EU audiovisual library']]) {
+    for (const [value, text] of [['all', 'All sources'], ['commons', 'Wikimedia Commons'], ['openverse', 'Openverse'], ['flickr', 'Flickr via Openverse'], ['eu', 'EU audiovisual library'], ['wellcome', 'Wellcome Collection via Openverse'], ['smithsonian', 'Smithsonian via Openverse'], ['europeana', 'Europeana via Openverse']]) {
       const option = element('option', text); option.value = value!; sourceSelect.append(option);
     }
     sourceSelect.value = state?.source || 'all'; sourceSelect.disabled = !!state?.loading;
@@ -294,16 +311,16 @@ function imageReview(storyId: string, title: string) {
     else if (state?.issues.length) details.append(element('p', state.issues.join(' '), 'warning'));
     if (state?.searched && !state.loading && !state.error && !state.results.length)
       details.append(element('p', 'No reusable images found. Try a specific person, place or subject.'));
-    for (const image of state?.results || []) {
+    for (const image of imageOptions(storyId)) {
       if (selection.scores.some(score => score.candidate.filePage === image.filePage)) continue;
       const figure = element('figure');
-      figure.append(element('p', 'Needs approval — only visible to trusted accounts.', 'image-approval-status'));
       const preview = element('img'); preview.src = image.url; preview.alt = image.alt; preview.width = 120; preview.height = 80; preview.loading = 'lazy'; preview.referrerPolicy = 'no-referrer';
       const publish = element('button', 'Publish and upvote image'); publish.type = 'button'; publish.disabled = voteBusy || voter !== relayConfig.pubkey;
       publish.addEventListener('click', () => void publishCommons(storyId, image));
-      figure.append(preview, commonsCaption(image), publish); details.append(figure);
+      figure.append(choiceButton(image, preview), commonsCaption(image), publish); grid.append(figure);
     }
   }
+  details.insertBefore(grid, details.querySelector('form'));
   control.append(open, details);
   return control;
 }
@@ -346,10 +363,12 @@ function imageControls(storyId: string, title: string, image: CommonsImage | nul
 async function findCommons(storyId: string, query: string, suggest = false) {
   if (!searchImages || commonsSearches.get(storyId)?.loading) return;
   const state: CommonsSearch = commonsSearches.get(storyId) || { query, source: 'all', issues: [], loading: false, results: [], error: '', searched: false };
-  Object.assign(state, { query, loading: true, results: [], error: '', issues: [], searched: false });
+  Object.assign(state, { query, loading: true, results: state.query === query ? state.results : [], error: '', issues: [], searched: false });
   commonsSearches.set(storyId, state); renderWorld();
   try {
-    const result = await searchImages(query, state.source, suggest);
+    const result = await searchImages(query, state.source, suggest, fetch, partial => {
+      if (partial.images.length) state.results = partial.images; state.issues = partial.issues; renderWorld();
+    });
     state.results = result.images; state.issues = result.issues;
     if (!result.images.length && result.issues.length) state.error = result.issues.join(' ');
   }
@@ -560,6 +579,7 @@ function renderStatuses() {
 }
 function renderWorld() {
   if (!snapshot) return;
+  const dialogScroll = [...document.querySelectorAll<HTMLDialogElement>('dialog.image-review[open]')].map(dialog => ({ id: dialog.id, top: dialog.scrollTop }));
   const focused = document.activeElement as HTMLElement | null;
   const focusAction = focused?.dataset.imageAction;
   const selectionRange = focused instanceof HTMLInputElement ? [focused.selectionStart, focused.selectionEnd] : null;
@@ -580,6 +600,7 @@ function renderWorld() {
   }
   renderStatuses();
   updateStoryVisibility();
+  queueMicrotask(() => { for (const { id, top } of dialogScroll) { const dialog = document.getElementById(id); if (dialog) dialog.scrollTop = top; } });
   if (focusAction) queueMicrotask(() => {
     const next = [...document.querySelectorAll<HTMLElement>('[data-image-action]')].find(node => node.dataset.imageAction === focusAction);
     next?.focus({ preventScroll: true });

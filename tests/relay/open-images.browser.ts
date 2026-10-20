@@ -39,11 +39,37 @@ test('source adapters preserve credits, reject unsuitable metadata and recover f
         return new Response('', { status: 503 });
       });
       const limited = await searchImages('Rate limited', 'openverse', false, async () => new Response('', { status: 429 }));
+      const providerResults: Record<string, number> = {};
+      for (const [provider, source] of [['wellcome', 'wellcome_collection'], ['europeana', 'europeana'], ['smithsonian', 'smithsonian_libraries']] as const) {
+        const images = await searchOpenverse('Example', async input => {
+          const url = new URL(String(input));
+          if (url.pathname.endsWith('/stats/')) return new Response(JSON.stringify([{ source_name: source }]));
+          if (!url.searchParams.get('source')?.split(',').includes(source)) throw new Error('Missing provider filter');
+          return new Response(JSON.stringify({ results: [{ ...photo, source }, photo, { ...photo, source, license: 'by-nc' }] }));
+        }, provider);
+        providerResults[provider] = images.length;
+      }
+      let release!: () => void;
+      const slow = new Promise<void>(resolve => { release = resolve; });
+      let arrived = false;
+      const pending = searchImages('Progressive', 'all', false, async input => {
+        const url = new URL(String(input));
+        if (url.hostname === 'api.openverse.org' && !url.pathname.endsWith('/stats/') && !url.searchParams.has('source'))
+          return new Response(JSON.stringify({ results: [photo] }));
+        await slow;
+        if (url.pathname.endsWith('/stats/')) return new Response(JSON.stringify([{ source_name: 'smithsonian_libraries' }]));
+        return new Response('', { status: 503 });
+      }, partial => { if (partial.images.length) arrived = true; });
+      await new Promise(resolve => setTimeout(resolve, 20));
+      const progressive = arrived;
+      release(); await pending;
       const empty = await searchImages('No results', 'all', false, async (input: Parameters<typeof fetch>[0]) => new Response(JSON.stringify(
-        new URL(String(input)).hostname === 'api.openverse.org' ? { results: [] }
+        new URL(String(input)).pathname.endsWith('/stats/') ? [{ source_name: 'smithsonian_libraries' }] : new URL(String(input)).hostname === 'api.openverse.org' ? { results: [] }
           : new URL(String(input)).hostname === 'commons.wikimedia.org' ? { query: { pages: [] } } : { response: { docs: [] } })));
-      return { ov, european, sourceFilter, licenses, fallback, limited, empty };
+      return { ov, european, sourceFilter, licenses, fallback, limited, empty, providerResults, progressive };
     });
+    assert.deepEqual(result.providerResults, { wellcome: 1, europeana: 1, smithsonian: 1 });
+    assert.equal(result.progressive, true, 'Fast results must be available while other providers are pending');
     assert.equal(result.ov.length, 1);
     assert.ok(result.ov[0]);
     assert.equal(result.ov[0].title, 'Example subject');
