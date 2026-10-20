@@ -1401,9 +1401,9 @@ function sourcesForLocale(language) {
 }
 
 // app.ts
-import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=98e46a0c524d537c";
-import relayConfig from "./relay-config.js?v=98e46a0c524d537c";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=98e46a0c524d537c";
+import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=0c550e297c3dd967";
+import relayConfig from "./relay-config.js?v=0c550e297c3dd967";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=0c550e297c3dd967";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1750,7 +1750,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=98e46a0c524d537c");
+      const reader = await import("./relay-reader.js?v=0c550e297c3dd967");
       if (!snapshot) {
         snapshot = reader.cachedRelaySnapshot(relayConfig);
         if (snapshot) render();
@@ -1821,7 +1821,7 @@ async function loadAtomstr() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = await import("./atomstr-reader.js?v=98e46a0c524d537c");
+    const reader = await import("./atomstr-reader.js?v=0c550e297c3dd967");
     if (!snapshot) {
       const sources = reader.cachedAtomstrSources(mirrorSources);
       for (const source of Object.values(sources)) source.status = "loading";
@@ -1847,7 +1847,7 @@ async function loadAtomstr() {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=98e46a0c524d537c");
+            const relay = await import("./relay-reader.js?v=0c550e297c3dd967");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
