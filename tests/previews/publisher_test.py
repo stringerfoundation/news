@@ -19,9 +19,13 @@ SHA = 'a' * 40
 NEW_SHA = 'b' * 40
 
 
-def archive(extra=None, omit=None):
-    contents = {name: b'fixture' for name in publisher.FILES if name != omit}
-    contents['index.html'] = b'<html><head><meta name="robots" content="noindex"></head><body>News</body></html>'
+def archive(extra=None, omit=None, files=None):
+    contents = {name: b'fixture' for name in (files or publisher.FILES) if name != omit}
+    page = b'<html><head><meta name="robots" content="noindex"></head><body>News</body></html>'
+    for name in list(contents):
+        if name.endswith('/index.html'):
+            contents[name] = page
+    contents['index.html'] = page
     contents.update(extra or {})
     tar_data = io.BytesIO()
     with tarfile.open(fileobj=tar_data, mode='w') as packed:
@@ -56,6 +60,22 @@ class PublisherTests(unittest.TestCase):
             publisher.unpack(archive(), root)
             self.assertEqual({str(path.relative_to(root)) for path in root.rglob('*') if path.is_file()}, publisher.FILES)
 
+    def test_accepts_legacy_complete_artifact_without_multilingual_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            incoming, site = root / 'incoming', root / 'site'
+            publisher.unpack(archive(files=publisher.REQUIRED_FILES), incoming)
+            publisher.apply_site(site, incoming)
+            self.assertIn('content="index, follow"', (site / 'index.html').read_text())
+            self.assertFalse((site / 'fr/index.html').exists())
+
+    def test_accepts_current_main_shared_modules_without_editions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            incoming = Path(directory) / 'incoming'
+            publisher.unpack(archive(files=publisher.REQUIRED_FILES | publisher.SHARED_MODULE_FILES), incoming)
+            self.assertTrue((incoming / 'response.js').exists())
+            self.assertFalse((incoming / 'fr/index.html').exists())
+
     def test_rejects_traversal_links_source_extra_files_and_missing_assets_before_writing(self):
         link = tarfile.TarInfo('assets/stringer-thumbnails/link.png')
         link.type, link.linkname = tarfile.SYMTYPE, '/tmp/outside'
@@ -63,7 +83,9 @@ class PublisherTests(unittest.TestCase):
         hardlink.type = tarfile.LNKTYPE
         for extra, omit in [({'../escape': b'bad'}, None), ({'/index.html': b'bad'}, None),
                             ({'scripts/private.js': b'bad'}, None), ({'README.md': b'bad'}, None),
-                            ({link.name: link}, None), ({hardlink.name: hardlink}, None), ({}, 'app.js')]:
+                            ({'fr/private.js': b'bad'}, None), ({'it/index.html': b'bad'}, None),
+                            ({link.name: link}, None), ({hardlink.name: hardlink}, None), ({}, 'app.js'), ({}, 'fr/index.html'), ({}, 'atomstr-reader.js'),
+                            ({}, 'response.js'), ({}, 'publications.js')]:
             with self.subTest(extra=extra, omit=omit), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory) / 'incoming'
                 with self.assertRaises(ValueError):
@@ -76,6 +98,9 @@ class PublisherTests(unittest.TestCase):
             incoming, site = root / 'incoming', root / 'site'
             publisher.unpack(archive(), incoming)
             publisher.apply_site(site, incoming)
+            for edition in publisher.EDITION_PATHS:
+                self.assertIn('content="index, follow"', (site / edition / 'index.html').read_text())
+                self.assertNotIn('noindex', (site / edition / 'index.html').read_text())
             publisher.apply_site(site, incoming, '18', SHA)
             publisher.apply_site(site, incoming, '19', NEW_SHA)
             before = (site / 'pr-preview/19/index.html').read_text()
@@ -85,6 +110,10 @@ class PublisherTests(unittest.TestCase):
             self.assertIn('content="index, follow"', (site / 'index.html').read_text())
             self.assertNotIn('noindex', (site / 'index.html').read_text())
             self.assertIn('noindex, nofollow', (site / 'pr-preview/18/index.html').read_text())
+            for edition in publisher.EDITION_PATHS:
+                preview_page = (site / 'pr-preview/18' / edition / 'index.html').read_text()
+                self.assertIn('noindex, nofollow', preview_page)
+                self.assertIn(NEW_SHA, preview_page)
             self.assertIn(NEW_SHA, (site / 'pr-preview/18/index.html').read_text())
             self.assertNotIn('Disallow: /', (site / 'robots.txt').read_text())
             self.assertNotIn('Disallow: /', (site / 'pr-preview/18/robots.txt').read_text())

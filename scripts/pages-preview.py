@@ -19,12 +19,20 @@ BRANCH = 'pages-state'
 ARTIFACT = 'checked-site'
 MARKER = '<!-- stringer-pr-preview -->'
 MAX_BYTES = 64 * 1024 * 1024
-FILES = {
+EDITION_PATHS = ('br', 'pt', 'fr', 'es', 'ar', 'zh', 'ru', 'nl', 'de')
+REQUIRED_FILES = {
     'index.html', 'app.js', 'style.css', 'news-model.js', 'relay-config.js',
-    'stringer-media.js', 'relay-reader.js', '.well-known/nostr.json', '.nojekyll', 'robots.txt',
+    'stringer-media.js', 'relay-reader.js',
+    '.well-known/nostr.json', '.nojekyll', 'robots.txt',
     *('assets/' + name for name in ['stringer-logo.png', 'nostr-banner.png',
       'favicon-16.png', 'favicon-32.png', 'favicon-192.png', 'favicon-180.png']),
 }
+EDITION_FILES = {
+    'atomstr-reader.js',
+    *{f'{edition}/index.html' for edition in EDITION_PATHS},
+}
+SHARED_MODULE_FILES = {'response.js', 'publications.js'}
+FILES = REQUIRED_FILES | EDITION_FILES | SHARED_MODULE_FILES
 
 
 def allowed(path):
@@ -43,7 +51,7 @@ def unpack(data, destination):
     with tarfile.open(fileobj=io.BytesIO(payload), mode='r:') as archive:
         for entry in archive:
             path = entry.name.removeprefix('./').rstrip('/')
-            if entry.isdir() and path in ('', '.', 'assets', 'assets/stringer-thumbnails', '.well-known'):
+            if entry.isdir() and path in ('', '.', 'assets', 'assets/stringer-thumbnails', '.well-known', *EDITION_PATHS):
                 continue
             if not entry.isfile() or not allowed(path) or path in files or entry.size > MAX_BYTES:
                 raise ValueError('Unexpected artifact entry: ' + entry.name)
@@ -51,8 +59,12 @@ def unpack(data, destination):
             if total > MAX_BYTES:
                 raise ValueError('Artifact exceeds size limit')
             files[path] = archive.extractfile(entry).read()
-    if not FILES.issubset(files):
+    if not REQUIRED_FILES.issubset(files):
         raise ValueError('Incomplete site artifact')
+    if files.keys() & EDITION_FILES and not EDITION_FILES.issubset(files):
+        raise ValueError('Incomplete multilingual site artifact')
+    if files.keys() & SHARED_MODULE_FILES and not SHARED_MODULE_FILES.issubset(files):
+        raise ValueError('Incomplete shared module set')
     destination.mkdir(parents=True, exist_ok=True)
     for name, contents in files.items():
         target = destination / name
@@ -113,8 +125,11 @@ def apply_site(site, incoming, preview=None, sha=''):
     elif target.exists():
         shutil.rmtree(target)
     shutil.copytree(incoming, target, dirs_exist_ok=True)
-    html = (target / 'index.html').read_text()
-    (target / 'index.html').write_text(robots(html, preview is not None, sha))
+    for page in (target / 'index.html', *(target / edition / 'index.html' for edition in EDITION_PATHS)):
+        if not page.is_file():
+            continue
+        html = page.read_text()
+        page.write_text(robots(html, preview is not None, sha))
     (target / 'robots.txt').write_text('User-agent: *\nDisallow:\n')
 
 
