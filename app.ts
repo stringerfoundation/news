@@ -151,14 +151,7 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
         image.replaceWith(placeholder);
       });
       image.src = imageUrl;
-      if (wire) {
-        figure.classList.add('wire-thumbnail');
-        const imageLink = element('a');
-        imageLink.href = url; imageLink.target = '_blank'; imageLink.rel = 'noopener noreferrer';
-        imageLink.setAttribute('aria-label', t('Read {title} at the original source', {title: story.title}));
-        imageLink.append(image);
-        figure.append(imageLink);
-      } else figure.append(image);
+      figure.append(image);
       if (imageData?.credit) figure.append(element('figcaption', imageData.credit));
       article.classList.add('with-image'); article.append(figure);
     } else if (usePlaceholder) {
@@ -171,15 +164,13 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
     const meta = element('div', '', 'meta');
     meta.append(element('span', story.source || new URL(url).hostname.replace(/^www\./, ''), 'source'));
     if (story.mirroredVia) meta.append(element('span', t('via {network} / Atomstr', {network: story.mirroredVia}), 'mirror-provenance'));
-    // The publisher may still serve an older signed collection; the owner confirmed this exact reel's date.
-    const reviewedDate = target.id === 'stringer-news' && story.url === 'https://www.instagram.com/reel/DMsRo8JNRY8/?igsh=MWc5aXJiZml4c2l4cA==' ? '2025-07-29' : null;
     const publishedAt = story.publishedAt || approvedMedia?.publishedAt;
     if (publishedAt) {
       const time = element('time', formatLocalDateTime(publishedAt, locale));
       time.title = t(story.atomstr ? 'Atomstr mirror timestamp ({zone})' : 'Local time ({zone})', {zone: Intl.DateTimeFormat().resolvedOptions().timeZone});
       time.dateTime = publishedAt; meta.append(time);
-    } else if (story.publicationDate || approvedMedia?.publicationDate || reviewedDate) {
-      const publicationDate = story.publicationDate || approvedMedia?.publicationDate || reviewedDate;
+    } else if (story.publicationDate || approvedMedia?.publicationDate) {
+      const publicationDate = story.publicationDate || approvedMedia?.publicationDate;
       const time = element('time', formatPublicationDate(publicationDate, locale));
       time.dateTime = publicationDate!; time.title = t('Publication date; source does not provide a confirmed time zone and time'); meta.append(time);
     } else if (story.credits) {
@@ -206,7 +197,7 @@ function updateStoryVisibility() {
     section.button.hidden = !mobileLayout.matches || cards.length <= 5;
     section.button.setAttribute('aria-expanded', String(section.expanded));
     section.button.textContent = t(section.expanded ? section.fewer : section.more);
-    section.button.setAttribute('aria-label', section.button.textContent || '');
+    section.button.setAttribute('aria-label', section.button.textContent);
   }
   if (!mobileLayout.matches) {
     const stringer = requiredElement('#stringer-news');
@@ -233,15 +224,15 @@ function renderStatuses() {
   relayDetails.replaceChildren();
   const notes = [];
   const seconds = ((loading ? performance.now() - loadStarted : loadDuration) / 1000).toFixed(1);
-  const timing = loading ? t('Loading · {seconds} s elapsed', {seconds}) : loadOutcome ? t('{outcome} in {seconds} s', {outcome: t(loadOutcome), seconds}) : '';
-  if (timing) notes.push(loading ? t('{stage} Total elapsed: {seconds} s.', {stage: loadStage, seconds}) : t('Latest feed load: {timing}.', {timing}));
+  const timing = loading ? t('Loading · {seconds} s elapsed', {seconds}) : t('{outcome} in {seconds} s', {outcome: t(loadOutcome), seconds});
+  notes.push(loading ? t('{stage} Total elapsed: {seconds} s.', {stage: loadStage, seconds}) : t('Latest feed load: {timing}.', {timing}));
   if (Object.keys(feedTimings).length) {
     notes.push(t('Story retrieval from news relays:'));
     for (const source of SOURCES) {
       const feed = feedTimings[source.id];
       if (!feed) continue;
       const elapsed = ((feed.durationMs ?? performance.now() - feed.startedAt) / 1000).toFixed(1);
-      const state = feed.state === 'loading' && !loading ? 'partial' : feed.state;
+      const state = feed.state;
       const description = state === 'empty' ? t('no published stories')
         : state === 'loaded' ? t('loaded in {seconds} s', {seconds: elapsed})
         : state === 'loading' ? t('loading · {seconds} s elapsed · {received}/{total} stories', {seconds: elapsed, received: feed.received, total: feed.total})
@@ -278,12 +269,11 @@ function renderStatuses() {
   for (const note of notes) relayDetails.append(element('p', note));
   relayStatus.hidden = notes.length === 0;
   const summary = relayStatus.querySelector('summary')!;
-  summary.textContent = timing ? t('Feed status · {timing}', {timing: locale === 'en-US' ? timing.toLowerCase() : timing}) : t('Feed status');
+  summary.textContent = t('Feed status · {timing}', {timing: locale === 'en-US' ? timing.toLowerCase() : timing});
   summary.title = notes.join('\n');
 }
 function renderWorld() {
-  if (!snapshot) return;
-  const current = snapshot;
+  const current = snapshot!;
   const selected = selectedSources();
   const worldPaused = selected.length > 0 && selected.every(id => current.sources[id]!.status === 'paused');
   const list = requiredElement('#world-news');
@@ -296,8 +286,7 @@ function renderWorld() {
   }
   if (worldPaused && !atomstrEdition) {
     const links = element('p', '', 'publisher-links');
-    for (const { id, name, homepage, linkLabel } of SOURCES.filter(source => source.id !== 'stringer')) {
-      if (!selected.includes(id)) continue;
+    for (const { name, homepage, linkLabel } of SOURCES.filter(source => source.id !== 'stringer')) {
       const link = element('a', linkLabel || name); link.href = homepage; link.target = '_blank'; link.rel = 'noopener noreferrer';
       if (links.childNodes.length) links.append(document.createTextNode(' · '));
       links.append(link);
@@ -308,7 +297,6 @@ function renderWorld() {
   updateStoryVisibility();
 }
 function render() {
-  if (!snapshot) return;
   renderStories(requiredElement('#stringer-news'), shuffledStringerStories(displayedSnapshot().sources.stringer!.stories), loading ? '' : t('Courageous stories are currently unavailable. Visit the Stringer collection below.'));
   renderWorld();
 }
@@ -443,7 +431,6 @@ async function loadAtomstr() {
   } finally {
     clearTimeout(redraw);
     loadDuration = performance.now() - loadStarted;
-    loadOutcome ||= 'Loaded';
     loading = false;
     if (snapshot) render(); else renderStatuses();
     document.querySelectorAll('.story-list').forEach(list => list.setAttribute('aria-busy', 'false'));

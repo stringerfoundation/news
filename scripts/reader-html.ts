@@ -5,6 +5,7 @@ import { sourcesForLocale } from '../edition-sources.ts';
 export function localizedReaderHtml(html: string, locale: string) {
   const $ = load(html);
   locale = localeForLanguage(locale);
+  if (locale === 'en-US') return html;
   const t = translator(locale);
   const portuguese = locale.startsWith('pt-');
   const sources = sourcesForLocale(locale);

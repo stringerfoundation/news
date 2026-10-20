@@ -201,7 +201,7 @@ export async function fetchText(url: string, { fetchImpl = publicFetch, sleep = 
     try {
       const signal = AbortSignal.timeout(15000);
       let target = url;
-      let response: Response | undefined;
+      let response!: Response;
       for (let redirects = 0; redirects <= 3; redirects++) {
         publicUrl(target);
         if (allowedHosts && (!safeImageUrl(target) || !allowedHosts.includes(new URL(target).hostname))) throw new Error('Article host not configured');
@@ -212,7 +212,6 @@ export async function fetchText(url: string, { fetchImpl = publicFetch, sleep = 
         if (redirects === 3 || !location) throw new Error('Article redirect blocked');
         target = new URL(location, target).href;
       }
-      if (!response) throw new Error('Source response unavailable');
       if (!response.ok) {
         await response.body?.cancel();
         throw new Error(`HTTP ${response.status}`);

@@ -21,7 +21,7 @@ export function parseAtomstrEvent(event: Event, source: AtomstrSource, now = Dat
   let url;
   try { url = safeUrl(decodeURIComponent(proxy[1].slice(feed.url.length + 1).replace(/\+/g, '%20'))); }
   catch { return null; }
-  const title = (event.content.split(/\r?\n/, 1)[0] ?? '').trim();
+  const title = event.content.split(/\r?\n/, 1)[0]!.trim();
   if (!url || !title || title.length > 1000) return null;
   return { title, url, publishedAt: new Date(event.created_at * 1000).toISOString(),
     summary: '', image: null, noteId: event.id, atomstr: true,

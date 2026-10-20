@@ -13,13 +13,13 @@ await rm('_site', { recursive: true, force: true });
 await mkdir('_site/assets/stringer-thumbnails', { recursive: true });
 await mkdir('_site/.well-known', { recursive: true });
 await build({ entryPoints: ['relay-reader.ts'], outfile: '_site/relay-reader.js', bundle: true,
-  platform: 'browser', format: 'esm', target: 'es2022' });
-await build({entryPoints: ['atomstr-reader.ts'], outfile: '_site/atomstr-reader.js', bundle: true, platform: 'browser', format: 'esm', target: 'es2022'});
-await build({entryPoints: ['app.ts'], outfile: '_site/app.js', bundle: true, platform: 'browser', format: 'esm', target: 'es2022', plugins: [browserExternals]});
+  platform: 'browser', format: 'esm', target: 'es2022', sourcemap: process.env.STRINGER_BROWSER_COVERAGE === '1' ? 'inline' : false });
+await build({entryPoints: ['atomstr-reader.ts'], outfile: '_site/atomstr-reader.js', bundle: true, platform: 'browser', format: 'esm', target: 'es2022', sourcemap: process.env.STRINGER_BROWSER_COVERAGE === '1' ? 'inline' : false});
+await build({entryPoints: ['app.ts'], outfile: '_site/app.js', bundle: true, platform: 'browser', format: 'esm', target: 'es2022', sourcemap: process.env.STRINGER_BROWSER_COVERAGE === '1' ? 'inline' : false, plugins: [browserExternals]});
 const files = ['index.html', 'style.css', ...PUBLIC_MODULES.map(name => `${name}.js`)];
 for (const file of files.filter(file => !file.endsWith('.js'))) await copyFile(file, `_site/${file}`);
 await build({ entryPoints: PUBLIC_MODULES.filter(name => name !== 'app').map(name => `${name}.ts`),
-  outdir: '_site', platform: 'browser', format: 'esm', target: 'es2022' });
+  outdir: '_site', platform: 'browser', format: 'esm', target: 'es2022', sourcemap: process.env.STRINGER_BROWSER_COVERAGE === '1' ? 'inline' : false });
 for (const file of PUBLIC_IMAGES)
   await copyFile(`assets/${file}`, `_site/assets/${file}`);
 for (const file of await readdir('assets/stringer-thumbnails')) {
