@@ -1,7 +1,7 @@
-import { readResponseText } from "./response.js?v=2d8c0d4422bb2b23";
-import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=2d8c0d4422bb2b23";
-import relayConfig from "./relay-config.js?v=2d8c0d4422bb2b23";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=2d8c0d4422bb2b23";
+import { readResponseText } from "./response.js?v=931ebc6aac82f250";
+import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=931ebc6aac82f250";
+import relayConfig from "./relay-config.js?v=931ebc6aac82f250";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=931ebc6aac82f250";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -174,15 +174,15 @@ function renderStatuses() {
   relayDetails.replaceChildren();
   const notes = [];
   const seconds = ((loading ? performance.now() - loadStarted : loadDuration) / 1e3).toFixed(1);
-  const timing = loading ? `Loading \xB7 ${seconds} s elapsed` : loadOutcome ? `${loadOutcome} in ${seconds} s` : "";
-  if (timing) notes.push(loading ? `${loadStage} Total elapsed: ${seconds} s.` : `Latest feed load: ${timing.toLowerCase()}.`);
+  const timing = loading ? `Loading \xB7 ${seconds} s elapsed` : `${loadOutcome} in ${seconds} s`;
+  notes.push(loading ? `${loadStage} Total elapsed: ${seconds} s.` : `Latest feed load: ${timing.toLowerCase()}.`);
   if (Object.keys(feedTimings).length) {
     notes.push("Story retrieval from news relays:");
     for (const source of SOURCES) {
       const feed = feedTimings[source.id];
       if (!feed) continue;
       const elapsed = ((feed.durationMs ?? performance.now() - feed.startedAt) / 1e3).toFixed(1);
-      const state = feed.state === "loading" && !loading ? "partial" : feed.state;
+      const state = feed.state;
       const description = state === "empty" ? "no published stories" : state === "loaded" ? `loaded in ${elapsed} s` : state === "loading" ? `loading \xB7 ${elapsed} s elapsed \xB7 ${feed.received}/${feed.total} stories` : `${feed.received}/${feed.total} stories received after ${elapsed} s`;
       notes.push(`${source.name} \xB7 ${description}`);
     }
@@ -208,11 +208,10 @@ function renderStatuses() {
   for (const note of notes) relayDetails.append(element("p", note));
   relayStatus.hidden = notes.length === 0;
   const summary = relayStatus.querySelector("summary");
-  summary.textContent = timing ? `Feed status \xB7 ${timing.toLowerCase()}` : "Feed status";
+  summary.textContent = `Feed status \xB7 ${timing.toLowerCase()}`;
   summary.title = notes.join("\n");
 }
 function renderWorld() {
-  if (!snapshot) return;
   const current = snapshot;
   const selected = selectedSources();
   const worldPaused = selected.length > 0 && selected.every((id) => current.sources[id].status === "paused");
@@ -220,8 +219,7 @@ function renderWorld() {
   renderStories(list, worldStories(displayedSnapshot(), selected), loading ? "" : worldPaused ? "Global headlines are currently unavailable." : "No headlines available in this collection.");
   if (worldPaused) {
     const links = element("p", "", "publisher-links");
-    for (const { id, name, homepage, linkLabel } of publisherSources) {
-      if (!selected.includes(id)) continue;
+    for (const { name, homepage, linkLabel } of publisherSources) {
       const link = element("a", linkLabel || name);
       link.href = homepage;
       link.target = "_blank";
@@ -235,7 +233,6 @@ function renderWorld() {
   updateStoryVisibility();
 }
 function render() {
-  if (!snapshot) return;
   renderStories(requiredElement("#stringer-news"), shuffledStringerStories(displayedSnapshot().sources.stringer.stories), loading ? "" : "Courageous stories are currently unavailable. Visit the Stringer collection below.");
   renderWorld();
 }
@@ -254,7 +251,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=2d8c0d4422bb2b23");
+      const reader = await import("./relay-reader.js?v=931ebc6aac82f250");
       if (!snapshot) {
         snapshot = reader.cachedRelaySnapshot(relayConfig);
         if (snapshot) render();
