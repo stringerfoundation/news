@@ -19,6 +19,7 @@ BRANCH = 'pages-state'
 ARTIFACT = 'checked-site'
 MARKER = '<!-- stringer-pr-preview -->'
 MAX_BYTES = 64 * 1024 * 1024
+SCREENSHOTS = ('news-375.png', 'news-768.png', 'news-1280.png')
 EDITION_PATHS = ('br', 'pt', 'fr', 'es', 'ar', 'zh', 'ru', 'nl', 'de')
 REQUIRED_FILES = {
     'index.html', 'app.js', 'style.css', 'news-model.js', 'relay-config.js',
@@ -70,6 +71,26 @@ def unpack(data, destination):
         target = destination / name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(contents)
+
+
+def unpack_screenshots(data, destination):
+    """Accept only the three browser-generated PNGs, never paths or executable assets."""
+    files = {}
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        for entry in archive.infolist():
+            if (entry.filename not in SCREENSHOTS or entry.filename in files
+                    or entry.file_size > 8 * 1024 * 1024
+                    or (entry.external_attr >> 16) & 0o170000 == 0o120000):
+                raise ValueError('Unexpected screenshot entry')
+            contents = archive.read(entry)
+            if not contents.startswith(b'\x89PNG\r\n\x1a\n'):
+                raise ValueError('Expected PNG screenshot')
+            files[entry.filename] = contents
+    if set(files) != set(SCREENSHOTS):
+        raise ValueError('Incomplete screenshots')
+    destination.mkdir(parents=True, exist_ok=True)
+    for name, contents in files.items():
+        (destination / name).write_bytes(contents)
 
 
 def robots(html, preview, sha=''):
@@ -261,7 +282,7 @@ def prepare(api, state, incoming, plan_path):
             continue
         previous = metadata['production'] if update == 'production' else metadata['previews'].get(update)
         build = {'sha': run['head_sha'], 'run': run['id'], 'attempt': run.get('run_attempt', 1)}
-        if previous == build:
+        if previous and all(previous.get(key) == value for key, value in build.items()):
             continue
         artifacts = api.request(f"actions/runs/{run['id']}/artifacts")['artifacts']
         artifact = next((item for item in artifacts if item['name'] == ARTIFACT and not item['expired']), None)
@@ -280,6 +301,14 @@ def prepare(api, state, incoming, plan_path):
             metadata['production'] = build
         else:
             apply_site(site, incoming, update, run['head_sha'])
+            screenshots = next((item for item in artifacts
+                                if item['name'] == 'preview-screenshots' and not item['expired']), None)
+            if screenshots:
+                if screenshots['size_in_bytes'] > MAX_BYTES:
+                    raise ValueError('Screenshot artifact exceeds size limit')
+                unpack_screenshots(api.request(f"actions/artifacts/{screenshots['id']}/zip", binary=True),
+                                   site / 'pr-preview' / update / 'screenshots' / run['head_sha'])
+                build['screenshots'] = True
             metadata['previews'][update] = build
     if not metadata['production'] or not (site / 'index.html').is_file():
         print('No checked production build yet; wait for main CI before publishing previews.')
@@ -292,9 +321,14 @@ def prepare(api, state, incoming, plan_path):
 
 def comment_body(repo, number, build, pages_url):
     url = pages_url.rstrip('/') + '/pr-preview/' + str(number) + '/'
-    return (f'{MARKER}\n[Open preview]({url}) · commit '
+    body = (f'{MARKER}\n[Open preview]({url}) · commit '
             f"[`{build['sha'][:7]}`](https://github.com/{repo}/commit/{build['sha']})\n\n"
             'This preview updates after CI passes and is removed when the PR closes. Search engines are instructed not to index it.')
+    if build.get('screenshots'):
+        body += '\n\n### Automated screenshots\n\nCurrent build, using synthetic test data.'
+        for name, label in zip(SCREENSHOTS, ('Mobile (375px)', 'Tablet (768px)', 'Desktop (1280px)')):
+            body += f"\n\n<details><summary>{label}</summary>\n\n![{label}]({url}screenshots/{build['sha']}/{name})\n\n</details>"
+    return body
 
 
 def report(api, plan, pages_url):
