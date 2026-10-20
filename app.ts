@@ -166,15 +166,15 @@ function renderStatuses() {
   relayDetails.replaceChildren();
   const notes = [];
   const seconds = ((loading ? performance.now() - loadStarted : loadDuration) / 1000).toFixed(1);
-  const timing = loading ? `Loading · ${seconds} s elapsed` : loadOutcome ? `${loadOutcome} in ${seconds} s` : '';
-  if (timing) notes.push(loading ? `${loadStage} Total elapsed: ${seconds} s.` : `Latest feed load: ${timing.toLowerCase()}.`);
+  const timing = loading ? `Loading · ${seconds} s elapsed` : `${loadOutcome} in ${seconds} s`;
+  notes.push(loading ? `${loadStage} Total elapsed: ${seconds} s.` : `Latest feed load: ${timing.toLowerCase()}.`);
   if (Object.keys(feedTimings).length) {
     notes.push('Story retrieval from news relays:');
     for (const source of SOURCES) {
       const feed = feedTimings[source.id];
       if (!feed) continue;
       const elapsed = ((feed.durationMs ?? performance.now() - feed.startedAt) / 1000).toFixed(1);
-      const state = feed.state === 'loading' && !loading ? 'partial' : feed.state;
+      const state = feed.state;
       const description = state === 'empty' ? 'no published stories'
         : state === 'loaded' ? `loaded in ${elapsed} s`
         : state === 'loading' ? `loading · ${elapsed} s elapsed · ${feed.received}/${feed.total} stories`
@@ -202,20 +202,18 @@ function renderStatuses() {
   for (const note of notes) relayDetails.append(element('p', note));
   relayStatus.hidden = notes.length === 0;
   const summary = relayStatus.querySelector('summary')!;
-  summary.textContent = timing ? `Feed status · ${timing.toLowerCase()}` : 'Feed status';
+  summary.textContent = `Feed status · ${timing.toLowerCase()}`;
   summary.title = notes.join('\n');
 }
 function renderWorld() {
-  if (!snapshot) return;
-  const current = snapshot;
+  const current = snapshot!;
   const selected = selectedSources();
   const worldPaused = selected.length > 0 && selected.every(id => current.sources[id]!.status === 'paused');
   const list = requiredElement('#world-news');
   renderStories(list, worldStories(displayedSnapshot(), selected), loading ? '' : worldPaused ? 'Global headlines are currently unavailable.' : 'No headlines available in this collection.');
   if (worldPaused) {
     const links = element('p', '', 'publisher-links');
-    for (const { id, name, homepage, linkLabel } of publisherSources) {
-      if (!selected.includes(id)) continue;
+    for (const { name, homepage, linkLabel } of publisherSources) {
       const link = element('a', linkLabel || name); link.href = homepage; link.target = '_blank'; link.rel = 'noopener noreferrer';
       if (links.childNodes.length) links.append(document.createTextNode(' · '));
       links.append(link);
@@ -226,7 +224,6 @@ function renderWorld() {
   updateStoryVisibility();
 }
 function render() {
-  if (!snapshot) return;
   renderStories(requiredElement('#stringer-news'), shuffledStringerStories(displayedSnapshot().sources.stringer!.stories), loading ? '' : 'Courageous stories are currently unavailable. Visit the Stringer collection below.');
   renderWorld();
 }
