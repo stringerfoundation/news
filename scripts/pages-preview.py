@@ -343,7 +343,7 @@ def comment_body(repo, number, build, pages_url, closed=False):
         body += '\n\n### Automated screenshots\n\nCaptured from the commit above using synthetic test data. Retained after merge or closure.'
         for name, label in zip(SCREENSHOTS, ('Mobile (375px)', 'Tablet (768px)', 'Desktop (1280px)')):
             image_url = f"{pages_url.rstrip('/')}/pr-screenshots/{number}/{build['sha']}/{name}"
-            body += f"\n\n<details><summary>{label}</summary>\n\n![{label}]({image_url})\n\n</details>"
+            body += f"\n\n**{label}**\n\n![{label}]({image_url})"
     return body
 
 

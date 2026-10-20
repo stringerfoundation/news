@@ -81,6 +81,8 @@ class PublisherTests(unittest.TestCase):
         for name in publisher.SCREENSHOTS:
             self.assertIn(f'/pr-screenshots/18/{SHA}/{name}', body)
         self.assertIn('synthetic test data', body)
+        self.assertNotIn('<details', body)
+        self.assertNotIn('<summary', body)
         self.assertNotIn('Automated screenshots', publisher.comment_body(
             REPO, 18, {'sha': SHA}, 'https://example.github.io/news/'))
 
