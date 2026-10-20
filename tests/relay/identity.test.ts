@@ -38,3 +38,10 @@ test('only a matching NIP-05 names entry is displayed; failures never invent an 
   assert.equal(await verifyAddress('reporter@identity.test', pubkey, async () => new Response('not JSON')), null);
   assert.equal(await verifyAddress('0@identity.test', pubkey, async () => new Response(JSON.stringify({ names: [pubkey] }))), null);
 });
+
+test('invalid identity claims and non-success HTTP responses never produce a verified address', async () => {
+  assert.equal(await verifyAddress('invalid', pubkey), null);
+  assert.equal(await verifyAddress('reporter@identity.test', pubkey, async () => new Response('', { status: 503 })), null);
+  for (const body of [null, {}, { names: null }, { names: 'invalid' }])
+    assert.equal(await verifyAddress('reporter@identity.test', pubkey, async () => new Response(JSON.stringify(body))), null);
+});
