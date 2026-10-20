@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { launchBrowser } from '../../scripts/browser.mjs';
+import { launchBrowser } from '../../scripts/browser.ts';
 import { readFile } from 'node:fs/promises';
 import { generateSecretKey, getPublicKey, finalizeEvent } from 'nostr-tools';
 import { publicBatch } from './fixture.js';
@@ -91,7 +91,7 @@ test('relay reader verifies complete collections, preserves order, caches offlin
           return;
         }
         if (
-          !['index.html', 'app.js', 'news-model.js', 'stringer-media.js', 'style.css', 'relay-reader.js'].includes(
+          !['index.html', 'app.js', 'news-model.js', 'response.js', 'publications.js', 'stringer-media.js', 'style.css', 'relay-reader.js'].includes(
             file,
           ) &&
           !/^assets\/[a-z0-9-]+\.png$/.test(file) &&
@@ -108,7 +108,7 @@ test('relay reader verifies complete collections, preserves order, caches offlin
               : file.endsWith('.png')
                 ? 'image/png'
                 : 'text/html',
-          body: await readFile(file === 'relay-reader.js' ? '_site/relay-reader.js' : file),
+          body: await readFile(file.endsWith('.js') ? `_site/${file}` : file),
         });
       });
       // A connected relay that never sends EOSE must not delay a complete response.

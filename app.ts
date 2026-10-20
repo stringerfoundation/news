@@ -1,9 +1,18 @@
+import { readResponseText } from './response.js';
+import type { SourceState, Snapshot } from './relay/types.js';
+import type { DisplayStory } from './news-model.js';
+import type { FeedLoadTiming } from './relay/reader.js';
 import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from './news-model.js';
 import relayConfig from './relay-config.js';
 import { STRINGER_MEDIA } from './stringer-media.js';
-const menuToggle = document.querySelector('.header-menu-toggle');
-const headerMenu = document.querySelector('#header-menu');
-function setHeaderMenu(open) {
+function requiredElement<T extends HTMLElement = HTMLElement>(selector: string): T {
+  const node = document.querySelector<T>(selector);
+  if (!node) throw new Error(`Missing reader element: ${selector}`);
+  return node;
+}
+const menuToggle = requiredElement('.header-menu-toggle');
+const headerMenu = requiredElement('#header-menu');
+function setHeaderMenu(open: boolean) {
   headerMenu.classList.toggle('is-open', open);
   menuToggle.setAttribute('aria-expanded', String(open));
   menuToggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
@@ -15,33 +24,39 @@ document.addEventListener('keydown', event => {
   }
 });
 matchMedia('(max-width: 920px)').addEventListener('change', () => setHeaderMenu(false));
-const feedback = document.querySelector('#refresh-status');
+const feedback = requiredElement('#refresh-status');
 const publisherSources = SOURCES.filter(source => source.id !== 'stringer');
-const selectedSources = () => publisherSources.map(source => source.id);
+const selectedSources = (): readonly string[] => publisherSources.map(source => source.id);
 const interval = 5 * 60 * 1000;
-let snapshot = null;
+let snapshot: Snapshot | null = null;
+// Current collection metadata stays intact; fallback stories are a display concern.
+const retainedSources = new Map<string, SourceState>();
+function displayedSnapshot(): Snapshot {
+  return { ...snapshot!, sources: Object.fromEntries(Object.entries(snapshot!.sources).map(([id, source]) =>
+    [id, retainedSources.get(id) ?? source])) };
+}
 let loading = false;
 let lastAttempt = 0;
-let loadStarted = null;
+let loadStarted = 0;
 let loadDuration = 0;
 let loadOutcome = '';
 let loadStage = '';
-let feedTimings = {};
+let feedTimings: Record<string, FeedLoadTiming> = {};
 // Per-page random ranks keep the complete collection stable during polling.
-const stringerOrder = new Map();
-function shuffledStringerStories(stories) {
+const stringerOrder = new Map<string, number>();
+function shuffledStringerStories(stories: DisplayStory[]) {
   for (const story of stories) {
     if (!stringerOrder.has(story.url)) stringerOrder.set(story.url, Math.random());
   }
-  return [...stories].sort((a, b) => stringerOrder.get(a.url) - stringerOrder.get(b.url));
+  return [...stories].sort((a, b) => stringerOrder.get(a.url)! - stringerOrder.get(b.url)!);
 }
-function element(tag, text, className) {
+function element<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, className?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
   if (text) node.textContent = text;
   if (className) node.className = className;
   return node;
 }
-function renderStories(target, stories, emptyMessage) {
+function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessage: string) {
   target.replaceChildren();
   const usePlaceholder = target.id === 'stringer-news';
   const wire = target.id === 'world-news';
@@ -99,13 +114,13 @@ function renderStories(target, stories, emptyMessage) {
     } else if (story.publicationDate || approvedMedia?.publicationDate) {
       const publicationDate = story.publicationDate || approvedMedia?.publicationDate;
       const time = element('time', formatPublicationDate(publicationDate));
-      time.dateTime = publicationDate; time.title = 'Publication date; source does not provide a confirmed time zone and time'; meta.append(time);
+      time.dateTime = publicationDate!; time.title = 'Publication date; source does not provide a confirmed time zone and time'; meta.append(time);
     } else if (story.credits) {
       meta.append(element('span', 'Publication date unavailable'));
     }
     if (meta.querySelector('time')) {
       const separator = element('span', '·'); separator.setAttribute('aria-hidden', 'true');
-      meta.firstElementChild.after(separator);
+      meta.firstElementChild!.after(separator);
     }
     body.append(meta);
     article.append(body); target.append(article);
@@ -114,8 +129,8 @@ function renderStories(target, stories, emptyMessage) {
 }
 const mobileLayout = matchMedia('(max-width: 767px)');
 const sections = [
-  { list: document.querySelector('#world-news'), button: document.querySelector('#world-more'), label: 'headlines', expanded: false },
-  { list: document.querySelector('#stringer-news'), button: document.querySelector('#stringer-more'), label: 'courageous stories', expanded: false },
+  { list: requiredElement('#world-news'), button: requiredElement('#world-more'), label: 'headlines', expanded: false },
+  { list: requiredElement('#stringer-news'), button: requiredElement('#stringer-more'), label: 'courageous stories', expanded: false },
 ];
 function updateStoryVisibility() {
   for (const section of sections) {
@@ -126,6 +141,17 @@ function updateStoryVisibility() {
     section.button.textContent = `Show ${section.expanded ? 'fewer' : 'more'} ${section.label}`;
     section.button.setAttribute('aria-label', section.button.textContent);
   }
+  if (!mobileLayout.matches) {
+    const stringer = requiredElement('#stringer-news');
+    if (!stringer.querySelector('article')) return;
+    const bottom = stringer.getBoundingClientRect().bottom;
+    let reachedEnd = false;
+    // Keep complete headlines through the end of the Courageous Stories column.
+    for (const card of requiredElement('#world-news').querySelectorAll('article')) {
+      card.hidden = reachedEnd;
+      if (!reachedEnd && card.getBoundingClientRect().bottom >= bottom) reachedEnd = true;
+    }
+  }
 }
 for (const section of sections) {
   section.button.addEventListener('click', () => {
@@ -135,8 +161,8 @@ for (const section of sections) {
 }
 mobileLayout.addEventListener('change', updateStoryVisibility);
 function renderStatuses() {
-  const relayStatus = document.querySelector('#relay-status');
-  const relayDetails = document.querySelector('#relay-status-details');
+  const relayStatus = requiredElement('#relay-status');
+  const relayDetails = requiredElement('#relay-status-details');
   relayDetails.replaceChildren();
   const notes = [];
   const seconds = ((loading ? performance.now() - loadStarted : loadDuration) / 1000).toFixed(1);
@@ -157,41 +183,38 @@ function renderStatuses() {
     }
   }
   if (snapshot) for (const group of ['world', 'stringer']) {
-    const target = document.querySelector(`#${group}-status`); target.replaceChildren();
+    const target = requiredElement(`#${group}-status`); target.replaceChildren();
     const sources = SOURCES.filter(s => group === 'stringer' ? s.id === 'stringer' : s.id !== 'stringer');
     for (const source of sources) {
-      const entry = snapshot.sources[source.id];
+      const entry = snapshot.sources[source.id]!;
       if (entry.status === 'paused') continue;
+      const retained = retainedSources.get(source.id);
+      if (retained) notes.push(`${source.name} · Showing ${retained.stories.length} previously collected stories${retained.lastSuccessAt ? ` from ${formatLocalDateTime(retained.lastSuccessAt)}` : ''}.`);
       if (relayConfig.enabled) {
         const counts = [];
-        if (entry.unavailable > 0 && !loading) counts.push(`${entry.unavailable} unavailable`);
-        if (entry.pending > 0) counts.push(`${entry.pending} queued`);
+        if ((entry.unavailable ?? 0) > 0 && !loading) counts.push(`${entry.unavailable} unavailable`);
+        if ((entry.pending ?? 0) > 0) counts.push(`${entry.pending} queued`);
         if (counts.length) notes.push(`${source.name} · ${counts.join(' · ')}`);
       }
-      if (entry.status === 'failure' && !(loading && entry.unavailable)) target.append(element('p', `${source.name}: refresh unavailable.${entry.stories.length ? ' Showing previously collected stories.' : ' No stories available.'}`, 'warning'));
+      if (entry.status === 'failure' && !(loading && entry.unavailable)) target.append(element('p', `${source.name}: refresh unavailable.${(retained?.stories.length || entry.stories.length) ? ' Showing previously collected stories.' : ' No stories available.'}`, 'warning'));
     }
   }
   for (const note of notes) relayDetails.append(element('p', note));
   relayStatus.hidden = notes.length === 0;
-  const summary = relayStatus.querySelector('summary');
+  const summary = relayStatus.querySelector('summary')!;
   summary.textContent = `Feed status · ${timing.toLowerCase()}`;
   summary.title = notes.join('\n');
 }
 function renderWorld() {
+  const current = snapshot!;
   const selected = selectedSources();
-  const worldPaused = selected.length > 0 && selected.every(id => snapshot.sources[id].status === 'paused');
-  const list = document.querySelector('#world-news');
-  renderStories(list, worldStories(snapshot, selected), loading ? '' : worldPaused ? 'Global headlines are currently unavailable.' : 'No headlines available in this collection.');
+  const worldPaused = selected.length > 0 && selected.every(id => current.sources[id]!.status === 'paused');
+  const list = requiredElement('#world-news');
+  renderStories(list, worldStories(displayedSnapshot(), selected), loading ? '' : worldPaused ? 'Global headlines are currently unavailable.' : 'No headlines available in this collection.');
   if (worldPaused) {
     const links = element('p', '', 'publisher-links');
-    for (const [name, url] of [
-      ['BBC News', 'https://www.bbc.com/news'],
-      ['The New York Times', 'https://www.nytimes.com/section/world'],
-      ['Al Jazeera', 'https://www.aljazeera.com/'],
-      ['DW', 'https://www.dw.com/'],
-      ['CNA', 'https://www.channelnewsasia.com/world'],
-    ]) {
-      const link = element('a', name); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer';
+    for (const { name, homepage, linkLabel } of publisherSources) {
+      const link = element('a', linkLabel || name); link.href = homepage; link.target = '_blank'; link.rel = 'noopener noreferrer';
       if (links.childNodes.length) links.append(document.createTextNode(' · '));
       links.append(link);
     }
@@ -201,7 +224,7 @@ function renderWorld() {
   updateStoryVisibility();
 }
 function render() {
-  renderStories(document.querySelector('#stringer-news'), shuffledStringerStories(snapshot.sources.stringer.stories), loading ? '' : 'Courageous stories are currently unavailable. Visit the Stringer collection below.');
+  renderStories(requiredElement('#stringer-news'), shuffledStringerStories(displayedSnapshot().sources.stringer!.stories), loading ? '' : 'Courageous stories are currently unavailable. Visit the Stringer collection below.');
   renderWorld();
 }
 async function load() {
@@ -231,10 +254,11 @@ async function load() {
         if (snapshot && Date.parse(partial.generatedAt) < Date.parse(snapshot.generatedAt)) return;
         // Preserve already displayed stories while the rest of the update arrives.
         for (const source of SOURCES) {
-          const old = snapshot?.sources[source.id];
-          const nextSource = partial.sources[source.id];
-          if (old && (old.stories.length > nextSource.stories.length || !nextSource.stories.length))
-            partial.sources[source.id] = old;
+          const current = partial.sources[source.id]!;
+          const previous = retainedSources.get(source.id) ?? snapshot?.sources[source.id];
+          if (previous && current.status !== 'paused' && previous.stories.length > current.stories.length)
+            retainedSources.set(source.id, previous);
+          else retainedSources.delete(source.id);
         }
         snapshot = partial;
         render();
@@ -245,9 +269,10 @@ async function load() {
     } else {
       const response = await fetch('./data/news.json', { cache: 'no-cache', credentials: 'omit', signal: AbortSignal.timeout(15000) });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      next = applyContentPermissions(validateSnapshot(await response.json()));
+      next = applyContentPermissions(validateSnapshot(JSON.parse(await readResponseText(response))));
     }
     if (snapshot && Date.parse(next.generatedAt) < Date.parse(snapshot.generatedAt)) throw new Error('Older snapshot returned');
+    retainedSources.clear();
     snapshot = next; render();
     loadOutcome = 'Loaded';
     feedback.textContent = '';
@@ -256,8 +281,8 @@ async function load() {
     console.error('[Stringer reader] Collection refresh failed:', error);
     feedback.textContent = snapshot ? 'Could not check for updates. Keeping the previously loaded collection.' : 'The news collection is unavailable. We’ll retry automatically.';
     if (!snapshot) {
-      document.querySelector('#world-status').textContent = 'Headlines unavailable.';
-      document.querySelector('#stringer-status').textContent = 'Courageous stories unavailable. You can still visit the Stringer collection below.';
+      requiredElement('#world-status').textContent = 'Headlines unavailable.';
+      requiredElement('#stringer-status').textContent = 'Courageous stories unavailable. You can still visit the Stringer collection below.';
     }
   } finally {
     loadDuration = performance.now() - loadStarted;
@@ -273,6 +298,10 @@ async function load() {
     if (snapshot) render(); else renderStatuses();
   }
 }
+const layoutObserver = new ResizeObserver(updateStoryVisibility);
+layoutObserver.observe(requiredElement('#stringer-news'));
+window.addEventListener('resize', updateStoryVisibility);
+document.fonts.ready.then(updateStoryVisibility);
 setInterval(() => { renderStatuses(); if (!document.hidden && Date.now() - lastAttempt >= interval) load(); }, 30_000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastAttempt >= interval) load(); });
 load();

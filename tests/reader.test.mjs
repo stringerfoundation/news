@@ -5,7 +5,7 @@ import { generateSecretKey, getPublicKey, finalizeEvent } from 'nostr-tools';
 import { readRelaySnapshot, cachedRelaySnapshot } from '../relay/reader.ts';
 import { MANIFEST_KIND } from '../relay/protocol.ts';
 import { publicBatch } from './relay/fixture.ts';
-import { SOURCES } from '../news-model.js';
+import { SOURCES } from '../news-model.ts';
 const key = generateSecretKey(),
   pubkey = getPublicKey(key),
   config = { pubkey, relays: ['wss://relay.test'] };
@@ -267,4 +267,13 @@ test('group replies arriving before stories do not publish an unverified empty c
   const result = await readRelaySnapshot(config, undefined, (p) => partials.push(p));
   assert.equal(result.sources.stringer.stories.length, 1);
   assert.ok(partials.every((p) => p.sources.stringer.stories.length === 1));
+});
+test('reader rejects invalid total load budgets', async () => {
+  for (const timeoutMs of [0, -1, NaN, Infinity, 15001]) await assert.rejects(readRelaySnapshot(config, undefined, undefined, undefined, {timeoutMs}), /Invalid reader loading budget/);
+});
+test('an exhausted budget prevents subscription work', async t => {
+  storage(t);t.mock.method(performance, 'now', (() => {let calls = 0; return () => calls++ === 0 ? 0 : 100;})());const mock=relay(t, fixture());await assert.rejects(readRelaySnapshot(config,undefined,undefined,undefined,{timeoutMs:1}), /No valid collection/);assert.equal(mock.calls.length,0);
+});
+test('a newer verified collection saved during loading rejects the older network response', async t => {
+  const batch=fixture(), newer=fixture(1,'2026-01-02T00:00:00.000Z');const values=storage(t);relay(t,batch,{events:()=>{values.set(`stringer-relay:${pubkey}`,JSON.stringify({manifest:newer.manifest,stories:newer.events}));return batch.events;}});await assert.rejects(readRelaySnapshot(config),/Older collection/);
 });

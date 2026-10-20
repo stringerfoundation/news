@@ -11,7 +11,7 @@ import {
   GROUP_MARKER,
 } from '../relay/protocol.ts';
 import { publicBatch } from './relay/fixture.ts';
-import { SOURCES } from '../news-model.js';
+import { SOURCES } from '../news-model.ts';
 const key = generateSecretKey(),
   pubkey = getPublicKey(key),
   time = '2026-01-01T00:00:00.000Z';

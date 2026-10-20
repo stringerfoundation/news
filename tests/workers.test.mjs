@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from 'cheerio';
-import worker from '../deploy/homepage-worker/worker.mjs';
-import redirect from '../deploy/news-redirect/worker.mjs';
+import worker from '../deploy/homepage-worker/worker.ts';
+import redirect from '../deploy/news-redirect/worker.ts';
 const env = { PUBLIC_HOST: 'example.org', PAGES_ORIGIN: 'https://pages.example.org/' };
 const request = (path = '/', host = 'example.org') => new Request(`https://${host}${path}`);
 // Exercise the worker's HTMLRewriter callbacks against a parsed document.

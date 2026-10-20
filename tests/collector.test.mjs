@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import * as collector from '../scripts/collect.mjs';
-import { VERIFIED_PUBLICATIONS } from '../scripts/verified-publications.mjs';
-import { SOURCES } from '../news-model.js';
+import * as collector from '../scripts/collect.ts';
+import { VERIFIED_PUBLICATIONS } from '../scripts/verified-publications.ts';
+import { SOURCES } from '../news-model.ts';
 const rss = (items) => `<rss><channel>${items}</channel></rss>`;
 const item = (extra = '', link = 'https://www.bbc.com/a') =>
   `<item><title>Headline</title><link>${link}</link>${extra}</item>`;
@@ -374,12 +374,12 @@ test('enclosures without an image MIME type are ignored', () => {
     null,
   );
 });
-test('default fetch implementation and retry timer recover from transient network failure', async (t) => {
+test('retry timer recovers from transient network failure', async () => {
   let calls = 0;
-  t.mock.method(globalThis, 'fetch', async () => {
+  const fetchImpl = async () => {
     if (!calls++) throw Error('transient');
     return new Response('recovered');
-  });
-  assert.equal(await collector.fetchText('https://example.org'), 'recovered');
+  };
+  assert.equal(await collector.fetchText('https://example.org', {fetchImpl}), 'recovered');
   assert.equal(calls, 2);
 });

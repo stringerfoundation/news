@@ -1,8 +1,9 @@
+import { readerSource } from './reader-source.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { launchBrowser } from '../scripts/browser.mjs';
-import { SOURCES } from '../news-model.js';
+import { launchBrowser } from '../scripts/browser.ts';
+import { SOURCES } from '../news-model.ts';
 const time = '2026-01-01T00:00:00.000Z';
 const snapshot = () => ({
   schemaVersion: 2,
@@ -42,9 +43,7 @@ async function setup(t, cached = null, images = true) {
         body: 'export default {enabled:true};',
       });
     if (file.startsWith('assets/')) return route.abort();
-    let body = await readFile(new URL('../' + file, import.meta.url), 'utf8');
-    if (file === 'news-model.js' && !images)
-      body = body.replace("images: source.id === 'stringer'", 'images: false');
+    const body = file.endsWith('.js') ? await readerSource(file, source => file === 'news-model.js' && !images ? source.replace("images: source.id === 'stringer'", 'images: false') : source) : await readFile(new URL('../' + file, import.meta.url), 'utf8');
     return route.fulfill({
       contentType: file.endsWith('.js')
         ? 'text/javascript'

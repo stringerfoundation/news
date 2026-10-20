@@ -1,14 +1,30 @@
-import relayConfig from '../../relay-config.js';
+import { isPublicAsset } from '../../public-assets.ts';
+import relayConfig from '../../relay-config.ts';
+import type { HTMLRewriter as CloudflareHTMLRewriter } from '@cloudflare/workers-types';
+
+// Keep standard Fetch API types shared with Node's tests while using Cloudflare's
+// authoritative handler types for the runtime-only HTML rewriting API.
+interface RuntimeHTMLRewriter {
+  on(...args: Parameters<CloudflareHTMLRewriter['on']>): RuntimeHTMLRewriter;
+  transform(response: Response): Response;
+}
+declare const HTMLRewriter: { new(): RuntimeHTMLRewriter };
+
+interface Environment {
+  PUBLIC_HOST: string;
+  PAGES_ORIGIN: string;
+  PUBLIC_INDEXING?: string;
+}
+
+type Route =
+  | { kind: 'identity' }
+  | { kind: 'legacy' }
+  | { kind: 'missing' }
+  | { kind: 'home'; path: string }
+  | { kind: 'asset'; path: string };
 
 const prefix = '/news-assets/';
-const files = new Set([
-  'app.js', 'news-model.js', 'relay-config.js', 'relay-reader.js',
-  'stringer-media.js', 'style.css', 'data/news.json',
-  'assets/stringer-logo.png', 'assets/nostr-banner.png',
-  'assets/favicon-16.png', 'assets/favicon-32.png',
-  'assets/favicon-192.png', 'assets/favicon-180.png',
-]);
-export function routeFor(request) {
+export function routeFor(request: Request): Route {
   const url = new URL(request.url);
   if (url.pathname === '/.well-known/nostr.json' && ['GET', 'HEAD', 'OPTIONS'].includes(request.method))
     return { kind: 'identity' };
@@ -16,11 +32,11 @@ export function routeFor(request) {
   if (url.pathname === '/') return { kind: 'home', path: '/' };
   if (!url.pathname.startsWith(prefix)) return { kind: 'legacy' };
   const path = url.pathname.slice(prefix.length);
-  return files.has(path) || /^assets\/stringer-thumbnails\/[a-zA-Z0-9-]+\.png$/.test(path)
+  return isPublicAsset(path) || path === 'data/news.json'
     ? { kind: 'asset', path: '/' + path } : { kind: 'missing' };
 }
 export default {
-  async fetch(request, env) {
+  async fetch(request: Request, env: Environment): Promise<Response> {
     const route = routeFor(request);
     if (route.kind === 'identity') {
       const headers = {
