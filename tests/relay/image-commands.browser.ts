@@ -134,6 +134,34 @@ test('image commands reject stale actions, recover from signer/search failures, 
       outcomes.push(!document.querySelector('.account-npub'));
       win.nostr = {getPublicKey: async () => {throw 'Denied';}, signEvent: async () => {}};
       await c.connectNostr(); outcomes.push(document.body.textContent!.includes('Could not connect to your signer.'));
+      // A stalled extension must neither lock the UI nor connect after timeout/cancel.
+      const setTimer = window.setTimeout;
+      let expire!: () => void;
+      window.setTimeout = ((callback: () => void, delay: number) => {
+        if (delay === 10000) { expire = callback; return 0; }
+        return setTimer(callback, delay);
+      }) as typeof window.setTimeout;
+      let lateKey!: (value: string) => void;
+      win.nostr = {getPublicKey: () => new Promise<string>(resolve => {lateKey = resolve;}), signEvent: async () => {}};
+      const timedOut = c.connectNostr(); expire(); await timedOut;
+      outcomes.push(document.body.textContent!.includes('Nostr connection timed out.'));
+      outcomes.push(!(document.querySelector('.image-toolbar button') as HTMLButtonElement).disabled);
+      lateKey(key); await Promise.resolve();
+      outcomes.push(!document.querySelector('.account-npub'));
+      const cancelled = c.connectNostr();
+      (document.querySelector('.image-toolbar button') as HTMLButtonElement).click();
+      lateKey(key); await cancelled;
+      outcomes.push(!document.querySelector('.account-npub'));
+      const removed = c.connectNostr();
+      win.nostr = undefined; c.detectNostr();
+      lateKey(key); await removed;
+      outcomes.push(!document.querySelector('.account-npub'));
+      const oldSigner = {getPublicKey: () => new Promise<string>(resolve => {lateKey = resolve;}), signEvent: async () => {}};
+      win.nostr = oldSigner; c.detectNostr(); c.detectNostr();
+      win.nostr = {getPublicKey: async () => {throw new Error('New extension detected');}, signEvent: async () => {}};
+      c.detectNostr(); lateKey(key); await new Promise(resolve => setTimer(resolve, 0));
+      outcomes.push(document.body.textContent!.includes('New extension detected'));
+      window.setTimeout = setTimer;
       let resolveKey!: (key: string) => void;
       win.nostr = {getPublicKey: () => new Promise<string>(resolve => {resolveKey = resolve;}), signEvent: async () => {}};
       const keyPending = c.connectNostr(); await c.connectNostr();
@@ -174,6 +202,15 @@ test('image commands reject stale actions, recover from signer/search failures, 
       win.nostr = {getPublicKey: async () => key, signEvent: async () => {}};
       await c.connectNostr();
       outcomes.push(!(document.querySelector('[data-image-action="' + storyId + ':undo"]') as HTMLButtonElement).disabled);
+      // Space on the editable thumbnail opens the picker; other keys do nothing.
+      c.renderWorld();
+      const thumbnail = document.querySelector('#world-news .wire-thumbnail > a')!;
+      thumbnail.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowRight', bubbles: true}));
+      outcomes.push(!document.querySelector('dialog[open]'));
+      thumbnail.dispatchEvent(new KeyboardEvent('keydown', {key: ' ', bubbles: true}));
+      await Promise.resolve();
+      outcomes.push(!!document.querySelector('dialog[open]'));
+
       return outcomes;
     }, {storyId, image, key});
     assert.ok(outcomes.every(Boolean), JSON.stringify(outcomes));

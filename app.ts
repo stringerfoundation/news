@@ -60,7 +60,7 @@ const suggestionObserver = new IntersectionObserver(entries => {
   loadSuggestions();
 }, { rootMargin: '100px' });
 function loadSuggestions() {
-  if (!voter || !imageSession?.canVote(voter)) { suggestionQueue.clear(); return; }
+  if (!imageSession) { suggestionQueue.clear(); return; }
   for (const id of suggestionQueue) {
     if (activeSuggestions >= 2) break;
     suggestionQueue.delete(id);
@@ -158,7 +158,11 @@ async function connectNostr() {
   const signer = window.nostr!, revision = ++accountRevision;
   connectingSigner = true; voteMessage = ''; renderNostrAccount();
   try {
-    const key = await signer.getPublicKey();
+    let timer: ReturnType<typeof setTimeout>;
+    const key = await Promise.race([
+      signer.getPublicKey(),
+      new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(new Error('Nostr connection timed out. Check your extension’s permission prompt, then click Connect Nostr to retry.')), 10000); }),
+    ]).finally(() => clearTimeout(timer));
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error('The signer returned an invalid account.');
     const identity = await import('./relay-reader.js');
     if (revision !== accountRevision || window.nostr !== signer) return;
@@ -187,11 +191,11 @@ function renderNostrAccount() {
     identity.append(npub, element('span', identityPending ? 'Looking up NIP-05…' : accountNip05 || 'NIP-05 unavailable', 'account-nip05'));
     imageToolbar.append(identity);
   }
-  const connect = element('button', connectingSigner ? 'Connecting Nostr…' : voter ? 'Disconnect Nostr' : 'Connect Nostr');
-  connect.type = 'button'; connect.disabled = voteBusy || connectingSigner;
+  const connect = element('button', connectingSigner ? 'Cancel Nostr connection' : voter ? 'Disconnect Nostr' : 'Connect Nostr');
+  connect.type = 'button'; connect.disabled = voteBusy;
   connect.addEventListener('click', () => {
-    if (voter) {
-      ++accountRevision; voter = null; accountNpub = ''; accountNip05 = null; identityPending = false; voteMessage = ''; refreshAccount();
+    if (voter || connectingSigner) {
+      ++accountRevision; connectingSigner = false; voter = null; accountNpub = ''; accountNip05 = null; identityPending = false; voteMessage = ''; refreshAccount();
     } else void connectNostr();
   });
   imageToolbar.append(connect);
@@ -202,11 +206,12 @@ function renderNostrAccount() {
 }
 function detectNostr() {
   if (!hasSigner()) {
-    if (voter) { ++accountRevision; voter = null; accountNpub = ''; accountNip05 = null; identityPending = false; refreshAccount(); }
+    if (voter || connectingSigner) { ++accountRevision; connectingSigner = false; voter = null; accountNpub = ''; accountNip05 = null; identityPending = false; refreshAccount(); }
     else renderNostrAccount();
     return;
   }
   if (attemptedSigner === window.nostr) return;
+  ++accountRevision; connectingSigner = false;
   attemptedSigner = window.nostr;
   void connectNostr();
 }
@@ -230,14 +235,16 @@ function commonsCaption(candidate: CommonsImage) {
   if (candidate.sourceName) caption.append(document.createTextNode(` · ${candidate.sourceName}`));
   return caption;
 }
-function imageReview(storyId: string, title: string) {
-  if (!hasSigner() || !voter || !imageSession?.canVote(voter)) return null;
-  const selection = imageSession.selection(storyId);
+function prepareImageSearch(storyId: string, title: string) {
   if (!commonsSearches.has(storyId)) {
     commonsSearches.set(storyId, { query: commonsSubject(title), source: 'all', issues: [], loading: false, results: [], error: '', searched: false });
   }
+}
+function imageReview(storyId: string, title: string) {
+  if (!hasSigner() || !voter || !imageSession?.canVote(voter)) return null;
+  const selection = imageSession.selection(storyId);
+  prepareImageSearch(storyId, title);
   const control = element('div', '', 'image-review-control'); control.dataset.storyId = storyId;
-  if (!commonsSearches.get(storyId)?.searched) suggestionObserver.observe(control);
   const details = element('dialog', '', 'image-review');
   details.id = `image-review-${storyId}`;
   details.setAttribute('aria-label', `Image choices for ${title}`);
@@ -306,8 +313,8 @@ function imageReview(storyId: string, title: string) {
     form.addEventListener('submit', event => { event.preventDefault(); void findCommons(storyId, input.value); });
     form.append(sourceLabel, label, submit); details.append(form);
     details.append(element('p', voter === relayConfig.pubkey
-      ? 'Suggested images need approval before other readers can see them. Publishing and upvoting requests two signatures.'
-      : 'Suggested images need approval before other readers can see them. Stringer’s account must publish new candidates first.'));
+      ? 'Everyone can see automatic suggestions. Publish and upvote your choice to share an approved image. This requests two signatures.'
+      : 'Everyone can see automatic suggestions. Approve a published candidate to change the shared image. Stringer’s account must publish new candidates first.'));
     if (state?.error) details.append(element('p', state.error, 'warning'));
     else if (state?.issues.length) details.append(element('p', state.issues.join(' '), 'warning'));
     if (state?.searched && !state.loading && !state.error && !state.results.length)
@@ -393,7 +400,7 @@ function element<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, c
   return node;
 }
 function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessage: string) {
-  for (const review of target.querySelectorAll('.image-review-control')) suggestionObserver.unobserve(review);
+  for (const media of target.querySelectorAll('.wire-thumbnail')) suggestionObserver.unobserve(media);
   target.replaceChildren();
   const usePlaceholder = target.id === 'stringer-news';
   const wire = target.id === 'world-news';
@@ -412,9 +419,10 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
     // Publisher photos stay hidden, regardless of URL parameters or stored metadata.
     const selection = wire && story.noteId ? imageSession?.selection(story.noteId) : null;
     const trusted = hasSigner() && voter && imageSession?.canVote(voter);
-    const commons = wire && story.noteId && trusted
+    if (wire && story.noteId) prepareImageSearch(story.noteId, story.title);
+    const commons = wire && story.noteId
       ? imageOptions(story.noteId).find(image => !skippedImages.get(choiceKey(story.noteId!))?.includes(image.filePage))
-      : selection?.winner;
+      : null;
     const suggested = commons && commons.filePage !== selection?.winner?.filePage ? commons : null;
     const imageData = wire ? commons : story.image;
     const imageUrl = wire ? commons?.url : safeImageUrl(imageData?.url) || localImage;
@@ -422,6 +430,9 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
     if (wire) {
       article.classList.add('with-image');
       wireFigure = element('figure', '', 'story-media wire-thumbnail');
+      if (story.noteId && !commonsSearches.get(story.noteId)?.searched) {
+        wireFigure.dataset.storyId = story.noteId; suggestionObserver.observe(wireFigure);
+      }
       article.append(wireFigure);
     }
     if (imageUrl) {
@@ -453,6 +464,15 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
         const imageLink = element('a');
         imageLink.href = commons.filePage; imageLink.target = '_blank'; imageLink.rel = 'noopener noreferrer';
         imageLink.setAttribute('aria-label', `View ${commons.title} at ${commons.sourceName || 'Wikimedia Commons'}`);
+        if (trusted) {
+          imageLink.setAttribute('role', 'button');
+          imageLink.setAttribute('aria-label', `Change image for ${story.title}`);
+          imageLink.addEventListener('click', event => {
+            event.preventDefault();
+            article.querySelector<HTMLButtonElement>('[data-image-action$=":review"]')!.click();
+          });
+          imageLink.addEventListener('keydown', event => { if (event.key === ' ') { event.preventDefault(); imageLink.click(); } });
+        }
         imageLink.append(image);
         figure.append(imageLink);
       } else figure.append(image);
@@ -487,12 +507,12 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
     body.append(meta);
     if (suggested && story.noteId) {
       const pending = element('p', 'Needs approval', 'image-approval-status');
-      pending.title = 'Needs approval — only visible to trusted accounts.';
+      pending.title = 'Automatic suggestion — not yet approved by Stringer’s trusted accounts.';
       pending.setAttribute('aria-label', pending.title); wireFigure?.insertBefore(pending, wireFigure.querySelector('figcaption'));
-    } else if (wire && story.noteId && trusted && !commons) {
+    } else if (wire && story.noteId && !commons) {
       const state = commonsSearches.get(story.noteId);
       wireFigure?.append(element('p', state?.error || (state?.searched
-        ? state.results.length ? 'No more suggestions. Undo a skip or search again.' : 'No reusable image found. Open image review to refine the search.'
+        ? state.results.length ? 'No more suggestions. Undo a skip or search again.' : trusted ? 'No reusable image found. Open image review to refine the search.' : 'No reusable image found for this headline.'
         : 'Finding a suggested image…'), state?.error ? 'warning' : 'image-search-status'));
     }
     if (wire && story.noteId && trusted) wireFigure?.insertBefore(imageControls(story.noteId, story.title, commons), wireFigure.querySelector('figcaption'));
