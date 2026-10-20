@@ -87,6 +87,14 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
       - run: npm run test:relay-browser
+      - name: Upload preview screenshots
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: preview-screenshots
+          path: .test-output/news-*.png
+          include-hidden-files: true
+          retention-days: 30
+          if-no-files-found: error
       - name: Package checked site
         run: tar -cf "$RUNNER_TEMP/public-site.tar" -C _site .
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
