@@ -8362,14 +8362,7 @@ async function readRelaySnapshot(config, report = () => {
       "#d": [MANIFEST_KEY],
       limit: 5
     });
-    const valid = manifests.filter((event3) => {
-      try {
-        readManifest(event3, config.pubkey);
-        return true;
-      } catch {
-        return false;
-      }
-    }).sort((a, b) => b.created_at - a.created_at || a.id.localeCompare(b.id));
+    const valid = manifests.sort((a, b) => b.created_at - a.created_at || a.id.localeCompare(b.id));
     const event2 = valid[0];
     if (!event2) throw new Error("No valid collection");
     const manifest = readManifest(event2, config.pubkey);
@@ -8458,7 +8451,7 @@ function cachedRelaySnapshot(config) {
 }
 
 // relay/open-images.ts
-var sources = { commons: "Wikimedia Commons", openverse: "Openverse", flickr: "Flickr via Openverse", eu: "EU audiovisual library" };
+var sources = { commons: "Wikimedia Commons", openverse: "Openverse", flickr: "Flickr via Openverse", eu: "EU audiovisual library", wellcome: "Wellcome Collection via Openverse", smithsonian: "Smithsonian via Openverse", europeana: "Europeana via Openverse" };
 var euEndpoint = "https://gfdwwnbuul.execute-api.eu-west-1.amazonaws.com/avsportal/avsportal";
 function plain2(value) {
   if (typeof value !== "string") return "";
@@ -8469,26 +8462,33 @@ async function json(url, request, timeout = 12e3) {
   if (!response.ok) throw new Error(response.status === 429 ? "Search limit reached. Please retry later." : "Search is unavailable. Please retry.");
   return response.json();
 }
-async function searchOpenverse(query, request = fetch, flickrOnly = false) {
+async function searchOpenverse(query, request = fetch, provider = false) {
   const url = new URL("https://api.openverse.org/v1/images/");
+  let filter = provider === true ? "flickr" : provider === "wellcome" ? "wellcome_collection" : provider === "europeana" ? "europeana" : "";
+  if (provider === "smithsonian") {
+    const stats = await json(new URL("https://api.openverse.org/v1/images/stats/"), request);
+    if (!Array.isArray(stats)) throw new Error("Invalid provider response.");
+    filter = stats.map((item) => item.source_name || "").filter((name) => /^smithsonian_[a-z_]+$/.test(name)).join(",");
+    if (!filter) throw new Error("Smithsonian search is unavailable.");
+  }
   url.search = new URLSearchParams({
     q: query.trim().slice(0, 200),
     license: "by,by-sa,cc0,pdm",
     page_size: "10",
     mature: "false",
-    ...flickrOnly ? { source: "flickr" } : { excluded_source: "wikimedia" }
+    ...filter ? { source: filter } : { excluded_source: "wikimedia" }
   }).toString();
   const data = await json(url, request, 25e3);
   if (!Array.isArray(data.results)) throw new Error("Invalid image search response.");
   const images = [];
   for (const item of data.results) {
-    if (item.mature || !plain2(item.source) || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(item.id || "") || item.source === "wikimedia" || flickrOnly && item.source !== "flickr") continue;
+    if (item.mature || !plain2(item.source) || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(item.id || "") || item.source === "wikimedia" || filter && !filter.split(",").includes(item.source || "")) continue;
     const license = item.license === "cc0" ? "CC0-1.0" : item.license === "pdm" ? "PDM-1.0" : ["by", "by-sa"].includes(item.license || "") ? `CC-${item.license.toUpperCase()}-${item.license_version}` : "";
     try {
       images.push(readIllustration({
         version: 1,
         source: "openverse",
-        sourceName: `${plain2(item.source)} via Openverse`,
+        sourceName: `${item.source?.startsWith("smithsonian_") ? "Smithsonian" : item.source === "wellcome_collection" ? "Wellcome Collection" : item.source === "europeana" ? "Europeana" : plain2(item.source)} via Openverse`,
         sourceUrl: `https://api.openverse.org/v1/images/${item.id}/`,
         url: item.url,
         filePage: item.foreign_landing_url,
@@ -8550,34 +8550,46 @@ async function searchEuPhotos(query, request = fetch) {
   return images;
 }
 var cache = /* @__PURE__ */ new Map();
-async function searchImages(query, source = "all", suggest = false, request = fetch) {
+async function searchImages(query, source = "all", suggest = false, request = fetch, onProgress) {
   if (!query.trim()) throw new Error("Enter a person, place or subject to search for.");
   const issues = [];
+  const completed = [];
+  const snapshot = () => {
+    const images = [];
+    for (const image of completed.flat()) {
+      if (!images.some((other) => other.filePage === image.filePage || other.url === image.url)) images.push(image);
+    }
+    return { images: images.slice(0, 30), issues: [...issues] };
+  };
   const run = async (id) => {
     const key = JSON.stringify([id, query.trim(), suggest]), cached = cache.get(key);
     if (request === fetch && cached && cached.until > Date.now()) return cached.images;
     try {
-      const images2 = id === "commons" ? await searchCommons(query, request, suggest) : id === "eu" ? await searchEuPhotos(query, request) : await searchOpenverse(query, request, id === "flickr");
+      const images = id === "commons" ? await searchCommons(query, request, suggest) : id === "eu" ? await searchEuPhotos(query, request) : await searchOpenverse(query, request, id === "flickr" ? true : ["wellcome", "smithsonian", "europeana"].includes(id) ? id : false);
       if (request === fetch) {
         if (cache.size >= 200) cache.delete(cache.keys().next().value);
-        cache.set(key, { until: Date.now() + 10 * 60 * 1e3, images: images2 });
+        cache.set(key, { until: Date.now() + 10 * 60 * 1e3, images });
       }
-      return images2;
+      return images;
     } catch (error) {
       issues.push(`${sources[id]}: ${error instanceof Error ? error.message : "Search is unavailable. Please retry."}`);
       return [];
     }
   };
-  if (source !== "all") return { images: await run(source), issues };
-  const commons = await run("commons");
-  if (suggest && commons.length) return { images: commons, issues };
-  const [openverse, eu] = await Promise.all([run("openverse"), run("eu")]);
-  const images = [];
-  for (let i3 = 0; i3 < 5; i3++) for (const group of [commons, openverse, eu]) {
-    const image = group[i3];
-    if (image && !images.some((other) => other.filePage === image.filePage || other.url === image.url)) images.push(image);
+  const load = async (id) => {
+    completed.push(await run(id));
+    onProgress?.(snapshot());
+  };
+  if (source !== "all") {
+    await load(source);
+    return snapshot();
   }
-  return { images: images.slice(0, 9), issues };
+  if (suggest) {
+    await load("commons");
+    if (snapshot().images.length) return snapshot();
+  }
+  await Promise.all((suggest ? ["openverse", "eu"] : ["commons", "openverse", "eu", "wellcome", "smithsonian", "europeana"]).map(load));
+  return snapshot();
 }
 
 // node_modules/nostr-tools/lib/esm/nip19.js

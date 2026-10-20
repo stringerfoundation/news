@@ -229,10 +229,10 @@
 .image-review-control { display: block; }
 #global-newswire .wire-thumbnail > .image-approval-status { position: absolute; inset: 0 0 auto; margin: 0; padding: 2px; border: 0; background: #fffce8ed; font-size: 10px; line-height: 1.2; text-align: center; }
 #global-newswire .wire-thumbnail > .image-search-status, #global-newswire .wire-thumbnail > .warning { grid-column: 1; grid-row: 1; margin: 0; max-height: 80px; overflow: auto; font-size: 11px; line-height: 1.3; }
-.image-review[popover] { margin: auto; width: min(540px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--ink); box-shadow: 0 12px 50px #0004; overflow: auto; }
-.image-review[popover]::backdrop { background: #0003; }
-.image-review[popover] h3 { font-size: 18px; margin: 12px 0; }
-.image-review[popover] img { width: 160px; height: 110px; aspect-ratio: auto; object-fit: contain; }
+dialog.image-review { margin: auto; width: min(540px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--ink); box-shadow: 0 12px 50px #0004; overflow: auto; }
+dialog.image-review::backdrop { background: #0003; }
+dialog.image-review h3 { font-size: 18px; margin: 12px 0; }
+dialog.image-review img { width: 160px; height: 110px; aspect-ratio: auto; object-fit: contain; }
 @media (max-width: 767px) {
   .desk #global-newswire .story.with-image { min-height: 141px; }
   .desk #global-newswire .wire-thumbnail { display: grid; grid-column: 2; grid-row: 1; grid-template-rows: 48px 24px 48px; height: 120px; }
@@ -243,3 +243,12 @@
   #global-newswire .wire-thumbnail > .image-approval-status { font-size: 9px; }
   #global-newswire .wire-thumbnail > .image-search-status, #global-newswire .wire-thumbnail > .warning { max-height: 48px; font-size: 9px; }
 }
+
+.image-choice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 16px; }
+.image-choice-grid figure { min-width: 0; margin: 0; }
+.image-choice-grid .image-choice { display: block; width: 100%; padding: 3px; border: 2px solid var(--line); border-radius: 6px; background: white; cursor: pointer; }
+.image-choice-grid .image-choice:hover, .image-choice-grid .image-choice:focus-visible, .image-choice-grid .image-choice[aria-pressed="true"] { border-color: var(--ink); }
+dialog.image-review { width: min(850px, calc(100vw - 32px)); }
+dialog.image-review .image-choice img { width: 100%; height: 130px; object-fit: contain; }
+
+.image-choice-grid figcaption { max-height: 5em; overflow: auto; }
