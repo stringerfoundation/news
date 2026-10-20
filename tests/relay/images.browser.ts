@@ -287,8 +287,8 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     await untrusted.setViewportSize({ width: 375, height: 1000 });
     assert.equal(await untrusted.locator('#world-news img').count(), 0);
     assert.equal(await multi.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-    const heights = await multi.locator('#world-news article').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height));
-    assert.deepEqual(heights, await untrusted.locator('#world-news article').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height)));
+    const heights = await multi.evaluate(() => [...document.querySelectorAll('#world-news article')].map(card => card.getBoundingClientRect().height));
+    assert.deepEqual(heights, await untrusted.evaluate(() => [...document.querySelectorAll('#world-news article')].map(card => card.getBoundingClientRect().height)));
     await mkdir('.test-output', { recursive: true });
     await multi.locator('#world-news').screenshot({ path: '.test-output/image-voting-mobile.png' });
     const firstCard = multi.locator('#world-news article').first();
@@ -308,7 +308,7 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     });
     await firstCard.getByRole('button', { name: 'Review illustrative images', exact: true }).click();
     await firstCard.getByRole('dialog').waitFor();
-    assert.deepEqual(heights, await multi.locator('#world-news article').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height)));
+    assert.deepEqual(heights, await multi.evaluate(() => [...document.querySelectorAll('#world-news article')].map(card => card.getBoundingClientRect().height)));
     const alternative = firstCard.getByRole('button', { name: 'Choose image: Emmanuel Macron alternative.png', exact: true });
     await alternative.waitFor();
     await firstCard.getByRole('dialog').screenshot({ path: '.test-output/image-choices-modal.png' });
@@ -326,7 +326,7 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     assert.equal(await firstCard.getByRole('dialog').isVisible(), false);
     await multi.setViewportSize({ width: 1280, height: 1000 });
     await untrusted.setViewportSize({ width: 1280, height: 1000 });
-    assert.deepEqual(await multi.locator('#world-news article').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height)), await untrusted.locator('#world-news article').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height)));
+    assert.deepEqual(await multi.evaluate(() => [...document.querySelectorAll('#world-news article')].map(card => card.getBoundingClientRect().height)), await untrusted.evaluate(() => [...document.querySelectorAll('#world-news article')].map(card => card.getBoundingClientRect().height)));
     await multi.locator('#world-news').screenshot({ path: '.test-output/image-voting-desktop.png' });
     assert.deepEqual(await multi.evaluate(async moduleUrl => {
       const { searchCommons } = await import(moduleUrl) as typeof import('../../relay/commons.js');
