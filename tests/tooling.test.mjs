@@ -18,7 +18,7 @@ test('syntax checker scans nested modules, skips generated directories and rejec
   await writeFile(`${dir}/nested/good.mjs`, 'export const value = 1;');
   await writeFile(`${dir}/notes.txt`, 'const =');
   const run = () =>
-    spawnSync(process.execPath, [`${root}/scripts/check-syntax.ts`], {
+    spawnSync(process.execPath, ['--import', 'tsx', `${root}/scripts/check-syntax.ts`], {
       cwd: dir,
       encoding: 'utf8',
     });
@@ -43,7 +43,7 @@ test('build rejects unexpected thumbnail files before publication', async (t) =>
   ])
     await cp(resolve(name), `${dir}/${name}`, { recursive: true });
   await writeFile(`${dir}/assets/stringer-thumbnails/private.txt`, 'synthetic forbidden asset');
-  const result = spawnSync(process.execPath, [`${root}/scripts/build.ts`], {
+  const result = spawnSync(process.execPath, ['--import', 'tsx', `${root}/scripts/build.ts`], {
     cwd: dir,
     encoding: 'utf8',
   });

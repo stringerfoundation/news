@@ -25,10 +25,11 @@ const story = (url = 'https://example.org/story') => ({
 });
 const reader = `export const cachedRelaySnapshot=()=>window.cached;
 export async function readRelaySnapshot(config,report,partial,timing){window.readerCalls=(window.readerCalls||0)+1;window.readerCallbacks={report,partial,timing};return new Promise((resolve,reject)=>{window.finish=resolve;window.fail=()=>reject(new Error('Offline'));});}`;
-async function setup(t, cached = null, images = true) {
+async function setup(t, cached = null, images = true, {withoutLabels = false, missingMenu = false} = {}) {
   const browser = await launchBrowser();
   t.after(() => browser.close());
   const page = await browser.newPage();
+  const pageError = missingMenu ? page.waitForEvent('pageerror') : null;
   await page.clock.install();
   await page.addInitScript((value) => {
     window.cached = value;
@@ -43,7 +44,13 @@ async function setup(t, cached = null, images = true) {
         body: 'export default {enabled:true};',
       });
     if (file.startsWith('assets/')) return route.abort();
-    const body = file.endsWith('.js') ? await readerSource(file, source => file === 'news-model.js' && !images ? source.replace("images: source.id === 'stringer'", 'images: false') : source) : await readFile(new URL('../' + file, import.meta.url), 'utf8');
+    let body = file.endsWith('.js') ? await readerSource(file, source => {
+      if (file !== 'news-model.js') return source;
+      if (!images) source = source.replace("images: source.id === 'stringer'", 'images: false');
+      if (withoutLabels) source = source.replace(/linkLabel: '[^']*', /g, '');
+      return source;
+    }) : await readFile(new URL('../' + file, import.meta.url), 'utf8');
+    if (file === 'index.html' && missingMenu) body = body.replace('class="header-menu-toggle"', 'class="missing-menu"');
     return route.fulfill({
       contentType: file.endsWith('.js')
         ? 'text/javascript'
@@ -55,6 +62,7 @@ async function setup(t, cached = null, images = true) {
   });
   await page.route('https://example.org/**', (route) => route.abort());
   await page.goto('https://reader.test/');
+  if (pageError) { assert.match((await pageError).message, /Missing reader element: .header-menu-toggle/); return page; }
   await page.waitForFunction(() => window.finish);
   return page;
 }
@@ -165,4 +173,20 @@ test('polling cannot start a second relay request while the current load is pend
   await page.waitForFunction(() => window.readerCalls === 2);
   await page.evaluate(value => window.finish(value), snapshot());
   await page.waitForFunction(() => document.querySelector('#world-news').getAttribute('aria-busy') === 'false');
+});
+test('missing required navigation markup fails visibly', async t => {
+  await setup(t, null, true, {missingMenu: true});
+});
+test('publisher links use source names when no separate link label is configured', async t => {
+  const page = await setup(t, null, true, {withoutLabels: true});
+  await page.evaluate(value => window.finish(value), snapshot());
+  await page.waitForFunction(() => document.querySelector('#world-news').getAttribute('aria-busy') === 'false');
+  assert.equal(await page.locator('.publisher-links a').first().textContent(), 'BBC World');
+});
+test('retained stories without a collection time do not invent a timestamp', async t => {
+  const cached=snapshot();cached.sources.stringer={...cached.sources.stringer,status:'failure',error:'Unavailable',stories:[story()]};
+  const page=await setup(t,cached);const partial=snapshot();partial.sources.stringer={...partial.sources.stringer,status:'failure',error:'Unavailable'};
+  await page.evaluate(value=>window.readerCallbacks.partial(value),partial);
+  assert.match(await page.locator('#relay-status-details').textContent(),/Showing 1 previously collected stories\./);
+  await page.evaluate(value=>window.finish(value),partial);
 });
