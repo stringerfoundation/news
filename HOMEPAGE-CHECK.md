@@ -19,7 +19,7 @@ without retaining the build:
 
 ```sh
 READER_PUBLIC_URL=https://stringerjournalism.org/ \
-EXPECTED_READER_VERSION=0123456789abcdef node scripts/smoke-homepage.ts
+EXPECTED_READER_VERSION=0123456789abcdef npm run smoke:production
 ```
 
 Replace the example version with the value from the approved artifact's app.js

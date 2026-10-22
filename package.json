@@ -11,7 +11,7 @@
     "test": "node --import tsx --test tests/*.test.ts tests/*.test.mjs deploy/homepage-worker/worker.test.ts",
     "test:browser": "node --import tsx --test tests/browser.spec.ts tests/previews.browser.ts tests/smoke.browser.mjs",
     "build": "node scripts/build.ts",
-    "smoke:production": "node scripts/smoke-homepage.ts",
+    "smoke:production": "node --import tsx scripts/smoke-homepage.ts",
     "lint": "eslint --flag unstable_native_nodejs_ts_config .",
     "typecheck": "tsc --noEmit",
     "test:relay": "tsx --test tests/relay/*.test.ts",

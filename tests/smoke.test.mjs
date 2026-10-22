@@ -23,7 +23,7 @@ test('invalid versions and budgets fail before launching a context', async () =>
 });
 
 test('CLI fails before opening a browser when its destination is missing', () => {
-  const result = spawnSync(process.execPath, ['scripts/smoke-homepage.ts'], {
+  const result = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/smoke-homepage.ts'], {
     encoding: 'utf8', env: { ...process.env, READER_PUBLIC_URL: '' },
   });
   assert.equal(result.status, 1);
