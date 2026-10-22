@@ -1,7 +1,7 @@
-import { readResponseText } from "./response.js?v=151f79d65651109d";
-import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=151f79d65651109d";
-import relayConfig from "./relay-config.js?v=151f79d65651109d";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=151f79d65651109d";
+import { readResponseText } from "./response.js?v=641a2a07006e0503";
+import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=641a2a07006e0503";
+import relayConfig from "./relay-config.js?v=641a2a07006e0503";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=641a2a07006e0503";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -251,7 +251,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=151f79d65651109d");
+      const reader = await import("./relay-reader.js?v=641a2a07006e0503");
       if (!snapshot) {
         snapshot = reader.cachedRelaySnapshot(relayConfig);
         if (snapshot) render();
