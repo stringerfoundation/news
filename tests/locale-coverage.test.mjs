@@ -10,7 +10,7 @@ const localizedLocales = ['fr', 'es', 'ar', 'zh', 'ru', 'nl', 'de'];
 
 test('edition registry maps languages and region variants with the English fallback', () => {
   assert.deepEqual(EDITIONS.map(({path, locale, label, direction}) => ({path, locale, label, direction})), [
-    {path: '', locale: 'en-US', label: 'EN', direction: 'ltr'},
+    {path: '', locale: 'en-US', label: 'English', direction: 'ltr'},
     {path: 'br', locale: 'pt-BR', label: 'Português (Brasil)', direction: 'ltr'},
     {path: 'pt', locale: 'pt-PT', label: 'Português (Portugal)', direction: 'ltr'},
     {path: 'fr', locale: 'fr', label: 'Français', direction: 'ltr'},

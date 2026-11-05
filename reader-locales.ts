@@ -102,7 +102,7 @@ const portugal: Readonly<Record<string, string>> = {
   'Our mission': 'A nossa missão', 'Explore the Stringer collection': 'Explore a coleção da Stringer',
 };
 export const EDITIONS = [
-  {path: '', locale: 'en-US', label: 'EN', direction: 'ltr'},
+  {path: '', locale: 'en-US', label: 'English', direction: 'ltr'},
   {path: 'br', locale: 'pt-BR', label: 'Português (Brasil)', direction: 'ltr'},
   {path: 'pt', locale: 'pt-PT', label: 'Português (Portugal)', direction: 'ltr'},
   {path: 'fr', locale: 'fr', label: 'Français', direction: 'ltr'},

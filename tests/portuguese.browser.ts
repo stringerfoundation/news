@@ -111,7 +111,7 @@ test('Portuguese editions share all sources and preferences, localize only UI, r
       await page.screenshot({path: `.test-output/portuguese-mobile-${prefix === '/' ? 'root' : 'project'}.png`});
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       assert.ok(!requested.some(url => url.includes('publisher-photo.jpg')));
-      await page.getByRole('link', {name: 'EN', exact: true}).click();
+      await page.getByRole('link', {name: 'English', exact: true}).click();
       await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
       assert.equal(await page.locator('html').getAttribute('lang'), 'en');
       assert.equal(await page.locator('#source-picker').count(), 0);

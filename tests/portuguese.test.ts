@@ -110,7 +110,7 @@ test('Portuguese pages use relative shared assets, distinct language variants, a
     assert.equal($('#world-title').text(), 'Notícias em português');
     assert.equal($('script[type="module"]').attr('src'), '../app.js');
     assert.equal($('.edition-switcher [aria-current="page"]').attr('hreflang'), locale);
-    assert.equal($('.edition-switcher a').first().attr('href'), '../');
+    assert.equal($('.edition-switcher a[hreflang="en"]').attr('href'), '../');
     assert.equal($('#source-count').text(), '98 de 98 ativas');
     assert.equal($('.source-help').text(), translator(locale)('Your choices are saved in this browser.'));
     assert.match($('.source-provenance').text(), /Espelhos do Atomstr/);

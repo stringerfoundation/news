@@ -15,7 +15,7 @@ export function localizedReaderHtml(html: string, locale: string) {
   $('meta[name="description"]').attr('content', portuguese ? 'Manchetes de fontes em língua portuguesa e reportagens selecionadas pela The Stringer Foundation.' : t('Headlines from publishers in this language.'));
   // Translate static UI text, never reporting, identifiers, licenses or URLs.
   $('body *').contents().each((_, node) => {
-    if (node.type !== 'text') return;
+    if (node.type !== 'text' || $(node).closest('.edition-switcher').length) return;
     const original = node.data.trim();
     if (original) node.data = node.data.replace(original, t(original));
   });
