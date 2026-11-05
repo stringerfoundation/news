@@ -71,16 +71,36 @@ jobs:
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: high
-  browser:
-    name: Public build, artifact and browser regressions
+  browser-tests:
+    name: Browser regressions (${{ matrix.suite }})
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
+    # Keep this version aligned with @playwright/test in package.json.
+    # Browsers and OS dependencies are preinstalled; no apt install on each run.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f
+      options: --init --ipc=host
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: reader
+            command: node --import tsx --test tests/browser.spec.ts tests/previews.browser.ts tests/smoke.browser.mjs
+          - suite: editions
+            command: node --import tsx --test tests/portuguese.browser.ts tests/multilingual.browser.ts
+          - suite: relay
+            command: pnpm run test:relay-browser
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
+      - name: Allow Git access to the mounted checkout
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git rev-parse --verify HEAD
       - name: Select screenshots for frontend PR changes
+        if: matrix.suite == 'reader'
         id: screenshots
         run: python3 scripts/screenshot-scope.py
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -90,12 +110,10 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
-      - run: pnpm run test:artifact
-      - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm run test:browser
-      - run: pnpm run test:relay-browser
+      - name: Run browser suite
+        run: ${{ matrix.command }}
       - name: Upload preview screenshots
-        if: steps.screenshots.outputs.enabled == 'true'
+        if: matrix.suite == 'reader' && steps.screenshots.outputs.enabled == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: preview-screenshots
@@ -103,6 +121,29 @@ jobs:
           include-hidden-files: true
           retention-days: 30
           if-no-files-found: error
+  browser:
+    # Preserve the existing required check and publish only after every suite passes.
+    name: Public build, artifact and browser regressions
+    needs: browser-tests
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require all browser suites to pass
+        env:
+          BROWSER_RESULT: ${{ needs.browser-tests.result }}
+        run: test "$BROWSER_RESULT" = success
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - run: pnpm run test:artifact
       - name: Package checked site
         run: tar -cf "$RUNNER_TEMP/public-site.tar" -C _site .
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

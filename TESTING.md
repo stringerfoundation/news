@@ -53,3 +53,17 @@ The reporting workflow uses default-branch code with read access to artifacts an
 permission to comment on PRs. It reads only bounded numeric summary JSON from
 ZIP artifacts and never extracts or executes PR code. Human comments are retained.
 Its tests run with `pnpm run test:previews` and mock all GitHub writes.
+
+## Parallel browser CI
+
+Website CI runs the reader/preview/smoke, language-edition, and relay browser
+suites in three independent jobs. They use the digest-pinned official Playwright
+image, with Chromium and its system dependencies already installed. Keep the
+image version in `.github/workflows/pages.yml` aligned with `@playwright/test`
+when upgrading Playwright.
+
+The existing **Public build, artifact and browser regressions** check requires
+all three suites to pass, then rebuilds and validates the public artifact before
+uploading `checked-site`. Only the reader job uploads `preview-screenshots`, so
+artifact names and the trusted publisher's successful-workflow gate stay intact.
+Coverage continues to run the complete suite on both supported Node versions.
