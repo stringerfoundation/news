@@ -69,7 +69,7 @@ function uniqueStories(stories) {
   });
 }
 function worldStories(snapshot, selectedSources = SOURCES.map((source) => source.id), sourceRegistry = SOURCES) {
-  return uniqueStories(sourceRegistry.filter((s) => s.id !== "stringer" && selectedSources.includes(s.id)).flatMap((source) => snapshot.sources[source.id].stories.map((story) => ({ ...story, source: source.name, mayRequireSubscription: source.mayRequireSubscription === true }))).sort(newestFirst));
+  return uniqueStories(sourceRegistry.filter((s) => s.id !== "stringer" && selectedSources.includes(s.id)).flatMap((source) => snapshot.sources[source.id].stories.map((story) => ({ ...story, source: source.name, ...source.country ? { sourceCountry: source.country } : {}, mayRequireSubscription: source.mayRequireSubscription === true }))).sort(newestFirst));
 }
 function worldGroups(snapshot, selectedSources, sourceRegistry = SOURCES) {
   const groups = /* @__PURE__ */ new Map();
