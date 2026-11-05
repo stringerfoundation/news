@@ -74,6 +74,10 @@ test('Portuguese editions share all sources and preferences, localize only UI, r
       assert.equal(await page.locator('html').getAttribute('lang'), 'pt-BR');
       assert.equal(await page.locator('#world-title').textContent(), 'Notícias em português');
       assert.equal(await page.locator('#global-newswire article').count(), 3);
+      assert.equal(await page.locator('#world-news .source-flag[aria-label="Brasil"]').count(), 2);
+      assert.equal(await page.locator('#world-news .source-flag[aria-label="Portugal"]').textContent(), '🇵🇹');
+      assert.equal(await page.locator('.site-footer #source-picker').count(), 1);
+      assert.equal(await page.locator('.site-footer .source-provenance').count(), 1);
       assert.ok((await page.locator('#global-newswire h3').allTextContents()).includes(headlines.get('pt-cnnbrasil')!));
       assert.equal(await page.locator('#global-newswire img').count(), 0);
       assert.equal(await page.locator('#global-newswire .summary').count(), 0);
@@ -95,6 +99,8 @@ test('Portuguese editions share all sources and preferences, localize only UI, r
       await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
       assert.equal(await page.locator('html').getAttribute('lang'), 'pt-PT');
       assert.equal(await page.locator('#global-newswire article').count(), 2);
+      assert.equal(await page.locator('#world-news .source-flag[aria-label="Brasil"]').textContent(), '🇧🇷');
+      assert.equal(await page.locator('#world-news .source-flag[aria-label="Portugal"]').textContent(), '🇵🇹');
       assert.equal(await page.locator('.source-help').textContent(), 'As suas escolhas ficam guardadas neste navegador.');
       assert.match((await page.locator('#source-count').textContent())!, /97 de 98 ativas/);
       unavailable = true;

@@ -162,7 +162,14 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
     if (story.credits) body.append(element('p', story.credits, 'credits'));
     if (story.summary) body.append(element('p', story.summary, 'summary'));
     const meta = element('div', '', 'meta');
-    meta.append(element('span', story.source || new URL(url).hostname.replace(/^www\./, ''), 'source'));
+    const sourceLabel = element('span', story.source || new URL(url).hostname.replace(/^www\./, ''), 'source');
+    if (locale.startsWith('pt-') && story.sourceCountry) {
+      const flag = element('span', story.sourceCountry === 'BR' ? '🇧🇷' : '🇵🇹', 'source-flag');
+      flag.setAttribute('role', 'img');
+      flag.setAttribute('aria-label', story.sourceCountry === 'BR' ? 'Brasil' : 'Portugal');
+      sourceLabel.prepend(flag, document.createTextNode(' '));
+    }
+    meta.append(sourceLabel);
     if (story.mirroredVia) meta.append(element('span', t('via {network} / Atomstr', {network: story.mirroredVia}), 'mirror-provenance'));
     const publishedAt = story.publishedAt || approvedMedia?.publishedAt;
     if (publishedAt) {

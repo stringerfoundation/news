@@ -4,8 +4,8 @@ export type SourceId = 'bbc' | 'nyt' | 'aljazeera' | 'dw' | 'cna' | 'stringer';
 export interface Source { id: SourceId; name: string; url: string; homepage: string; linkLabel?: string; mayRequireSubscription?: boolean; }
 export interface ContentPermission { text: boolean; summaries: boolean; images: boolean; }
 export type ContentPermissions = Readonly<Record<string, ContentPermission | undefined>>;
-export interface SourceInfo { id: string; name: string; mayRequireSubscription?: boolean; }
-export interface DisplayStory extends Story { source?: string; mayRequireSubscription?: boolean; }
+export interface SourceInfo { id: string; name: string; country?: 'BR' | 'PT'; mayRequireSubscription?: boolean; }
+export interface DisplayStory extends Story { source?: string; sourceCountry?: 'BR' | 'PT'; mayRequireSubscription?: boolean; }
 export const SOURCES: readonly Source[] = Object.freeze([
   { id: 'bbc', homepage: 'https://www.bbc.com/news', linkLabel: 'BBC News', name: 'BBC World', url: 'https://feeds.bbci.co.uk/news/world/rss.xml' },
   { id: 'nyt', homepage: 'https://www.nytimes.com/section/world', linkLabel: 'The New York Times', name: 'NYT World', mayRequireSubscription: true, url: 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml' },
@@ -66,7 +66,7 @@ export function uniqueStories<T extends Story>(stories: T[]): T[] {
   return stories.filter(story => { const key = urlIdentity(story.url); if (seen.has(key)) return false; seen.add(key); return true; });
 }
 export function worldStories(snapshot: Pick<Snapshot, "sources">, selectedSources: readonly string[] = SOURCES.map(source => source.id), sourceRegistry: readonly SourceInfo[] = SOURCES): DisplayStory[] {
-  return uniqueStories(sourceRegistry.filter(s => s.id !== 'stringer' && selectedSources.includes(s.id)).flatMap(source => snapshot.sources[source.id]!.stories.map(story => ({ ...story, source: source.name, mayRequireSubscription: source.mayRequireSubscription === true }))).sort(newestFirst));
+  return uniqueStories(sourceRegistry.filter(s => s.id !== 'stringer' && selectedSources.includes(s.id)).flatMap(source => snapshot.sources[source.id]!.stories.map(story => ({ ...story, source: source.name, ...(source.country ? {sourceCountry: source.country} : {}), mayRequireSubscription: source.mayRequireSubscription === true }))).sort(newestFirst));
 }
 export function worldGroups(snapshot: Pick<Snapshot, "sources">, selectedSources?: readonly string[], sourceRegistry: readonly SourceInfo[] = SOURCES) {
   const groups = new Map<string, DisplayStory[]>();
