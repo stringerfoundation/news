@@ -8,6 +8,7 @@ import { generateSecretKey, getPublicKey, finalizeEvent } from 'nostr-tools';
 import { launchBrowser } from '../scripts/browser.ts';
 import { PORTUGUESE_SOURCES } from '../portuguese-sources.ts';
 import { SOURCES } from '../news-model.ts';
+import { readerSource } from './reader-source.ts';
 
 const time = new Date(Date.now() - 60_000).toISOString();
 const keys = new Map(PORTUGUESE_SOURCES.map(source => [source.id, generateSecretKey()]));
@@ -28,6 +29,46 @@ baseline.sources.stringer = {stories: [{title: 'Original Stringer reporting', cr
   url: 'https://example.org/stringer-report', summary: 'Original reporting stays in its original language.',
   publishedAt: time, image: {url: 'https://images.example.org/stringer.png', alt: 'Stringer photo', credit: 'Stringer'}}],
   attemptedAt: time, lastSuccessAt: time, status: 'success', error: null};
+
+test('production app renders accessible country flags in both Portuguese editions', async () => {
+  const app = await readerSource('app.js');
+  const sources = Object.fromEntries(PORTUGUESE_SOURCES.map(source => [source.id, {
+    stories: headlines.has(source.id) ? [{title: headlines.get(source.id), url: 'https://news.example.org/' + source.id, publishedAt: time}] : [],
+    attemptedAt: time, lastSuccessAt: time, status: 'success', error: null,
+  }]));
+  const browser = await launchBrowser();
+  try {
+    for (const edition of ['br', 'pt']) {
+      const page = await browser.newPage();
+      await page.route('**/*', async route => {
+        const url = new URL(route.request().url());
+        if (url.hostname !== 'edition.test') return route.abort();
+        const file = url.pathname.slice(1);
+        if (file === 'app.js') return route.fulfill({contentType: 'text/javascript', body: app});
+        // Mock the relay boundary while executing the unchanged application and catalogue.
+        if (file === 'atomstr-reader.js') return route.fulfill({contentType: 'text/javascript', body: `
+          const sources = ${JSON.stringify(sources)};
+          export const cachedAtomstrSources = () => structuredClone(sources);
+          export async function readAtomstrSources({onUpdate}) {
+            for (const [id, entry] of Object.entries(sources)) onUpdate(id, structuredClone(entry));
+          }
+        `});
+        if (file === 'relay-config.js') return route.fulfill({contentType: 'text/javascript', body: 'export default {enabled: false};'});
+        if (file === 'data/news.json') return route.fulfill({json: baseline});
+        try {
+          return route.fulfill({body: await readFile('_site/' + (file.endsWith('/') ? file + 'index.html' : file)),
+            contentType: file.endsWith('/') ? 'text/html' : file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : 'image/png'});
+        } catch { return route.fulfill({status: 404}); }
+      });
+      await page.goto(`https://edition.test/${edition}/`);
+      await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
+      assert.deepEqual(await page.locator('#world-news .source-flag[role="img"][aria-label="Brasil"]').allTextContents(), ['🇧🇷', '🇧🇷']);
+      assert.equal(await page.locator('#world-news .source-flag[role="img"][aria-label="Portugal"]').textContent(), '🇵🇹');
+      assert.equal(await page.locator('#stringer-news .source-flag').count(), 0);
+      await page.close();
+    }
+  } finally { await browser.close(); }
+});
 
 test('Portuguese editions share all sources and preferences, localize only UI, refresh and recover from unavailable mirrors', async () => {
   const syntheticBundle = await build({entryPoints: ['app.ts'], bundle: true, write: false, platform: 'browser', format: 'esm', target: 'es2022',
@@ -74,6 +115,10 @@ test('Portuguese editions share all sources and preferences, localize only UI, r
       assert.equal(await page.locator('html').getAttribute('lang'), 'pt-BR');
       assert.equal(await page.locator('#world-title').textContent(), 'Notícias em português');
       assert.equal(await page.locator('#global-newswire article').count(), 3);
+      assert.equal(await page.locator('#world-news .source-flag[aria-label="Brasil"]').count(), 2);
+      assert.equal(await page.locator('#world-news .source-flag[aria-label="Portugal"]').textContent(), '🇵🇹');
+      assert.equal(await page.locator('.site-footer #source-picker').count(), 1);
+      assert.equal(await page.locator('.site-footer .source-provenance').count(), 1);
       assert.ok((await page.locator('#global-newswire h3').allTextContents()).includes(headlines.get('pt-cnnbrasil')!));
       assert.equal(await page.locator('#global-newswire img').count(), 0);
       assert.equal(await page.locator('#global-newswire .summary').count(), 0);
@@ -95,6 +140,8 @@ test('Portuguese editions share all sources and preferences, localize only UI, r
       await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
       assert.equal(await page.locator('html').getAttribute('lang'), 'pt-PT');
       assert.equal(await page.locator('#global-newswire article').count(), 2);
+      assert.equal(await page.locator('#world-news .source-flag[aria-label="Brasil"]').textContent(), '🇧🇷');
+      assert.equal(await page.locator('#world-news .source-flag[aria-label="Portugal"]').textContent(), '🇵🇹');
       assert.equal(await page.locator('.source-help').textContent(), 'As suas escolhas ficam guardadas neste navegador.');
       assert.match((await page.locator('#source-count').textContent())!, /97 de 98 ativas/);
       unavailable = true;

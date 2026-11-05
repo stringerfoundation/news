@@ -34,6 +34,7 @@ export interface Snapshot {
 export interface Source {
   id: string;
   name: string;
+  country?: 'BR' | 'PT';
   mayRequireSubscription?: boolean;
 }
 export interface AtomstrFeed {
