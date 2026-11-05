@@ -374,6 +374,7 @@
       "sources": [
         {
           "id": "pt-actualidadereligiosa",
+          "country": "PT",
           "name": "Actualidade Religiosa",
           "homepage": "https://actualidadereligiosa.blogspot.com",
           "feeds": [
@@ -385,6 +386,7 @@
         },
         {
           "id": "pt-agenciabrasil",
+          "country": "BR",
           "name": "Agência Brasil",
           "homepage": "http://agenciabrasil.ebc.com.br",
           "feeds": [
@@ -400,6 +402,7 @@
         },
         {
           "id": "pt-agendadopoder",
+          "country": "BR",
           "name": "Agenda do Poder",
           "homepage": "https://agendadopoder.com.br",
           "feeds": [
@@ -411,6 +414,7 @@
         },
         {
           "id": "pt-airway",
+          "country": "BR",
           "name": "Airway",
           "homepage": "https://www.airway.com.br",
           "feeds": [
@@ -422,6 +426,7 @@
         },
         {
           "id": "pt-areabitcoin",
+          "country": "BR",
           "name": "Área Bitcoin",
           "homepage": "https://blog.areabitcoin.com.br",
           "feeds": [
@@ -437,6 +442,7 @@
         },
         {
           "id": "pt-autopapo",
+          "country": "BR",
           "name": "AutoPapo",
           "homepage": "https://autopapo.com.br",
           "feeds": [
@@ -448,6 +454,7 @@
         },
         {
           "id": "pt-bcb",
+          "country": "BR",
           "name": "Banco Central do Brasil",
           "homepage": "https://www.bcb.gov.br",
           "feeds": [
@@ -459,6 +466,7 @@
         },
         {
           "id": "pt-blocktrends",
+          "country": "BR",
           "name": "BlockTrends",
           "homepage": "https://blocktrends.com.br",
           "feeds": [
@@ -474,6 +482,7 @@
         },
         {
           "id": "pt-bmcnews",
+          "country": "BR",
           "name": "BMC News",
           "homepage": "https://bmcnews.com.br",
           "feeds": [
@@ -485,6 +494,7 @@
         },
         {
           "id": "pt-bpmoney",
+          "country": "BR",
           "name": "BP Money",
           "homepage": "https://bpmoney.com.br",
           "feeds": [
@@ -496,6 +506,7 @@
         },
         {
           "id": "pt-camara",
+          "country": "BR",
           "name": "Câmara dos Deputados",
           "homepage": "https://www.camara.leg.br",
           "feeds": [
@@ -515,6 +526,7 @@
         },
         {
           "id": "pt-cnnbrasil",
+          "country": "BR",
           "name": "CNN Brasil",
           "homepage": "https://www.cnnbrasil.com.br",
           "feeds": [
@@ -526,6 +538,7 @@
         },
         {
           "id": "pt-comboinfinito",
+          "country": "BR",
           "name": "Combo Infinito",
           "homepage": "https://www.comboinfinito.com.br",
           "feeds": [
@@ -545,6 +558,7 @@
         },
         {
           "id": "pt-concursosnobrasil",
+          "country": "BR",
           "name": "Concursos no Brasil",
           "homepage": "https://concursosnobrasil.com",
           "feeds": [
@@ -556,6 +570,7 @@
         },
         {
           "id": "pt-conexaopolitica",
+          "country": "BR",
           "name": "Conexão Política",
           "homepage": "https://www.conexaopolitica.com.br",
           "feeds": [
@@ -567,6 +582,7 @@
         },
         {
           "id": "pt-conjur",
+          "country": "BR",
           "name": "Consultor Jurídico",
           "homepage": "https://www.conjur.com.br",
           "feeds": [
@@ -578,6 +594,7 @@
         },
         {
           "id": "pt-convergenciadigital",
+          "country": "BR",
           "name": "Convergência Digital",
           "homepage": "https://convergenciadigital.com.br",
           "feeds": [
@@ -589,6 +606,7 @@
         },
         {
           "id": "pt-correiobraziliense",
+          "country": "BR",
           "name": "Correio Braziliense",
           "homepage": "https://www.correiobraziliense.com.br",
           "feeds": [
@@ -605,6 +623,7 @@
         },
         {
           "id": "pt-criptofacil",
+          "country": "BR",
           "name": "CriptoFácil",
           "homepage": "https://www.criptofacil.com",
           "feeds": [
@@ -616,6 +635,7 @@
         },
         {
           "id": "pt-crusoe",
+          "country": "BR",
           "name": "Crusoé",
           "homepage": "https://crusoe.com.br",
           "feeds": [
@@ -627,6 +647,7 @@
         },
         {
           "id": "pt-desbugados",
+          "country": "BR",
           "name": "Desbugados",
           "homepage": "https://desbugados.com.br",
           "feeds": [
@@ -638,6 +659,7 @@
         },
         {
           "id": "pt-diariodobrasilnoticias",
+          "country": "BR",
           "name": "Diário do Brasil Notícias",
           "homepage": "https://diariodobrasilnoticias.com.br",
           "feeds": [
@@ -649,6 +671,7 @@
         },
         {
           "id": "pt-diariodotransporte",
+          "country": "BR",
           "name": "Diário do Transporte",
           "homepage": "https://diariodotransporte.com.br",
           "feeds": [
@@ -660,6 +683,7 @@
         },
         {
           "id": "pt-diolinux",
+          "country": "BR",
           "name": "Diolinux Plus",
           "homepage": "https://plus.diolinux.com.br",
           "feeds": [
@@ -671,6 +695,7 @@
         },
         {
           "id": "pt-direitaonline",
+          "country": "BR",
           "name": "Direita Online",
           "homepage": "https://direitaonline.com.br",
           "feeds": [
@@ -686,6 +711,7 @@
         },
         {
           "id": "pt-epochtimes",
+          "country": "BR",
           "name": "Epoch Times Brasil",
           "homepage": "https://www.epochtimes.com.br",
           "feeds": [
@@ -697,6 +723,7 @@
         },
         {
           "id": "pt-estadao",
+          "country": "BR",
           "name": "Estadão (perfil Bluesky)",
           "homepage": "https://bsky.app/profile/estadao.com.br",
           "feeds": [
@@ -709,6 +736,7 @@
         },
         {
           "id": "pt-em",
+          "country": "BR",
           "name": "Estado de Minas",
           "homepage": "https://www.em.com.br",
           "feeds": [
@@ -720,6 +748,7 @@
         },
         {
           "id": "pt-estrategiaconcursos",
+          "country": "BR",
           "name": "Estratégia Concursos",
           "homepage": "https://www.estrategiaconcursos.com.br",
           "feeds": [
@@ -746,6 +775,7 @@
         },
         {
           "id": "pt-expresso",
+          "country": "PT",
           "name": "Expresso",
           "homepage": "https://rss.impresa.pt",
           "feeds": [
@@ -757,6 +787,7 @@
         },
         {
           "id": "pt-extra",
+          "country": "BR",
           "name": "Extra (perfil Bluesky)",
           "homepage": "https://bsky.app/profile/jornal-extra.bsky.social",
           "feeds": [
@@ -769,6 +800,7 @@
         },
         {
           "id": "pt-fernandoulrich",
+          "country": "BR",
           "name": "Fernando Ulrich (espelho social)",
           "homepage": "https://nitter.poast.org",
           "feeds": [
@@ -781,6 +813,7 @@
         },
         {
           "id": "pt-flowgames",
+          "country": "BR",
           "name": "Flow Games",
           "homepage": "https://flowgames.gg",
           "feeds": [
@@ -796,6 +829,7 @@
         },
         {
           "id": "pt-flup",
+          "country": "PT",
           "name": "FLUP — Universidade do Porto",
           "homepage": "https://sigarra.up.pt",
           "feeds": [
@@ -807,6 +841,7 @@
         },
         {
           "id": "pt-folha",
+          "country": "BR",
           "name": "Folha de S.Paulo",
           "homepage": "https://bsky.app/profile/folha.com",
           "feeds": [
@@ -835,6 +870,7 @@
         },
         {
           "id": "pt-gameplayscassi",
+          "country": "BR",
           "name": "Gameplayscassi",
           "homepage": "https://gameplayscassi.com.br",
           "feeds": [
@@ -846,6 +882,7 @@
         },
         {
           "id": "pt-gazetabrasil",
+          "country": "BR",
           "name": "Gazeta Brasil",
           "homepage": "https://gazetabrasil.com.br",
           "feeds": [
@@ -857,6 +894,7 @@
         },
         {
           "id": "pt-gazetadopovo",
+          "country": "BR",
           "name": "Gazeta do Povo",
           "homepage": "https://www.gazetadopovo.com.br",
           "feeds": [
@@ -872,6 +910,7 @@
         },
         {
           "id": "pt-gazetaesportiva",
+          "country": "BR",
           "name": "Gazeta Esportiva",
           "homepage": "https://www.gazetaesportiva.com",
           "feeds": [
@@ -899,6 +938,7 @@
         },
         {
           "id": "pt-ge",
+          "country": "BR",
           "name": "ge",
           "homepage": "https://ge.globo.com",
           "feeds": [
@@ -915,6 +955,7 @@
         },
         {
           "id": "pt-globonews",
+          "country": "BR",
           "name": "GloboNews (perfil Bluesky)",
           "homepage": "https://bsky.app/profile/globo-news.bsky.social",
           "feeds": [
@@ -927,6 +968,7 @@
         },
         {
           "id": "pt-gov",
+          "country": "BR",
           "name": "Governo do Brasil",
           "homepage": "https://www.gov.br",
           "feeds": [
@@ -942,6 +984,7 @@
         },
         {
           "id": "pt-grandepremio",
+          "country": "BR",
           "name": "Grande Prêmio",
           "homepage": "https://bsky.app/profile/grandepremio.com.br",
           "feeds": [
@@ -954,6 +997,7 @@
         },
         {
           "id": "pt-hardware",
+          "country": "BR",
           "name": "Hardware.com.br",
           "homepage": "https://www.hardware.com.br",
           "feeds": [
@@ -965,6 +1009,7 @@
         },
         {
           "id": "pt-infodefportugal",
+          "country": "PT",
           "name": "InfodefPORTUGAL (Telegram)",
           "homepage": "https://ch2rss.fflow.net",
           "feeds": [
@@ -977,6 +1022,7 @@
         },
         {
           "id": "pt-infomoney",
+          "country": "BR",
           "name": "InfoMoney",
           "homepage": "https://bsky.app/profile/infomoneyoficial.bsky.social",
           "feeds": [
@@ -993,6 +1039,7 @@
         },
         {
           "id": "pt-inmet",
+          "country": "BR",
           "name": "INMET",
           "homepage": "https://bsky.app/profile/inmet.bsky.social",
           "feeds": [
@@ -1009,6 +1056,7 @@
         },
         {
           "id": "pt-inovacaotecnologica",
+          "country": "BR",
           "name": "Inovação Tecnológica",
           "homepage": "https://bsky.app/profile/inovacaotecnologica.com.br",
           "feeds": [
@@ -1021,6 +1069,7 @@
         },
         {
           "id": "pt-institutolibertario",
+          "country": "BR",
           "name": "Instituto Libertário Cristão",
           "homepage": "https://institutolibertariocristao.org",
           "feeds": [
@@ -1040,6 +1089,7 @@
         },
         {
           "id": "pt-rothbardbrasil",
+          "country": "BR",
           "name": "Instituto Rothbard Brasil",
           "homepage": "https://rothbardbrasil.com",
           "feeds": [
@@ -1051,6 +1101,7 @@
         },
         {
           "id": "pt-investnews",
+          "country": "BR",
           "name": "InvestNews",
           "homepage": "https://investnews.com.br",
           "feeds": [
@@ -1062,6 +1113,7 @@
         },
         {
           "id": "pt-istoe",
+          "country": "BR",
           "name": "IstoÉ (perfil Bluesky)",
           "homepage": "https://bsky.app/profile/istoeonline.bsky.social",
           "feeds": [
@@ -1074,6 +1126,7 @@
         },
         {
           "id": "pt-usp",
+          "country": "BR",
           "name": "Jornal da USP",
           "homepage": "https://jornal.usp.br",
           "feeds": [
@@ -1085,6 +1138,7 @@
         },
         {
           "id": "pt-jornaldr1",
+          "country": "BR",
           "name": "Jornal DR1",
           "homepage": "https://jornaldr1.com.br",
           "feeds": [
@@ -1096,6 +1150,7 @@
         },
         {
           "id": "pt-jovempan",
+          "country": "BR",
           "name": "Jovem Pan",
           "homepage": "https://jovempan.com.br",
           "feeds": [
@@ -1107,6 +1162,7 @@
         },
         {
           "id": "pt-jovempanesporte",
+          "country": "BR",
           "name": "Jovem Pan Esporte (perfil Bluesky)",
           "homepage": "https://bsky.app/profile/jovempanesporte.bsky.social",
           "feeds": [
@@ -1119,6 +1175,7 @@
         },
         {
           "id": "pt-livecoins",
+          "country": "BR",
           "name": "Livecoins",
           "homepage": "https://livecoins.com.br",
           "feeds": [
@@ -1138,6 +1195,7 @@
         },
         {
           "id": "pt-megacurioso",
+          "country": "BR",
           "name": "Mega Curioso",
           "homepage": "https://strapi.megacurioso.com.br",
           "feeds": [
@@ -1149,6 +1207,7 @@
         },
         {
           "id": "pt-metropoles",
+          "country": "BR",
           "name": "Metrópoles",
           "homepage": "https://bsky.app/profile/metropoles.com",
           "feeds": [
@@ -1161,6 +1220,7 @@
         },
         {
           "id": "pt-metsul",
+          "country": "BR",
           "name": "MetSul",
           "homepage": "https://bsky.app/profile/metsul.com",
           "feeds": [
@@ -1173,6 +1233,7 @@
         },
         {
           "id": "pt-meups",
+          "country": "BR",
           "name": "MeuPlayStation",
           "homepage": "https://meups.com.br",
           "feeds": [
@@ -1188,6 +1249,7 @@
         },
         {
           "id": "pt-mundoconectado",
+          "country": "BR",
           "name": "Mundo Conectado",
           "homepage": "https://www.mundoconectado.com.br",
           "feeds": [
@@ -1199,6 +1261,7 @@
         },
         {
           "id": "pt-neofeed",
+          "country": "BR",
           "name": "NeoFeed",
           "homepage": "https://neofeed.com.br",
           "feeds": [
@@ -1210,6 +1273,7 @@
         },
         {
           "id": "pt-noticiasaominuto",
+          "country": "BR",
           "name": "Notícias ao Minuto",
           "homepage": "https://www.noticiasaominuto.com.br",
           "feeds": [
@@ -1221,6 +1285,7 @@
         },
         {
           "id": "pt-oantagonista",
+          "country": "BR",
           "name": "O Antagonista",
           "homepage": "https://oantagonista.com.br",
           "feeds": [
@@ -1236,6 +1301,7 @@
         },
         {
           "id": "pt-odia",
+          "country": "BR",
           "name": "O Dia",
           "homepage": "https://odia.ig.com.br",
           "feeds": [
@@ -1247,6 +1313,7 @@
         },
         {
           "id": "pt-observador",
+          "country": "PT",
           "name": "Observador",
           "homepage": "https://observador.pt",
           "feeds": [
@@ -1258,6 +1325,7 @@
         },
         {
           "id": "pt-ogol",
+          "country": "BR",
           "name": "oGol",
           "homepage": "https://www.ogol.com.br",
           "feeds": [
@@ -1269,6 +1337,7 @@
         },
         {
           "id": "pt-olhardigital",
+          "country": "BR",
           "name": "Olhar Digital",
           "homepage": "https://olhardigital.com.br",
           "feeds": [
@@ -1284,6 +1353,7 @@
         },
         {
           "id": "pt-omelete",
+          "country": "BR",
           "name": "Omelete",
           "homepage": "https://bsky.app/profile/omelete.com.br",
           "feeds": [
@@ -1296,6 +1366,7 @@
         },
         {
           "id": "pt-fapesp",
+          "country": "BR",
           "name": "Pesquisa FAPESP",
           "homepage": "https://revistapesquisa.fapesp.br",
           "feeds": [
@@ -1307,6 +1378,7 @@
         },
         {
           "id": "pt-phvox",
+          "country": "BR",
           "name": "PHVOX",
           "homepage": "https://news.phvox.com.br",
           "feeds": [
@@ -1318,6 +1390,7 @@
         },
         {
           "id": "pt-piaui",
+          "country": "BR",
           "name": "piauí",
           "homepage": "https://piaui.uol.com.br",
           "feeds": [
@@ -1329,6 +1402,7 @@
         },
         {
           "id": "pt-pleno",
+          "country": "BR",
           "name": "Pleno.News",
           "homepage": "https://pleno.news",
           "feeds": [
@@ -1340,6 +1414,7 @@
         },
         {
           "id": "pt-poder360",
+          "country": "BR",
           "name": "Poder360",
           "homepage": "https://www.poder360.com.br",
           "feeds": [
@@ -1351,6 +1426,7 @@
         },
         {
           "id": "pt-contabeis",
+          "country": "BR",
           "name": "Portal Contábeis",
           "homepage": "https://www.contabeis.com.br",
           "feeds": [
@@ -1362,6 +1438,7 @@
         },
         {
           "id": "pt-portaldobitcoin",
+          "country": "BR",
           "name": "Portal do Bitcoin",
           "homepage": "https://portaldobitcoin.uol.com.br",
           "feeds": [
@@ -1373,6 +1450,7 @@
         },
         {
           "id": "pt-pplware",
+          "country": "PT",
           "name": "Pplware",
           "homepage": "https://pplware.sapo.pt",
           "feeds": [
@@ -1384,6 +1462,7 @@
         },
         {
           "id": "pt-publico",
+          "country": "PT",
           "name": "Público",
           "homepage": "https://feeds.feedburner.com",
           "feeds": [
@@ -1399,6 +1478,7 @@
         },
         {
           "id": "pt-quatrorodas",
+          "country": "BR",
           "name": "Quatro Rodas",
           "homepage": "https://quatrorodas.abril.com.br",
           "feeds": [
@@ -1410,6 +1490,7 @@
         },
         {
           "id": "pt-r7",
+          "country": "BR",
           "name": "R7 (perfil Bluesky)",
           "homepage": "https://bsky.app/profile/portal-r7.bsky.social",
           "feeds": [
@@ -1422,6 +1503,7 @@
         },
         {
           "id": "pt-rapaduratech",
+          "country": "BR",
           "name": "Rapadura Tech",
           "homepage": "https://rapaduratech.com.br",
           "feeds": [
@@ -1433,6 +1515,7 @@
         },
         {
           "id": "pt-revistacarro",
+          "country": "BR",
           "name": "Revista Carro",
           "homepage": "https://revistacarro.com.br",
           "feeds": [
@@ -1444,6 +1527,7 @@
         },
         {
           "id": "pt-rtbrasil",
+          "country": "BR",
           "name": "RT Brasil (perfil Bluesky)",
           "homepage": "https://bsky.app/profile/rtbrasil.bsky.social",
           "feeds": [
@@ -1456,6 +1540,7 @@
         },
         {
           "id": "pt-tek",
+          "country": "PT",
           "name": "SAPO Tek",
           "homepage": "https://tek.sapo.pt",
           "feeds": [
@@ -1467,6 +1552,7 @@
         },
         {
           "id": "pt-setemargens",
+          "country": "PT",
           "name": "Sete Margens",
           "homepage": "https://setemargens.com",
           "feeds": [
@@ -1478,6 +1564,7 @@
         },
         {
           "id": "pt-sportbuzz",
+          "country": "BR",
           "name": "SportBuzz",
           "homepage": "https://sportbuzz.com.br",
           "feeds": [
@@ -1489,6 +1576,7 @@
         },
         {
           "id": "pt-stj",
+          "country": "BR",
           "name": "Superior Tribunal de Justiça",
           "homepage": "https://res.stj.jus.br",
           "feeds": [
@@ -1500,6 +1588,7 @@
         },
         {
           "id": "pt-terrabrasilnoticias",
+          "country": "BR",
           "name": "Terra Brasil Notícias",
           "homepage": "https://terrabrasilnoticias.com",
           "feeds": [
@@ -1511,6 +1600,7 @@
         },
         {
           "id": "pt-theinvestor",
+          "country": "BR",
           "name": "The Investor",
           "homepage": "https://theinvestor.com.br",
           "feeds": [
@@ -1522,6 +1612,7 @@
         },
         {
           "id": "pt-umdoisesportes",
+          "country": "BR",
           "name": "UmDois Esportes",
           "homepage": "https://www.umdoisesportes.com.br",
           "feeds": [
@@ -1533,6 +1624,7 @@
         },
         {
           "id": "pt-unifesp",
+          "country": "BR",
           "name": "Unifesp — Repositório",
           "homepage": "https://repositorio.unifesp.br",
           "feeds": [
@@ -1548,6 +1640,7 @@
         },
         {
           "id": "pt-up",
+          "country": "PT",
           "name": "Universidade do Porto",
           "homepage": "https://noticias.up.pt",
           "feeds": [
@@ -1559,6 +1652,7 @@
         },
         {
           "id": "pt-uol",
+          "country": "BR",
           "name": "UOL (perfil Bluesky)",
           "homepage": "https://bsky.app/profile/uol.com.br",
           "feeds": [
@@ -1571,6 +1665,7 @@
         },
         {
           "id": "pt-valor",
+          "country": "BR",
           "name": "Valor Econômico (perfil Bluesky)",
           "homepage": "https://bsky.app/profile/valoreconomico.bsky.social",
           "feeds": [
@@ -1583,6 +1678,7 @@
         },
         {
           "id": "pt-vrum",
+          "country": "BR",
           "name": "Vrum",
           "homepage": "https://www.vrum.com.br",
           "feeds": [
@@ -1594,6 +1690,7 @@
         },
         {
           "id": "pt-willtirando",
+          "country": "BR",
           "name": "Will Tirando",
           "homepage": "http://www.willtirando.com.br",
           "feeds": [
@@ -1725,6 +1822,7 @@
       "sources": [
         {
           "id": "pt-actualidadereligiosa",
+          "country": "PT",
           "name": "Actualidade Religiosa",
           "homepage": "https://actualidadereligiosa.blogspot.com",
           "feeds": [
@@ -1736,6 +1834,7 @@
         },
         {
           "id": "pt-agenciabrasil",
+          "country": "BR",
           "name": "Agência Brasil",
           "homepage": "http://agenciabrasil.ebc.com.br",
           "feeds": [
@@ -1751,6 +1850,7 @@
         },
         {
           "id": "pt-agendadopoder",
+          "country": "BR",
           "name": "Agenda do Poder",
           "homepage": "https://agendadopoder.com.br",
           "feeds": [
@@ -1762,6 +1862,7 @@
         },
         {
           "id": "pt-airway",
+          "country": "BR",
           "name": "Airway",
           "homepage": "https://www.airway.com.br",
           "feeds": [
@@ -1773,6 +1874,7 @@
         },
         {
           "id": "pt-areabitcoin",
+          "country": "BR",
           "name": "Área Bitcoin",
           "homepage": "https://blog.areabitcoin.com.br",
           "feeds": [
@@ -1788,6 +1890,7 @@
         },
         {
           "id": "pt-autopapo",
+          "country": "BR",
           "name": "AutoPapo",
           "homepage": "https://autopapo.com.br",
           "feeds": [
@@ -1799,6 +1902,7 @@
         },
         {
           "id": "pt-bcb",
+          "country": "BR",
           "name": "Banco Central do Brasil",
           "homepage": "https://www.bcb.gov.br",
           "feeds": [
@@ -1810,6 +1914,7 @@
         },
         {
           "id": "pt-blocktrends",
+          "country": "BR",
           "name": "BlockTrends",
           "homepage": "https://blocktrends.com.br",
           "feeds": [
@@ -1825,6 +1930,7 @@
         },
         {
           "id": "pt-bmcnews",
+          "country": "BR",
           "name": "BMC News",
           "homepage": "https://bmcnews.com.br",
           "feeds": [
@@ -1836,6 +1942,7 @@
         },
         {
           "id": "pt-bpmoney",
+          "country": "BR",
           "name": "BP Money",
           "homepage": "https://bpmoney.com.br",
           "feeds": [
@@ -1847,6 +1954,7 @@
         },
         {
           "id": "pt-camara",
+          "country": "BR",
           "name": "Câmara dos Deputados",
           "homepage": "https://www.camara.leg.br",
           "feeds": [
@@ -1866,6 +1974,7 @@
         },
         {
           "id": "pt-cnnbrasil",
+          "country": "BR",
           "name": "CNN Brasil",
           "homepage": "https://www.cnnbrasil.com.br",
           "feeds": [
@@ -1877,6 +1986,7 @@
         },
         {
           "id": "pt-comboinfinito",
+          "country": "BR",
           "name": "Combo Infinito",
           "homepage": "https://www.comboinfinito.com.br",
           "feeds": [
@@ -1896,6 +2006,7 @@
         },
         {
           "id": "pt-concursosnobrasil",
+          "country": "BR",
           "name": "Concursos no Brasil",
           "homepage": "https://concursosnobrasil.com",
           "feeds": [
@@ -1907,6 +2018,7 @@
         },
         {
           "id": "pt-conexaopolitica",
+          "country": "BR",
           "name": "Conexão Política",
           "homepage": "https://www.conexaopolitica.com.br",
           "feeds": [
@@ -1918,6 +2030,7 @@
         },
         {
           "id": "pt-conjur",
+          "country": "BR",
           "name": "Consultor Jurídico",
           "homepage": "https://www.conjur.com.br",
           "feeds": [
@@ -1929,6 +2042,7 @@
         },
         {
           "id": "pt-convergenciadigital",
+          "country": "BR",
           "name": "Convergência Digital",
           "homepage": "https://convergenciadigital.com.br",
           "feeds": [
@@ -1940,6 +2054,7 @@
         },
         {
           "id": "pt-correiobraziliense",
+          "country": "BR",
           "name": "Correio Braziliense",
           "homepage": "https://www.correiobraziliense.com.br",
           "feeds": [
@@ -1956,6 +2071,7 @@
         },
         {
           "id": "pt-criptofacil",
+          "country": "BR",
           "name": "CriptoFácil",
           "homepage": "https://www.criptofacil.com",
           "feeds": [
@@ -1967,6 +2083,7 @@
         },
         {
           "id": "pt-crusoe",
+          "country": "BR",
           "name": "Crusoé",
           "homepage": "https://crusoe.com.br",
           "feeds": [
@@ -1978,6 +2095,7 @@
         },
         {
           "id": "pt-desbugados",
+          "country": "BR",
           "name": "Desbugados",
           "homepage": "https://desbugados.com.br",
           "feeds": [
@@ -1989,6 +2107,7 @@
         },
         {
           "id": "pt-diariodobrasilnoticias",
+          "country": "BR",
           "name": "Diário do Brasil Notícias",
           "homepage": "https://diariodobrasilnoticias.com.br",
           "feeds": [
@@ -2000,6 +2119,7 @@
         },
         {
           "id": "pt-diariodotransporte",
+          "country": "BR",
           "name": "Diário do Transporte",
           "homepage": "https://diariodotransporte.com.br",
           "feeds": [
@@ -2011,6 +2131,7 @@
         },
         {
           "id": "pt-diolinux",
+          "country": "BR",
           "name": "Diolinux Plus",
           "homepage": "https://plus.diolinux.com.br",
           "feeds": [
@@ -2022,6 +2143,7 @@
         },
         {
           "id": "pt-direitaonline",
+          "country": "BR",
           "name": "Direita Online",
           "homepage": "https://direitaonline.com.br",
           "feeds": [
@@ -2037,6 +2159,7 @@
         },
         {
           "id": "pt-epochtimes",
+          "country": "BR",
           "name": "Epoch Times Brasil",
           "homepage": "https://www.epochtimes.com.br",
           "feeds": [
@@ -2048,6 +2171,7 @@
         },
         {
           "id": "pt-estadao",
+          "country": "BR",
           "name": "Estadão (perfil Bluesky)",
           "homepage": "https://bsky.app/profile/estadao.com.br",
           "feeds": [
@@ -2060,6 +2184,7 @@
         },
         {
           "id": "pt-em",
+          "country": "BR",
           "name": "Estado de Minas",
           "homepage": "https://www.em.com.br",
           "feeds": [
@@ -2071,6 +2196,7 @@
         },
         {
           "id": "pt-estrategiaconcursos",
+          "country": "BR",
           "name": "Estratégia Concursos",
           "homepage": "https://www.estrategiaconcursos.com.br",
           "feeds": [
@@ -2097,6 +2223,7 @@
         },
         {
           "id": "pt-expresso",
+          "country": "PT",
           "name": "Expresso",
           "homepage": "https://rss.impresa.pt",
           "feeds": [
@@ -2108,6 +2235,7 @@
         },
         {
           "id": "pt-extra",
+          "country": "BR",
           "name": "Extra (perfil Bluesky)",
           "homepage": "https://bsky.app/profile/jornal-extra.bsky.social",
           "feeds": [
@@ -2120,6 +2248,7 @@
         },
         {
           "id": "pt-fernandoulrich",
+          "country": "BR",
           "name": "Fernando Ulrich (espelho social)",
           "homepage": "https://nitter.poast.org",
           "feeds": [
@@ -2132,6 +2261,7 @@
         },
         {
           "id": "pt-flowgames",
+          "country": "BR",
           "name": "Flow Games",
           "homepage": "https://flowgames.gg",
           "feeds": [
@@ -2147,6 +2277,7 @@
         },
         {
           "id": "pt-flup",
+          "country": "PT",
           "name": "FLUP — Universidade do Porto",
           "homepage": "https://sigarra.up.pt",
           "feeds": [
@@ -2158,6 +2289,7 @@
         },
         {
           "id": "pt-folha",
+          "country": "BR",
           "name": "Folha de S.Paulo",
           "homepage": "https://bsky.app/profile/folha.com",
           "feeds": [
@@ -2186,6 +2318,7 @@
         },
         {
           "id": "pt-gameplayscassi",
+          "country": "BR",
           "name": "Gameplayscassi",
           "homepage": "https://gameplayscassi.com.br",
           "feeds": [
@@ -2197,6 +2330,7 @@
         },
         {
           "id": "pt-gazetabrasil",
+          "country": "BR",
           "name": "Gazeta Brasil",
           "homepage": "https://gazetabrasil.com.br",
           "feeds": [
@@ -2208,6 +2342,7 @@
         },
         {
           "id": "pt-gazetadopovo",
+          "country": "BR",
           "name": "Gazeta do Povo",
           "homepage": "https://www.gazetadopovo.com.br",
           "feeds": [
@@ -2223,6 +2358,7 @@
         },
         {
           "id": "pt-gazetaesportiva",
+          "country": "BR",
           "name": "Gazeta Esportiva",
           "homepage": "https://www.gazetaesportiva.com",
           "feeds": [
@@ -2250,6 +2386,7 @@
         },
         {
           "id": "pt-ge",
+          "country": "BR",
           "name": "ge",
           "homepage": "https://ge.globo.com",
           "feeds": [
@@ -2266,6 +2403,7 @@
         },
         {
           "id": "pt-globonews",
+          "country": "BR",
           "name": "GloboNews (perfil Bluesky)",
           "homepage": "https://bsky.app/profile/globo-news.bsky.social",
           "feeds": [
@@ -2278,6 +2416,7 @@
         },
         {
           "id": "pt-gov",
+          "country": "BR",
           "name": "Governo do Brasil",
           "homepage": "https://www.gov.br",
           "feeds": [
@@ -2293,6 +2432,7 @@
         },
         {
           "id": "pt-grandepremio",
+          "country": "BR",
           "name": "Grande Prêmio",
           "homepage": "https://bsky.app/profile/grandepremio.com.br",
           "feeds": [
@@ -2305,6 +2445,7 @@
         },
         {
           "id": "pt-hardware",
+          "country": "BR",
           "name": "Hardware.com.br",
           "homepage": "https://www.hardware.com.br",
           "feeds": [
@@ -2316,6 +2457,7 @@
         },
         {
           "id": "pt-infodefportugal",
+          "country": "PT",
           "name": "InfodefPORTUGAL (Telegram)",
           "homepage": "https://ch2rss.fflow.net",
           "feeds": [
@@ -2328,6 +2470,7 @@
         },
         {
           "id": "pt-infomoney",
+          "country": "BR",
           "name": "InfoMoney",
           "homepage": "https://bsky.app/profile/infomoneyoficial.bsky.social",
           "feeds": [
@@ -2344,6 +2487,7 @@
         },
         {
           "id": "pt-inmet",
+          "country": "BR",
           "name": "INMET",
           "homepage": "https://bsky.app/profile/inmet.bsky.social",
           "feeds": [
@@ -2360,6 +2504,7 @@
         },
         {
           "id": "pt-inovacaotecnologica",
+          "country": "BR",
           "name": "Inovação Tecnológica",
           "homepage": "https://bsky.app/profile/inovacaotecnologica.com.br",
           "feeds": [
@@ -2372,6 +2517,7 @@
         },
         {
           "id": "pt-institutolibertario",
+          "country": "BR",
           "name": "Instituto Libertário Cristão",
           "homepage": "https://institutolibertariocristao.org",
           "feeds": [
@@ -2391,6 +2537,7 @@
         },
         {
           "id": "pt-rothbardbrasil",
+          "country": "BR",
           "name": "Instituto Rothbard Brasil",
           "homepage": "https://rothbardbrasil.com",
           "feeds": [
@@ -2402,6 +2549,7 @@
         },
         {
           "id": "pt-investnews",
+          "country": "BR",
           "name": "InvestNews",
           "homepage": "https://investnews.com.br",
           "feeds": [
@@ -2413,6 +2561,7 @@
         },
         {
           "id": "pt-istoe",
+          "country": "BR",
           "name": "IstoÉ (perfil Bluesky)",
           "homepage": "https://bsky.app/profile/istoeonline.bsky.social",
           "feeds": [
@@ -2425,6 +2574,7 @@
         },
         {
           "id": "pt-usp",
+          "country": "BR",
           "name": "Jornal da USP",
           "homepage": "https://jornal.usp.br",
           "feeds": [
@@ -2436,6 +2586,7 @@
         },
         {
           "id": "pt-jornaldr1",
+          "country": "BR",
           "name": "Jornal DR1",
           "homepage": "https://jornaldr1.com.br",
           "feeds": [
@@ -2447,6 +2598,7 @@
         },
         {
           "id": "pt-jovempan",
+          "country": "BR",
           "name": "Jovem Pan",
           "homepage": "https://jovempan.com.br",
           "feeds": [
@@ -2458,6 +2610,7 @@
         },
         {
           "id": "pt-jovempanesporte",
+          "country": "BR",
           "name": "Jovem Pan Esporte (perfil Bluesky)",
           "homepage": "https://bsky.app/profile/jovempanesporte.bsky.social",
           "feeds": [
@@ -2470,6 +2623,7 @@
         },
         {
           "id": "pt-livecoins",
+          "country": "BR",
           "name": "Livecoins",
           "homepage": "https://livecoins.com.br",
           "feeds": [
@@ -2489,6 +2643,7 @@
         },
         {
           "id": "pt-megacurioso",
+          "country": "BR",
           "name": "Mega Curioso",
           "homepage": "https://strapi.megacurioso.com.br",
           "feeds": [
@@ -2500,6 +2655,7 @@
         },
         {
           "id": "pt-metropoles",
+          "country": "BR",
           "name": "Metrópoles",
           "homepage": "https://bsky.app/profile/metropoles.com",
           "feeds": [
@@ -2512,6 +2668,7 @@
         },
         {
           "id": "pt-metsul",
+          "country": "BR",
           "name": "MetSul",
           "homepage": "https://bsky.app/profile/metsul.com",
           "feeds": [
@@ -2524,6 +2681,7 @@
         },
         {
           "id": "pt-meups",
+          "country": "BR",
           "name": "MeuPlayStation",
           "homepage": "https://meups.com.br",
           "feeds": [
@@ -2539,6 +2697,7 @@
         },
         {
           "id": "pt-mundoconectado",
+          "country": "BR",
           "name": "Mundo Conectado",
           "homepage": "https://www.mundoconectado.com.br",
           "feeds": [
@@ -2550,6 +2709,7 @@
         },
         {
           "id": "pt-neofeed",
+          "country": "BR",
           "name": "NeoFeed",
           "homepage": "https://neofeed.com.br",
           "feeds": [
@@ -2561,6 +2721,7 @@
         },
         {
           "id": "pt-noticiasaominuto",
+          "country": "BR",
           "name": "Notícias ao Minuto",
           "homepage": "https://www.noticiasaominuto.com.br",
           "feeds": [
@@ -2572,6 +2733,7 @@
         },
         {
           "id": "pt-oantagonista",
+          "country": "BR",
           "name": "O Antagonista",
           "homepage": "https://oantagonista.com.br",
           "feeds": [
@@ -2587,6 +2749,7 @@
         },
         {
           "id": "pt-odia",
+          "country": "BR",
           "name": "O Dia",
           "homepage": "https://odia.ig.com.br",
           "feeds": [
@@ -2598,6 +2761,7 @@
         },
         {
           "id": "pt-observador",
+          "country": "PT",
           "name": "Observador",
           "homepage": "https://observador.pt",
           "feeds": [
@@ -2609,6 +2773,7 @@
         },
         {
           "id": "pt-ogol",
+          "country": "BR",
           "name": "oGol",
           "homepage": "https://www.ogol.com.br",
           "feeds": [
@@ -2620,6 +2785,7 @@
         },
         {
           "id": "pt-olhardigital",
+          "country": "BR",
           "name": "Olhar Digital",
           "homepage": "https://olhardigital.com.br",
           "feeds": [
@@ -2635,6 +2801,7 @@
         },
         {
           "id": "pt-omelete",
+          "country": "BR",
           "name": "Omelete",
           "homepage": "https://bsky.app/profile/omelete.com.br",
           "feeds": [
@@ -2647,6 +2814,7 @@
         },
         {
           "id": "pt-fapesp",
+          "country": "BR",
           "name": "Pesquisa FAPESP",
           "homepage": "https://revistapesquisa.fapesp.br",
           "feeds": [
@@ -2658,6 +2826,7 @@
         },
         {
           "id": "pt-phvox",
+          "country": "BR",
           "name": "PHVOX",
           "homepage": "https://news.phvox.com.br",
           "feeds": [
@@ -2669,6 +2838,7 @@
         },
         {
           "id": "pt-piaui",
+          "country": "BR",
           "name": "piauí",
           "homepage": "https://piaui.uol.com.br",
           "feeds": [
@@ -2680,6 +2850,7 @@
         },
         {
           "id": "pt-pleno",
+          "country": "BR",
           "name": "Pleno.News",
           "homepage": "https://pleno.news",
           "feeds": [
@@ -2691,6 +2862,7 @@
         },
         {
           "id": "pt-poder360",
+          "country": "BR",
           "name": "Poder360",
           "homepage": "https://www.poder360.com.br",
           "feeds": [
@@ -2702,6 +2874,7 @@
         },
         {
           "id": "pt-contabeis",
+          "country": "BR",
           "name": "Portal Contábeis",
           "homepage": "https://www.contabeis.com.br",
           "feeds": [
@@ -2713,6 +2886,7 @@
         },
         {
           "id": "pt-portaldobitcoin",
+          "country": "BR",
           "name": "Portal do Bitcoin",
           "homepage": "https://portaldobitcoin.uol.com.br",
           "feeds": [
@@ -2724,6 +2898,7 @@
         },
         {
           "id": "pt-pplware",
+          "country": "PT",
           "name": "Pplware",
           "homepage": "https://pplware.sapo.pt",
           "feeds": [
@@ -2735,6 +2910,7 @@
         },
         {
           "id": "pt-publico",
+          "country": "PT",
           "name": "Público",
           "homepage": "https://feeds.feedburner.com",
           "feeds": [
@@ -2750,6 +2926,7 @@
         },
         {
           "id": "pt-quatrorodas",
+          "country": "BR",
           "name": "Quatro Rodas",
           "homepage": "https://quatrorodas.abril.com.br",
           "feeds": [
@@ -2761,6 +2938,7 @@
         },
         {
           "id": "pt-r7",
+          "country": "BR",
           "name": "R7 (perfil Bluesky)",
           "homepage": "https://bsky.app/profile/portal-r7.bsky.social",
           "feeds": [
@@ -2773,6 +2951,7 @@
         },
         {
           "id": "pt-rapaduratech",
+          "country": "BR",
           "name": "Rapadura Tech",
           "homepage": "https://rapaduratech.com.br",
           "feeds": [
@@ -2784,6 +2963,7 @@
         },
         {
           "id": "pt-revistacarro",
+          "country": "BR",
           "name": "Revista Carro",
           "homepage": "https://revistacarro.com.br",
           "feeds": [
@@ -2795,6 +2975,7 @@
         },
         {
           "id": "pt-rtbrasil",
+          "country": "BR",
           "name": "RT Brasil (perfil Bluesky)",
           "homepage": "https://bsky.app/profile/rtbrasil.bsky.social",
           "feeds": [
@@ -2807,6 +2988,7 @@
         },
         {
           "id": "pt-tek",
+          "country": "PT",
           "name": "SAPO Tek",
           "homepage": "https://tek.sapo.pt",
           "feeds": [
@@ -2818,6 +3000,7 @@
         },
         {
           "id": "pt-setemargens",
+          "country": "PT",
           "name": "Sete Margens",
           "homepage": "https://setemargens.com",
           "feeds": [
@@ -2829,6 +3012,7 @@
         },
         {
           "id": "pt-sportbuzz",
+          "country": "BR",
           "name": "SportBuzz",
           "homepage": "https://sportbuzz.com.br",
           "feeds": [
@@ -2840,6 +3024,7 @@
         },
         {
           "id": "pt-stj",
+          "country": "BR",
           "name": "Superior Tribunal de Justiça",
           "homepage": "https://res.stj.jus.br",
           "feeds": [
@@ -2851,6 +3036,7 @@
         },
         {
           "id": "pt-terrabrasilnoticias",
+          "country": "BR",
           "name": "Terra Brasil Notícias",
           "homepage": "https://terrabrasilnoticias.com",
           "feeds": [
@@ -2862,6 +3048,7 @@
         },
         {
           "id": "pt-theinvestor",
+          "country": "BR",
           "name": "The Investor",
           "homepage": "https://theinvestor.com.br",
           "feeds": [
@@ -2873,6 +3060,7 @@
         },
         {
           "id": "pt-umdoisesportes",
+          "country": "BR",
           "name": "UmDois Esportes",
           "homepage": "https://www.umdoisesportes.com.br",
           "feeds": [
@@ -2884,6 +3072,7 @@
         },
         {
           "id": "pt-unifesp",
+          "country": "BR",
           "name": "Unifesp — Repositório",
           "homepage": "https://repositorio.unifesp.br",
           "feeds": [
@@ -2899,6 +3088,7 @@
         },
         {
           "id": "pt-up",
+          "country": "PT",
           "name": "Universidade do Porto",
           "homepage": "https://noticias.up.pt",
           "feeds": [
@@ -2910,6 +3100,7 @@
         },
         {
           "id": "pt-uol",
+          "country": "BR",
           "name": "UOL (perfil Bluesky)",
           "homepage": "https://bsky.app/profile/uol.com.br",
           "feeds": [
@@ -2922,6 +3113,7 @@
         },
         {
           "id": "pt-valor",
+          "country": "BR",
           "name": "Valor Econômico (perfil Bluesky)",
           "homepage": "https://bsky.app/profile/valoreconomico.bsky.social",
           "feeds": [
@@ -2934,6 +3126,7 @@
         },
         {
           "id": "pt-vrum",
+          "country": "BR",
           "name": "Vrum",
           "homepage": "https://www.vrum.com.br",
           "feeds": [
@@ -2945,6 +3138,7 @@
         },
         {
           "id": "pt-willtirando",
+          "country": "BR",
           "name": "Will Tirando",
           "homepage": "http://www.willtirando.com.br",
           "feeds": [
