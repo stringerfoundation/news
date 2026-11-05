@@ -1,2 +1,6 @@
 allowBuilds:
   esbuild: true
+
+# GHSA-g3hv-75wg-m249: keep transitive glob consumers on the patched release.
+overrides:
+  minimatch: 11.0.1
