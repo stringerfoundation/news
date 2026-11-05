@@ -8,7 +8,7 @@ import { PUBLIC_MODULES } from '../../public-assets.ts';
 import { readerSource } from '../reader-source.ts';
 
 if (process.env.NODE_V8_COVERAGE) {
-  const names = [...PUBLIC_MODULES, 'relay-reader'];
+  const names = [...PUBLIC_MODULES, 'relay-reader', 'atomstr-reader'];
   const sources = new Map(await Promise.all(names.map(async name => {
     const built = await readFile(`_site/${name}.js`, 'utf8');
     return [name + '.js', new Set([built, await readerSource(name + '.js')])];

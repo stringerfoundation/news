@@ -16,6 +16,7 @@ test('syntax checker scans nested modules, skips generated directories and rejec
   await mkdir(`${dir}/node_modules`);
   await writeFile(`${dir}/node_modules/bad.js`, 'const =');
   await writeFile(`${dir}/nested/good.mjs`, 'export const value = 1;');
+  await writeFile(`${dir}/nested/good.ts`, 'export const typed: number = 1;');
   await writeFile(`${dir}/notes.txt`, 'const =');
   const run = () =>
     spawnSync(process.execPath, ['--import', 'tsx', `${root}/scripts/check-syntax.ts`], {
@@ -32,8 +33,10 @@ test('build rejects unexpected thumbnail files before publication', async (t) =>
   const dir = await directory(t);
   for (const name of [
     'relay',
-    'relay-reader.ts', 'response.ts', 'public-assets.ts', 'publications.ts',
+    'relay-reader.ts', 'atomstr-reader.ts', 'atomstr-config.ts', 'response.ts', 'public-assets.ts', 'publications.ts',
     'news-model.ts',
+    'reader-locales.ts', 'edition-sources.ts', 'portuguese-sources.ts',
+    'locales', 'sources',
     'index.html',
     'style.css',
     'app.ts',

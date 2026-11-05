@@ -4,6 +4,7 @@ export type SourceId = 'bbc' | 'nyt' | 'aljazeera' | 'dw' | 'cna' | 'stringer';
 export interface Source { id: SourceId; name: string; url: string; homepage: string; linkLabel?: string; mayRequireSubscription?: boolean; }
 export interface ContentPermission { text: boolean; summaries: boolean; images: boolean; }
 export type ContentPermissions = Readonly<Record<string, ContentPermission | undefined>>;
+export interface SourceInfo { id: string; name: string; mayRequireSubscription?: boolean; }
 export interface DisplayStory extends Story { source?: string; mayRequireSubscription?: boolean; }
 export const SOURCES: readonly Source[] = Object.freeze([
   { id: 'bbc', homepage: 'https://www.bbc.com/news', linkLabel: 'BBC News', name: 'BBC World', url: 'https://feeds.bbci.co.uk/news/world/rss.xml' },
@@ -64,13 +65,13 @@ export function uniqueStories<T extends Story>(stories: T[]): T[] {
   const seen = new Set();
   return stories.filter(story => { const key = urlIdentity(story.url); if (seen.has(key)) return false; seen.add(key); return true; });
 }
-export function worldStories(snapshot: Snapshot, selectedSources: readonly string[] = SOURCES.map(source => source.id)): DisplayStory[] {
-  return uniqueStories(SOURCES.filter(s => s.id !== 'stringer' && selectedSources.includes(s.id)).flatMap(source => snapshot.sources[source.id]!.stories.map(story => ({ ...story, source: source.name, mayRequireSubscription: source.mayRequireSubscription === true }))).sort(newestFirst));
+export function worldStories(snapshot: Pick<Snapshot, "sources">, selectedSources: readonly string[] = SOURCES.map(source => source.id), sourceRegistry: readonly SourceInfo[] = SOURCES): DisplayStory[] {
+  return uniqueStories(sourceRegistry.filter(s => s.id !== 'stringer' && selectedSources.includes(s.id)).flatMap(source => snapshot.sources[source.id]!.stories.map(story => ({ ...story, source: source.name, mayRequireSubscription: source.mayRequireSubscription === true }))).sort(newestFirst));
 }
-export function worldGroups(snapshot: Snapshot, selectedSources?: readonly string[]) {
+export function worldGroups(snapshot: Pick<Snapshot, "sources">, selectedSources?: readonly string[], sourceRegistry: readonly SourceInfo[] = SOURCES) {
   const groups = new Map<string, DisplayStory[]>();
   const chronological = (a: DisplayStory, b: DisplayStory) => newestFirst(a, b) || (a.noteId || a.url).localeCompare(b.noteId || b.url);
-  for (const story of worldStories(snapshot, selectedSources)) {
+  for (const story of worldStories(snapshot, selectedSources, sourceRegistry)) {
     const key = story.clusterId || story.noteId || story.url;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(story);
@@ -131,18 +132,18 @@ export function sourceMessage(source: Source, entry: SourceState) {
   if (entry.status === 'failure') return `${source.name}: refresh unavailable. ${collected}`;
   return `${source.name}: ${collected}${entry.stories.length ? '' : '. No published stories in this collection.'}`;
 }
-export function formatLocalDateTime(value: string) {
+export function formatLocalDateTime(value: string | Date, locale = 'en-US') {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return 'Date unavailable';
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true, timeZoneName: 'short',
+  return new Intl.DateTimeFormat(locale, {
+    year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: locale === 'en-US', timeZoneName: 'short',
   }).format(date);
 }
-export function formatPublicationDate(value: unknown) {
+export function formatPublicationDate(value: unknown, locale = 'en-US') {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return 'Date unavailable';
   const date = new Date(`${value}T00:00:00Z`);
   if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) return 'Date unavailable';
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(locale, {
     year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC',
   }).format(date);
 }
