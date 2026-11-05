@@ -79,12 +79,12 @@ class PublisherTests(unittest.TestCase):
         self.assertIn(publisher.MARKER, body)
         self.assertIn('[Open preview]', body)
         for name in publisher.SCREENSHOTS:
-            self.assertIn(f'/pr-preview/18/screenshots/{SHA}/{name}', body)
+            self.assertIn(f'/pr-screenshots/18/{SHA}/{name}', body)
         for label in ('Mobile (375px)', 'Tablet (768px)', 'Desktop (1280px)'):
             self.assertIn(f'#### {label}\n\n![{label}](', body)
+        self.assertIn('synthetic test data', body)
         self.assertNotIn('<details', body)
         self.assertNotIn('<summary', body)
-        self.assertIn('synthetic test data', body)
         self.assertNotIn('Automated screenshots', publisher.comment_body(
             REPO, 18, {'sha': SHA}, 'https://example.github.io/news/'))
 
@@ -201,13 +201,16 @@ class PublisherTests(unittest.TestCase):
                 return [{'id': 1, 'user': {'login': 'human'}, 'body': publisher.MARKER},
                         {'id': 2 if '/18/' in path else 3, 'user': {'login': 'github-actions[bot]'}, 'body': publisher.MARKER}]
         api = API()
-        plan = {'previews': {'18': {'sha': SHA}}, 'removed': ['19']}
+        plan = {'previews': {'18': {'sha': SHA}}, 'removed': ['19'],
+                'screenshots': {'19': {'sha': SHA, 'screenshots': True}}}
         publisher.report(api, plan, 'https://example.github.io/news/')
         self.assertEqual(len(api.writes), 2)
         self.assertEqual(api.writes[0][:2], ('issues/comments/2', 'PATCH'))
         self.assertIn('https://example.github.io/news/pr-preview/18/', api.writes[0][2]['body'])
         self.assertIn(SHA[:7], api.writes[0][2]['body'])
         self.assertIn('removed', api.writes[1][2]['body'])
+        self.assertIn(f'/pr-screenshots/19/{SHA}/news-375.png', api.writes[1][2]['body'])
+        self.assertNotIn('[Open preview]', api.writes[1][2]['body'])
 
     def test_reconcile_recovers_coalesced_events_and_retains_previous_builds(self):
         screenshots = io.BytesIO()
@@ -245,8 +248,14 @@ class PublisherTests(unittest.TestCase):
             self.assertTrue((state / 'site/pr-preview/18/index.html').is_file())
             self.assertEqual(json.loads(plan.read_text())['previews']['18']['sha'], SHA)
             self.assertTrue(json.loads(plan.read_text())['previews']['18']['screenshots'])
-            self.assertTrue((state / f'site/pr-preview/18/screenshots/{SHA}/news-375.png').is_file())
+            self.assertTrue((state / f'site/pr-screenshots/18/{SHA}/news-375.png').is_file())
             self.assertFalse((state / 'site/screenshots').exists())
+            metadata = json.loads(plan.read_text())
+            publisher.prune(state / 'site', metadata, [])
+            self.assertFalse((state / 'site/pr-preview/18').exists())
+            self.assertTrue(metadata['screenshots']['18']['screenshots'])
+            publisher.apply_site(state / 'site', incoming)
+            self.assertTrue((state / f'site/pr-screenshots/18/{SHA}/news-375.png').is_file())
 
         # Two PRs may share a head commit; each still needs its own preview and provenance.
         class SharedHeadAPI(API):

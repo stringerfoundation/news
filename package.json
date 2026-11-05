@@ -3,14 +3,16 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@11.18.0",
   "engines": {
     "node": ">=24"
   },
   "scripts": {
     "check": "node scripts/check-syntax.ts",
     "test": "node --import tsx --test tests/*.test.ts tests/*.test.mjs deploy/homepage-worker/worker.test.ts",
-    "test:browser": "node --import tsx --test tests/browser.spec.ts tests/previews.browser.ts tests/portuguese.browser.ts tests/multilingual.browser.ts",
+    "test:browser": "node --import tsx --test tests/browser.spec.ts tests/previews.browser.ts tests/smoke.browser.mjs tests/portuguese.browser.ts tests/multilingual.browser.ts",
     "build": "node scripts/build.ts",
+    "smoke:production": "node --import tsx scripts/smoke-homepage.ts",
     "lint": "eslint --flag unstable_native_nodejs_ts_config .",
     "typecheck": "tsc --noEmit",
     "test:relay": "tsx --test tests/relay/*.test.ts",
@@ -22,16 +24,16 @@
   "dependencies": {
     "cheerio": "1.2.0",
     "fast-xml-parser": "5.11.2",
-    "nostr-tools": "2.25.2"
+    "nostr-tools": "2.25.4"
   },
   "devDependencies": {
     "@babel/eslint-parser": "8.0.7",
     "@babel/plugin-syntax-typescript": "8.0.3",
-    "@cloudflare/workers-types": "5.20261019.1",
+    "@cloudflare/workers-types": "5.20261031.1",
     "@playwright/test": "1.64.1",
-    "@types/node": "26.6.5",
+    "@types/node": "26.6.6",
     "esbuild": "0.28.2",
-    "eslint": "10.13.0",
+    "eslint": "10.14.0",
     "globals": "17.13.0",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
