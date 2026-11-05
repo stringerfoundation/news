@@ -2257,7 +2257,7 @@ var schnorr = /* @__PURE__ */ (() => {
   };
 })();
 
-// node_modules/.pnpm/nostr-tools@2.25.2_typescript@7.0.2/node_modules/nostr-tools/lib/esm/pool.js
+// node_modules/.pnpm/nostr-tools@2.25.4_nostr-wasm@0.1.0_typescript@7.0.2/node_modules/nostr-tools/lib/esm/pool.js
 var utf8Decoder = new TextDecoder("utf-8");
 var utf8Encoder = new TextEncoder();
 function normalizeURL(url) {
@@ -2676,7 +2676,7 @@ var AbstractRelay = class {
       throw new Error("can't perform auth, no challenge was received");
     if (this.authPromise)
       return this.authPromise;
-    this.authPromise = new Promise(async (resolve, reject) => {
+    const attempt = new Promise(async (resolve, reject) => {
       try {
         let evt = await signAuthEvent(makeAuthEvent(this.url, challenge2));
         let timeout = setTimeout(() => {
@@ -2689,10 +2689,15 @@ var AbstractRelay = class {
         this.openEventPublishes.set(evt.id, { resolve, reject, timeout });
         this.send('["AUTH",' + JSON.stringify(evt) + "]");
       } catch (err) {
-        console.warn("subscribe auth function failed:", err);
+        reject(err);
       }
     });
-    return this.authPromise;
+    attempt.catch(() => {
+      if (this.authPromise === attempt)
+        this.authPromise = void 0;
+    });
+    this.authPromise = attempt;
+    return attempt;
   }
   async publish(event2) {
     this.idleSince = void 0;
@@ -2877,9 +2882,8 @@ var AbstractRelay = class {
           this.challenge = data[1];
           if (this.onauth) {
             this.auth(this.onauth).catch((err) => {
-              if (!(err instanceof SendingOnClosedConnection)) {
-                throw err;
-              }
+              if (!(err instanceof SendingOnClosedConnection))
+                console.warn("automatic auth failed:", err);
             });
           }
           return;
@@ -4798,7 +4802,7 @@ function expand(hash, prk, info, length = 32) {
   return okm.slice(0, length);
 }
 
-// node_modules/.pnpm/nostr-tools@2.25.2_typescript@7.0.2/node_modules/nostr-tools/lib/esm/index.js
+// node_modules/.pnpm/nostr-tools@2.25.4_nostr-wasm@0.1.0_typescript@7.0.2/node_modules/nostr-tools/lib/esm/index.js
 var __defProp = Object.defineProperty;
 var __export = (target, all) => {
   for (var name in all)
@@ -4813,6 +4817,7 @@ __export(utils_exports, {
   insertEventIntoDescendingList: () => insertEventIntoDescendingList,
   isHex32: () => isHex322,
   mergeReverseSortedLists: () => mergeReverseSortedLists,
+  mergeSortedLists: () => mergeSortedLists,
   normalizeURL: () => normalizeURL2,
   utf8Decoder: () => utf8Decoder2,
   utf8Encoder: () => utf8Encoder3
@@ -4883,6 +4888,56 @@ function binarySearch(arr, compare) {
   }
   return [start, false];
 }
+function mergeSortedLists(list1, list2) {
+  const result = new Array(list1.length + list2.length);
+  result.length = 0;
+  let i1 = 0;
+  let i22 = 0;
+  let sameTimestampIds = [];
+  while (i1 < list1.length && i22 < list2.length) {
+    let next;
+    if (list1[i1].created_at < list2[i22].created_at) {
+      next = list1[i1];
+      i1++;
+    } else {
+      next = list2[i22];
+      i22++;
+    }
+    if (result.length > 0 && result[result.length - 1].created_at === next.created_at) {
+      if (sameTimestampIds.includes(next.id))
+        continue;
+    } else {
+      sameTimestampIds.length = 0;
+    }
+    result.push(next);
+    sameTimestampIds.push(next.id);
+  }
+  while (i1 < list1.length) {
+    const next = list1[i1];
+    i1++;
+    if (result.length > 0 && result[result.length - 1].created_at === next.created_at) {
+      if (sameTimestampIds.includes(next.id))
+        continue;
+    } else {
+      sameTimestampIds.length = 0;
+    }
+    result.push(next);
+    sameTimestampIds.push(next.id);
+  }
+  while (i22 < list2.length) {
+    const next = list2[i22];
+    i22++;
+    if (result.length > 0 && result[result.length - 1].created_at === next.created_at) {
+      if (sameTimestampIds.includes(next.id))
+        continue;
+    } else {
+      sameTimestampIds.length = 0;
+    }
+    result.push(next);
+    sameTimestampIds.push(next.id);
+  }
+  return result;
+}
 function mergeReverseSortedLists(list1, list2) {
   const result = new Array(list1.length + list2.length);
   result.length = 0;
@@ -4891,7 +4946,7 @@ function mergeReverseSortedLists(list1, list2) {
   let sameTimestampIds = [];
   while (i1 < list1.length && i22 < list2.length) {
     let next;
-    if (list1[i1]?.created_at > list2[i22]?.created_at) {
+    if (list1[i1].created_at > list2[i22].created_at) {
       next = list1[i1];
       i1++;
     } else {
@@ -5931,16 +5986,18 @@ function getPowFromBytes(hash) {
   }
   return count;
 }
-function minePow(unsigned, difficulty) {
+function minePow(unsigned, difficulty, options = {}) {
   let count = 0;
   const event2 = unsigned;
   const tag = ["nonce", count.toString(), difficulty.toString()];
   event2.tags.push(tag);
   while (true) {
-    const now2 = Math.floor((/* @__PURE__ */ new Date()).getTime() / 1e3);
-    if (now2 !== event2.created_at) {
-      count = 0;
-      event2.created_at = now2;
+    if (!options.keepCreatedAt) {
+      const now2 = Math.floor((/* @__PURE__ */ new Date()).getTime() / 1e3);
+      if (now2 !== event2.created_at) {
+        count = 0;
+        event2.created_at = now2;
+      }
     }
     tag[1] = (++count).toString();
     const hash = sha256(
@@ -6493,8 +6550,13 @@ __export(nip27_exports, {
   parse: () => parse4
 });
 var noCharacter = /\W/m;
-var noURLCharacter = /[^\w\/] |[^\w\/]$|$|,| /m;
 var MAX_HASHTAG_LENGTH = 42;
+function urlEnd(content, from) {
+  const ws = content.slice(from).search(/\s/);
+  const end = ws === -1 ? content.length : from + ws;
+  const trailing = content.slice(from, end).match(/[.,]*[^\w\/]?[.,]*$/);
+  return end - trailing[0].length;
+}
 function* parse4(content) {
   let emojis = [];
   if (typeof content !== "string") {
@@ -6560,8 +6622,7 @@ function* parse4(content) {
           continue mainloop;
         }
       } else if (content.slice(u - 5, u) === "https" || content.slice(u - 4, u) === "http") {
-        const m = content.slice(u + 4).match(noURLCharacter);
-        const end = m ? u + 4 + m.index : max;
+        const end = urlEnd(content, u + 4);
         const prefixLen = content[u - 1] === "s" ? 5 : 4;
         try {
           let url = new URL(content.slice(u - prefixLen, end));
@@ -6603,8 +6664,7 @@ function* parse4(content) {
           continue mainloop;
         }
       } else if (content.slice(u - 3, u) === "wss" || content.slice(u - 2, u) === "ws") {
-        const m = content.slice(u + 4).match(noURLCharacter);
-        const end = m ? u + 4 + m.index : max;
+        const end = urlEnd(content, u + 4);
         const prefixLen = content[u - 1] === "s" ? 3 : 2;
         try {
           let url = new URL(content.slice(u - prefixLen, end));
@@ -7478,7 +7538,7 @@ var NegentropySync = class {
           break;
         }
         case "NEG-ERR": {
-          params.onclose?.();
+          params.onclose?.(data[2]);
         }
       }
     };
