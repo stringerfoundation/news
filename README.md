@@ -12,6 +12,8 @@ The private collector and dashboard continue running independently on the operat
 
 ## Development
 
+The native Android reader lives in [`android/`](android/README.md). It uses the same signed relay protocol and publisher catalogues as the website. Generate its bundled editions and interface translations with `node --import tsx scripts/generate-android-catalogue.ts`; add `--check` to detect drift. Android development requires Java 17 and the Android SDK. See the [Android release guide](docs/android-releases.md) for signing setup, Obtainium updates, and independent Zapstore publication.
+
 Use Node 24 or newer and pnpm 11.18.0 (pinned in `package.json`). Install pnpm with `npm install --global pnpm@11.18.0` if needed:
 
 ```sh

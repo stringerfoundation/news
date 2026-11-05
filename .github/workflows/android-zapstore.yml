@@ -1,0 +1,131 @@
+name: Android Zapstore publish
+on:
+  workflow_run:
+    workflows: ['Android release']
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing Android GitHub release tag to retry (android-v0.1.N)
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: android-zapstore-${{ github.event.workflow_run.id || inputs.release_tag }}
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: >-
+      github.event_name == 'workflow_dispatch' || (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.head_repository.full_name == github.repository
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - name: Check for a release context artifact
+        id: context
+        if: github.event_name == 'workflow_run'
+        env:
+          RELEASE_WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          artifacts="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_WORKFLOW_RUN_ID/artifacts" --jq '.artifacts[].name')"
+          expected="android-release-context-$RELEASE_WORKFLOW_RUN_ID"
+          if printf '%s\n' "$artifacts" | grep -Fxq "$expected"; then
+            echo 'skip=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'skip=true' >> "$GITHUB_OUTPUT"
+            echo 'No GitHub release was published by this Android release run; skipping Zapstore.'
+          fi
+      - name: Read the published release tag
+        if: github.event_name == 'workflow_run' && steps.context.outputs.skip != 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: android-release-context-${{ github.event.workflow_run.id }}
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          path: ${{ runner.temp }}/android-release-context
+      - name: Select and verify the GitHub release APK
+        id: release
+        if: github.event_name == 'workflow_dispatch' || steps.context.outputs.skip != 'true'
+        env:
+          MANUAL_TAG: ${{ inputs.release_tag }}
+          WORKFLOW_RUN_EVENT: ${{ github.event_name == 'workflow_run' }}
+        run: |
+          set -euo pipefail
+          if [[ "$WORKFLOW_RUN_EVENT" == true ]]; then
+            tag="$(cat "$RUNNER_TEMP/android-release-context/release-tag.txt")"
+          else
+            tag="$MANUAL_TAG"
+          fi
+          [[ "$tag" =~ ^android-v0\.1\.[0-9]+$ ]]
+          gh release download "$tag" --pattern app-release.apk --dir .
+          gh release download "$tag" --pattern app-release.apk.sha256 --dir .
+          (cd . && sha256sum --check app-release.apk.sha256)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - name: Download and verify pinned zsp
+        if: steps.release.outcome == 'success'
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            https://github.com/zapstore/zsp/releases/download/v2.0.0/zsp-2.0.0-linux-amd64 \
+            --output "$RUNNER_TEMP/zsp"
+          echo '5483806beafde1b5deaa16f5efbead35a211b7d6015752f86d099e0faecc4a66  '"$RUNNER_TEMP/zsp" | sha256sum --check --status
+          chmod 0755 "$RUNNER_TEMP/zsp"
+      - name: Publish the exact GitHub release APK to Zapstore
+        if: steps.release.outcome == 'success'
+        env:
+          SIGN_WITH: ${{ secrets.ZAPSTORE_SIGNER_BUNKER }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          test -n "$SIGN_WITH"
+          test -n "$KEYSTORE_PASSWORD"
+          "$RUNNER_TEMP/zsp" check --json > "$RUNNER_TEMP/zsp-check.json"
+          python3 - "$RUNNER_TEMP/zsp-check.json" <<'PY'
+          import json, sys
+          expected_identity = 'npub1hq39m0kldtnef85gpeuhn6t4mrn0yw8n95cch399vtktrx8u6urs7rwh7x'
+          with open(sys.argv[1], encoding='utf-8') as source:
+              report = json.load(source)
+          apk = report.get('apk', {})
+          proof = report.get('proof') or {}
+          if apk.get('app_id') != 'org.stringerjournalism.news':
+              raise SystemExit('zsp checked an unexpected Android package')
+          if report.get('signer') != expected_identity:
+              raise SystemExit('Configured remote signer did not authenticate as the existing Stringer Nostr identity')
+          if proof.get('owner') != expected_identity:
+              raise SystemExit('The APK certificate has no active C1 proof owned by the existing Stringer identity')
+          if not report.get('authorized'):
+              raise SystemExit('The authenticated signer is not authorized by the active C1 proof')
+          PY
+          release_code="${RELEASE_TAG##*.}"
+          checked_code="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["apk"]["version_code"])' "$RUNNER_TEMP/zsp-check.json")"
+          checked_name="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["apk"]["version_name"])' "$RUNNER_TEMP/zsp-check.json")"
+          [[ "$checked_code" == "$release_code" && "$checked_name" == "0.1.$release_code" ]]
+          published_code="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["published_version_code"])' "$RUNNER_TEMP/zsp-check.json")"
+          if (( published_code > checked_code )); then
+            echo "Refusing stale Zapstore release $checked_code; version $published_code is already published." >&2
+            exit 1
+          elif (( published_code == checked_code )); then
+            echo "Retrying version $checked_code with --overwrite-release so zsp publishes this exact checked APK hash."
+            apk_hash="$(sha256sum app-release.apk | cut -d ' ' -f 1)"
+            "$RUNNER_TEMP/zsp" publish -q --overwrite-release --apk-hash "$apk_hash"
+            exit 0
+          fi
+          apk_hash="$(sha256sum app-release.apk | cut -d ' ' -f 1)"
+          "$RUNNER_TEMP/zsp" publish -q --apk-hash "$apk_hash"
