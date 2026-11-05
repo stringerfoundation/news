@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "StringerNews"
-include(":core")
+include(":core", ":app")
