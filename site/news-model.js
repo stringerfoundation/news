@@ -68,13 +68,13 @@ function uniqueStories(stories) {
     return true;
   });
 }
-function worldStories(snapshot, selectedSources = SOURCES.map((source) => source.id)) {
-  return uniqueStories(SOURCES.filter((s) => s.id !== "stringer" && selectedSources.includes(s.id)).flatMap((source) => snapshot.sources[source.id].stories.map((story) => ({ ...story, source: source.name, mayRequireSubscription: source.mayRequireSubscription === true }))).sort(newestFirst));
+function worldStories(snapshot, selectedSources = SOURCES.map((source) => source.id), sourceRegistry = SOURCES) {
+  return uniqueStories(sourceRegistry.filter((s) => s.id !== "stringer" && selectedSources.includes(s.id)).flatMap((source) => snapshot.sources[source.id].stories.map((story) => ({ ...story, source: source.name, mayRequireSubscription: source.mayRequireSubscription === true }))).sort(newestFirst));
 }
-function worldGroups(snapshot, selectedSources) {
+function worldGroups(snapshot, selectedSources, sourceRegistry = SOURCES) {
   const groups = /* @__PURE__ */ new Map();
   const chronological = (a, b) => newestFirst(a, b) || (a.noteId || a.url).localeCompare(b.noteId || b.url);
-  for (const story of worldStories(snapshot, selectedSources)) {
+  for (const story of worldStories(snapshot, selectedSources, sourceRegistry)) {
     const key = story.clusterId || story.noteId || story.url;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(story);
@@ -132,24 +132,24 @@ function sourceMessage(source, entry) {
   if (entry.status === "failure") return `${source.name}: refresh unavailable. ${collected}`;
   return `${source.name}: ${collected}${entry.stories.length ? "" : ". No published stories in this collection."}`;
 }
-function formatLocalDateTime(value) {
+function formatLocalDateTime(value, locale = "en-US") {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return "Date unavailable";
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(locale, {
     year: "numeric",
     month: "short",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-    hour12: true,
+    hour12: locale === "en-US",
     timeZoneName: "short"
   }).format(date);
 }
-function formatPublicationDate(value) {
+function formatPublicationDate(value, locale = "en-US") {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return "Date unavailable";
   const date = /* @__PURE__ */ new Date(`${value}T00:00:00Z`);
   if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) return "Date unavailable";
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(locale, {
     year: "numeric",
     month: "short",
     day: "numeric",
