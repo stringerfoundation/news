@@ -1,4 +1,4 @@
-// node_modules/@noble/hashes/utils.js
+// node_modules/.pnpm/@noble+hashes@2.0.1/node_modules/@noble/hashes/utils.js
 function isBytes(a) {
   return a instanceof Uint8Array || ArrayBuffer.isView(a) && a.constructor.name === "Uint8Array";
 }
@@ -130,7 +130,7 @@ var oidNist = (suffix) => ({
   oid: Uint8Array.from([6, 9, 96, 134, 72, 1, 101, 3, 4, 2, suffix])
 });
 
-// node_modules/@noble/hashes/_md.js
+// node_modules/.pnpm/@noble+hashes@2.0.1/node_modules/@noble/hashes/_md.js
 function Chi(a, b, c) {
   return a & b ^ ~a & c;
 }
@@ -243,7 +243,7 @@ var SHA256_IV = /* @__PURE__ */ Uint32Array.from([
   1541459225
 ]);
 
-// node_modules/@noble/hashes/sha2.js
+// node_modules/.pnpm/@noble+hashes@2.0.1/node_modules/@noble/hashes/sha2.js
 var SHA256_K = /* @__PURE__ */ Uint32Array.from([
   1116352408,
   1899447441,
@@ -393,7 +393,7 @@ var sha256 = /* @__PURE__ */ createHasher(
   /* @__PURE__ */ oidNist(1)
 );
 
-// node_modules/@noble/curves/utils.js
+// node_modules/.pnpm/@noble+curves@2.0.1/node_modules/@noble/curves/utils.js
 var _0n = /* @__PURE__ */ BigInt(0);
 var _1n = /* @__PURE__ */ BigInt(1);
 function abool(value, title = "") {
@@ -542,7 +542,7 @@ function memoized(fn) {
   };
 }
 
-// node_modules/@noble/curves/abstract/modular.js
+// node_modules/.pnpm/@noble+curves@2.0.1/node_modules/@noble/curves/abstract/modular.js
 var _0n2 = /* @__PURE__ */ BigInt(0);
 var _1n2 = /* @__PURE__ */ BigInt(1);
 var _2n = /* @__PURE__ */ BigInt(2);
@@ -928,7 +928,7 @@ function mapHashToField(key, fieldOrder, isLE2 = false) {
   return isLE2 ? numberToBytesLE(reduced, fieldLen) : numberToBytesBE(reduced, fieldLen);
 }
 
-// node_modules/@noble/curves/abstract/curve.js
+// node_modules/.pnpm/@noble+curves@2.0.1/node_modules/@noble/curves/abstract/curve.js
 var _0n3 = /* @__PURE__ */ BigInt(0);
 var _1n3 = /* @__PURE__ */ BigInt(1);
 function negateCt(condition, item) {
@@ -1161,7 +1161,7 @@ function createKeygen(randomSecretKey, getPublicKey3) {
   };
 }
 
-// node_modules/@noble/hashes/hmac.js
+// node_modules/.pnpm/@noble+hashes@2.0.1/node_modules/@noble/hashes/hmac.js
 var _HMAC = class {
   oHash;
   iHash;
@@ -1232,7 +1232,7 @@ var _HMAC = class {
 var hmac = (hash, key, message) => new _HMAC(hash, key).update(message).digest();
 hmac.create = (hash, key) => new _HMAC(hash, key);
 
-// node_modules/@noble/curves/abstract/weierstrass.js
+// node_modules/.pnpm/@noble+curves@2.0.1/node_modules/@noble/curves/abstract/weierstrass.js
 var divNearest = (num2, den) => (num2 + (num2 >= 0 ? den : -den) / _2n2) / den;
 function _splitEndoScalar(k, basis, n) {
   const [[a1, b1], [a2, b2]] = basis;
@@ -2104,7 +2104,7 @@ function ecdsa(Point, hash, ecdsaOpts = {}) {
   });
 }
 
-// node_modules/@noble/curves/secp256k1.js
+// node_modules/.pnpm/@noble+curves@2.0.1/node_modules/@noble/curves/secp256k1.js
 var secp256k1_CURVE = {
   p: BigInt("0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f"),
   n: BigInt("0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"),
@@ -2257,7 +2257,7 @@ var schnorr = /* @__PURE__ */ (() => {
   };
 })();
 
-// node_modules/nostr-tools/lib/esm/pool.js
+// node_modules/.pnpm/nostr-tools@2.25.4_nostr-wasm@0.1.0_typescript@7.0.2/node_modules/nostr-tools/lib/esm/pool.js
 var utf8Decoder = new TextDecoder("utf-8");
 var utf8Encoder = new TextEncoder();
 function normalizeURL(url) {
@@ -2676,7 +2676,7 @@ var AbstractRelay = class {
       throw new Error("can't perform auth, no challenge was received");
     if (this.authPromise)
       return this.authPromise;
-    this.authPromise = new Promise(async (resolve, reject) => {
+    const attempt = new Promise(async (resolve, reject) => {
       try {
         let evt = await signAuthEvent(makeAuthEvent(this.url, challenge2));
         let timeout = setTimeout(() => {
@@ -2689,10 +2689,15 @@ var AbstractRelay = class {
         this.openEventPublishes.set(evt.id, { resolve, reject, timeout });
         this.send('["AUTH",' + JSON.stringify(evt) + "]");
       } catch (err) {
-        console.warn("subscribe auth function failed:", err);
+        reject(err);
       }
     });
-    return this.authPromise;
+    attempt.catch(() => {
+      if (this.authPromise === attempt)
+        this.authPromise = void 0;
+    });
+    this.authPromise = attempt;
+    return attempt;
   }
   async publish(event2) {
     this.idleSince = void 0;
@@ -2877,9 +2882,8 @@ var AbstractRelay = class {
           this.challenge = data[1];
           if (this.onauth) {
             this.auth(this.onauth).catch((err) => {
-              if (!(err instanceof SendingOnClosedConnection)) {
-                throw err;
-              }
+              if (!(err instanceof SendingOnClosedConnection))
+                console.warn("automatic auth failed:", err);
             });
           }
           return;
@@ -3363,7 +3367,7 @@ var SimplePool = class extends AbstractSimplePool {
   }
 };
 
-// node_modules/@scure/base/index.js
+// node_modules/.pnpm/@scure+base@2.0.0/node_modules/@scure/base/index.js
 function isBytes2(a) {
   return a instanceof Uint8Array || ArrayBuffer.isView(a) && a.constructor.name === "Uint8Array";
 }
@@ -3669,7 +3673,7 @@ function genBech32(encoding) {
 }
 var bech32 = /* @__PURE__ */ genBech32("bech32");
 
-// node_modules/@noble/ciphers/utils.js
+// node_modules/.pnpm/@noble+ciphers@2.1.1/node_modules/@noble/ciphers/utils.js
 function isBytes3(a) {
   return a instanceof Uint8Array || ArrayBuffer.isView(a) && a.constructor.name === "Uint8Array";
 }
@@ -3808,7 +3812,7 @@ function copyBytes2(bytes) {
   return Uint8Array.from(bytes);
 }
 
-// node_modules/@noble/ciphers/aes.js
+// node_modules/.pnpm/@noble+ciphers@2.1.1/node_modules/@noble/ciphers/aes.js
 var BLOCK_SIZE = 16;
 var POLY = 283;
 function validateKeyLength(key) {
@@ -4165,7 +4169,7 @@ var _CMAC = class {
 var cmac = (key, message) => new _CMAC(key).update(message).digest();
 cmac.create = (key) => new _CMAC(key);
 
-// node_modules/@noble/ciphers/_arx.js
+// node_modules/.pnpm/@noble+ciphers@2.1.1/node_modules/@noble/ciphers/_arx.js
 var encodeStr = (str) => Uint8Array.from(str.split(""), (c) => c.charCodeAt(0));
 var sigma16 = encodeStr("expand 16-byte k");
 var sigma32 = encodeStr("expand 32-byte k");
@@ -4274,7 +4278,7 @@ function createCipher(core, opts) {
   };
 }
 
-// node_modules/@noble/ciphers/_poly1305.js
+// node_modules/.pnpm/@noble+ciphers@2.1.1/node_modules/@noble/ciphers/_poly1305.js
 function u8to16(a, i3) {
   return a[i3++] & 255 | (a[i3++] & 255) << 8;
 }
@@ -4532,7 +4536,7 @@ function wrapConstructorWithKey(hashCons) {
 }
 var poly1305 = /* @__PURE__ */ (() => wrapConstructorWithKey((key) => new Poly1305(key)))();
 
-// node_modules/@noble/ciphers/chacha.js
+// node_modules/.pnpm/@noble+ciphers@2.1.1/node_modules/@noble/ciphers/chacha.js
 function chachaCore(s, k, n, out, cnt, rounds = 20) {
   let y00 = s[0], y01 = s[1], y02 = s[2], y03 = s[3], y04 = k[0], y05 = k[1], y06 = k[2], y07 = k[3], y08 = k[4], y09 = k[5], y10 = k[6], y11 = k[7], y12 = cnt, y13 = n[0], y14 = n[1], y15 = n[2];
   let x00 = y00, x01 = y01, x02 = y02, x03 = y03, x04 = y04, x05 = y05, x06 = y06, x07 = y07, x08 = y08, x09 = y09, x10 = y10, x11 = y11, x12 = y12, x13 = y13, x14 = y14, x15 = y15;
@@ -4762,7 +4766,7 @@ var _poly1305_aead = (xorStream) => (key, nonce, AAD) => {
 var chacha20poly1305 = /* @__PURE__ */ wrapCipher({ blockSize: 64, nonceLength: 12, tagLength: 16 }, _poly1305_aead(chacha20));
 var xchacha20poly1305 = /* @__PURE__ */ wrapCipher({ blockSize: 64, nonceLength: 24, tagLength: 16 }, _poly1305_aead(xchacha20));
 
-// node_modules/@noble/hashes/hkdf.js
+// node_modules/.pnpm/@noble+hashes@2.0.1/node_modules/@noble/hashes/hkdf.js
 function extract(hash, ikm, salt) {
   ahash(hash);
   if (salt === void 0)
@@ -4798,7 +4802,7 @@ function expand(hash, prk, info, length = 32) {
   return okm.slice(0, length);
 }
 
-// node_modules/nostr-tools/lib/esm/index.js
+// node_modules/.pnpm/nostr-tools@2.25.4_nostr-wasm@0.1.0_typescript@7.0.2/node_modules/nostr-tools/lib/esm/index.js
 var __defProp = Object.defineProperty;
 var __export = (target, all) => {
   for (var name in all)
@@ -4813,6 +4817,7 @@ __export(utils_exports, {
   insertEventIntoDescendingList: () => insertEventIntoDescendingList,
   isHex32: () => isHex322,
   mergeReverseSortedLists: () => mergeReverseSortedLists,
+  mergeSortedLists: () => mergeSortedLists,
   normalizeURL: () => normalizeURL2,
   utf8Decoder: () => utf8Decoder2,
   utf8Encoder: () => utf8Encoder3
@@ -4883,6 +4888,56 @@ function binarySearch(arr, compare) {
   }
   return [start, false];
 }
+function mergeSortedLists(list1, list2) {
+  const result = new Array(list1.length + list2.length);
+  result.length = 0;
+  let i1 = 0;
+  let i22 = 0;
+  let sameTimestampIds = [];
+  while (i1 < list1.length && i22 < list2.length) {
+    let next;
+    if (list1[i1].created_at < list2[i22].created_at) {
+      next = list1[i1];
+      i1++;
+    } else {
+      next = list2[i22];
+      i22++;
+    }
+    if (result.length > 0 && result[result.length - 1].created_at === next.created_at) {
+      if (sameTimestampIds.includes(next.id))
+        continue;
+    } else {
+      sameTimestampIds.length = 0;
+    }
+    result.push(next);
+    sameTimestampIds.push(next.id);
+  }
+  while (i1 < list1.length) {
+    const next = list1[i1];
+    i1++;
+    if (result.length > 0 && result[result.length - 1].created_at === next.created_at) {
+      if (sameTimestampIds.includes(next.id))
+        continue;
+    } else {
+      sameTimestampIds.length = 0;
+    }
+    result.push(next);
+    sameTimestampIds.push(next.id);
+  }
+  while (i22 < list2.length) {
+    const next = list2[i22];
+    i22++;
+    if (result.length > 0 && result[result.length - 1].created_at === next.created_at) {
+      if (sameTimestampIds.includes(next.id))
+        continue;
+    } else {
+      sameTimestampIds.length = 0;
+    }
+    result.push(next);
+    sameTimestampIds.push(next.id);
+  }
+  return result;
+}
 function mergeReverseSortedLists(list1, list2) {
   const result = new Array(list1.length + list2.length);
   result.length = 0;
@@ -4891,7 +4946,7 @@ function mergeReverseSortedLists(list1, list2) {
   let sameTimestampIds = [];
   while (i1 < list1.length && i22 < list2.length) {
     let next;
-    if (list1[i1]?.created_at > list2[i22]?.created_at) {
+    if (list1[i1].created_at > list2[i22].created_at) {
       next = list1[i1];
       i1++;
     } else {
@@ -5931,16 +5986,18 @@ function getPowFromBytes(hash) {
   }
   return count;
 }
-function minePow(unsigned, difficulty) {
+function minePow(unsigned, difficulty, options = {}) {
   let count = 0;
   const event2 = unsigned;
   const tag = ["nonce", count.toString(), difficulty.toString()];
   event2.tags.push(tag);
   while (true) {
-    const now2 = Math.floor((/* @__PURE__ */ new Date()).getTime() / 1e3);
-    if (now2 !== event2.created_at) {
-      count = 0;
-      event2.created_at = now2;
+    if (!options.keepCreatedAt) {
+      const now2 = Math.floor((/* @__PURE__ */ new Date()).getTime() / 1e3);
+      if (now2 !== event2.created_at) {
+        count = 0;
+        event2.created_at = now2;
+      }
     }
     tag[1] = (++count).toString();
     const hash = sha256(
@@ -6493,8 +6550,13 @@ __export(nip27_exports, {
   parse: () => parse4
 });
 var noCharacter = /\W/m;
-var noURLCharacter = /[^\w\/] |[^\w\/]$|$|,| /m;
 var MAX_HASHTAG_LENGTH = 42;
+function urlEnd(content, from) {
+  const ws = content.slice(from).search(/\s/);
+  const end = ws === -1 ? content.length : from + ws;
+  const trailing = content.slice(from, end).match(/[.,]*[^\w\/]?[.,]*$/);
+  return end - trailing[0].length;
+}
 function* parse4(content) {
   let emojis = [];
   if (typeof content !== "string") {
@@ -6560,8 +6622,7 @@ function* parse4(content) {
           continue mainloop;
         }
       } else if (content.slice(u - 5, u) === "https" || content.slice(u - 4, u) === "http") {
-        const m = content.slice(u + 4).match(noURLCharacter);
-        const end = m ? u + 4 + m.index : max;
+        const end = urlEnd(content, u + 4);
         const prefixLen = content[u - 1] === "s" ? 5 : 4;
         try {
           let url = new URL(content.slice(u - prefixLen, end));
@@ -6603,8 +6664,7 @@ function* parse4(content) {
           continue mainloop;
         }
       } else if (content.slice(u - 3, u) === "wss" || content.slice(u - 2, u) === "ws") {
-        const m = content.slice(u + 4).match(noURLCharacter);
-        const end = m ? u + 4 + m.index : max;
+        const end = urlEnd(content, u + 4);
         const prefixLen = content[u - 1] === "s" ? 3 : 2;
         try {
           let url = new URL(content.slice(u - prefixLen, end));
@@ -7478,7 +7538,7 @@ var NegentropySync = class {
           break;
         }
         case "NEG-ERR": {
-          params.onclose?.();
+          params.onclose?.(data[2]);
         }
       }
     };

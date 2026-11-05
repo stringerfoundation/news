@@ -946,7 +946,7 @@ var portugal = {
   "Explore the Stringer collection": "Explore a cole\xE7\xE3o da Stringer"
 };
 var EDITIONS = [
-  { path: "", locale: "en-US", label: "EN", direction: "ltr" },
+  { path: "", locale: "en-US", label: "English", direction: "ltr" },
   { path: "br", locale: "pt-BR", label: "Portugu\xEAs (Brasil)", direction: "ltr" },
   { path: "pt", locale: "pt-PT", label: "Portugu\xEAs (Portugal)", direction: "ltr" },
   { path: "fr", locale: "fr", label: "Fran\xE7ais", direction: "ltr" },
@@ -1401,9 +1401,9 @@ function sourcesForLocale(language) {
 }
 
 // app.ts
-import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=9592c9a6b41b4361";
-import relayConfig from "./relay-config.js?v=9592c9a6b41b4361";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=9592c9a6b41b4361";
+import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=45e6620242138ef2";
+import relayConfig from "./relay-config.js?v=45e6620242138ef2";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=45e6620242138ef2";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1737,7 +1737,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=9592c9a6b41b4361");
+      const reader = await import("./relay-reader.js?v=45e6620242138ef2");
       if (!snapshot) {
         snapshot = reader.cachedRelaySnapshot(relayConfig);
         if (snapshot) render();
@@ -1808,7 +1808,7 @@ async function loadAtomstr() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = await import("./atomstr-reader.js?v=9592c9a6b41b4361");
+    const reader = await import("./atomstr-reader.js?v=45e6620242138ef2");
     if (!snapshot) {
       const sources = reader.cachedAtomstrSources(mirrorSources);
       for (const source of Object.values(sources)) source.status = "loading";
@@ -1834,7 +1834,7 @@ async function loadAtomstr() {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=9592c9a6b41b4361");
+            const relay = await import("./relay-reader.js?v=45e6620242138ef2");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
