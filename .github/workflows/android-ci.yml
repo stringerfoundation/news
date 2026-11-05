@@ -111,11 +111,4 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_2
-          script: |
-            cd android
-            ./gradlew --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=org.stringerjournalism.news.ReaderSmokeTest
-            ./gradlew --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=org.stringerjournalism.news.UpgradePersistenceTest#seed
-            ANDROID_VERSION_CODE=2 ./gradlew --no-daemon :app:assembleDebug
-            adb install -r app/build/outputs/apk/debug/app-debug.apk
-            adb shell dumpsys package org.stringerjournalism.news.debug | grep -E 'versionCode=2([[:space:]]|$)'
-            ANDROID_VERSION_CODE=2 ./gradlew --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=org.stringerjournalism.news.UpgradePersistenceTest#verify
+          script: bash scripts/android-emulator-smoke.sh
