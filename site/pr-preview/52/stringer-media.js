@@ -1,4 +1,4 @@
-import { publicationFallback } from "./publications.js?v=851e99ae552e0796";
+import { publicationFallback } from "./publications.js?v=1db3d1e755ff428d";
 const images = [
   [
     "https://www.telegraph.co.uk/global-health/terror-and-security/injured-ukrainian-soldiers-taking-up-tattooing-as-therapy/",
