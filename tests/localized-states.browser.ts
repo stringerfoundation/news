@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
+import type { Page } from '@playwright/test';
 import {readFile} from 'node:fs/promises';
 import {readerSource} from './reader-source.ts';
 import {launchBrowser} from '../scripts/browser.ts';
@@ -7,11 +8,36 @@ import {EDITION_SOURCES} from '../edition-sources.ts';
 import {SOURCES} from '../news-model.ts';
 import {STRINGER_MEDIA} from '../stringer-media.ts';
 import {translator} from '../reader-locales.ts';
+import type { Snapshot, SourceState, Story } from '../relay/types.ts';
+
+interface LocalizedFixtureOptions {
+  saved?: string;
+  storageDenied?: boolean;
+  failStatic?: boolean;
+  relay?: boolean;
+  proxy?: boolean;
+  omitOptions?: boolean;
+  cacheThrows?: boolean;
+  mirrorCache?: Record<string, SourceState>;
+  cachedCollection?: Snapshot;
+}
+
+declare global {
+  interface Window {
+    finishMirrors?: (entries: Record<string, SourceState>) => void;
+    finishStringer?: (snapshot: Snapshot) => void;
+    failStringer?: () => void;
+    emitMirror?: (id: string, state: SourceState) => void;
+    rejectMirrors?: () => void;
+    mirrorCalls?: number;
+  }
+}
+
 
 const at = '2026-10-19T12:00:00.000Z';
-const story = (title = 'Original publisher headline') => ({title, url: 'https://publisher.example/story', publishedAt: at, summary: '', image: null, atomstr: true});
-const entry = (stories = [], status = 'success') => ({stories, status, attemptedAt: at, lastSuccessAt: stories.length ? at : null, error: status === 'failure' ? 'Offline' : null});
-const collection = () => ({schemaVersion: 2, generatedAt: at, sources: Object.fromEntries(SOURCES.map(source => [source.id, entry()]))});
+const story = (title = 'Original publisher headline'): Story => ({title, url: 'https://publisher.example/story', publishedAt: at, summary: '', image: null, atomstr: true});
+const entry = (stories: Story[] = [], status: SourceState['status'] = 'success'): SourceState => ({stories, status, attemptedAt: at, lastSuccessAt: stories.length ? at : null, error: status === 'failure' ? 'Offline' : null});
+const collection = (): Snapshot => ({schemaVersion: 2, generatedAt: at, sources: Object.fromEntries(SOURCES.map(source => [source.id, entry()]))});
 const mirrors = `export function cachedAtomstrSources(sources) {
   if (window.cacheThrows) throw new Error('Unavailable storage');
   return Object.fromEntries(sources.map(source => [source.id, window.mirrorCache?.[source.id] || {stories:[],status:'failure',attemptedAt:${JSON.stringify(at)},lastSuccessAt:null,error:'Checking'}]));
@@ -27,12 +53,12 @@ export async function readAtomstrSources({sources,previous,onUpdate}) {
 const relay = `export const cachedRelaySnapshot=()=>window.cachedCollection || null;
 export async function readRelaySnapshot() {return new Promise((resolve,reject)=>{window.finishStringer=resolve;window.failStringer=()=>reject(new Error('Offline'));});}`;
 
-async function setup(t, locale, options = {}) {
+async function setup(t: TestContext, locale: string, options: LocalizedFixtureOptions = {}) {
   const browser = await launchBrowser();
   t.after(() => browser.close());
   const page = await browser.newPage({viewport: {width: 375, height: 900}});
   await page.clock.install();
-  const errors = [];
+  const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(options => {
     Object.assign(window, options);
@@ -40,7 +66,7 @@ async function setup(t, locale, options = {}) {
     if (options.storageDenied) Object.defineProperty(window, 'localStorage', {get() {throw new Error('Storage unavailable');}});
   }, {...options, locale});
   let failStatic = options.failStatic;
-  const assets = [];
+  const assets: string[] = [];
   await page.route('https://locales.test/**', async route => {
     const path = new URL(route.request().url()).pathname.slice(1);
     const file = path.endsWith('/') ? `${path}index.html` : path;
@@ -58,17 +84,17 @@ async function setup(t, locale, options = {}) {
   await page.goto(`https://locales.test/${path}/`);
   return {page, errors, assets, failStatic() {failStatic = true;}};
 }
-async function ready(page) {
-  await page.waitForFunction(() => document.querySelector('#world-news').getAttribute('aria-busy') === 'false');
+async function ready(page: Page) {
+  await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
 }
-async function finish(page, locale, states = {}) {
-  const values = Object.fromEntries(EDITION_SOURCES[locale].map(source => [source.id, states[source.id] || entry()]));
+async function finish(page: Page, locale: string, states: Record<string, SourceState> = {}) {
+  const values = Object.fromEntries(EDITION_SOURCES[locale]!.map(source => [source.id, states[source.id] || entry()]));
   await page.waitForFunction(() => window.finishMirrors);
-  await page.evaluate(values => window.finishMirrors(values), values);
+  await page.evaluate(entries => window.finishMirrors!(entries), values);
 }
 
 test('Portuguese source search, persistence and enable-all remain usable with cached headlines', async t => {
-  const locale = 'pt-BR', first = EDITION_SOURCES[locale][0], second = EDITION_SOURCES[locale][1], tr = translator(locale);
+  const locale = 'pt-BR', first = EDITION_SOURCES[locale]![0]!, second = EDITION_SOURCES[locale]![1]!, tr = translator(locale);
   const {page, errors} = await setup(t, locale, {saved: JSON.stringify([second.id, 'unknown-source']), mirrorCache: {[first.id]: entry([story()], 'failure')}});
   await page.waitForFunction(() => window.finishMirrors);
   assert.equal(await page.locator('#world-news h3').first().textContent(), 'Original publisher headline');
@@ -78,14 +104,14 @@ test('Portuguese source search, persistence and enable-all remain usable with ca
   assert.equal(await page.locator('#no-matching-sources').isVisible(), true);
   await page.locator('#source-search').fill(first.name);
   assert.equal(await page.locator('#no-matching-sources').isVisible(), false);
-  await page.evaluate(() => {const label=document.querySelector('#source-options label'); for(const node of [...label.childNodes]) if(node.nodeType===Node.TEXT_NODE) node.remove();});
+  await page.evaluate(() => {const label=document.querySelector('#source-options label')!; for(const node of [...label.childNodes]) if(node.nodeType===Node.TEXT_NODE) node.remove();});
   await page.locator('#source-search').fill('');
   await finish(page, locale, {[first.id]: entry([story()])});
   await ready(page);
-  await page.evaluate(() => {for (const input of document.querySelectorAll('#source-options input:checked')) input.click();});
+  await page.evaluate(() => {for (const input of document.querySelectorAll<HTMLInputElement>('#source-options input:checked')) input.click();});
   assert.equal(await page.locator('#world-news .empty').textContent(), tr('No sources selected.'));
   await page.locator('.enable-all-empty').click();
-  assert.equal(await page.locator('#source-options input:checked').count(), EDITION_SOURCES[locale].length);
+  assert.equal(await page.locator('#source-options input:checked').count(), EDITION_SOURCES[locale]!.length);
   assert.equal(await page.locator('#enable-all-sources').isDisabled(), true);
   await page.locator(`#source-options input[value="${first.id}"]`).uncheck();
   await page.locator(`#source-options input[value="${first.id}"]`).check();
@@ -96,24 +122,24 @@ test('Portuguese source search, persistence and enable-all remain usable with ca
 });
 
 test('localized polling retains stories on failures, serializes loads and reports partial publisher availability', async t => {
-  const locale = 'fr', first = EDITION_SOURCES.fr[0], second = EDITION_SOURCES.fr[1], tr = translator(locale);
+  const locale = 'fr', first = EDITION_SOURCES.fr![0]!, second = EDITION_SOURCES.fr![1]!, tr = translator(locale);
   const cached = collection(); cached.sources.stringer = entry([{...story('Cached Stringer reporting'), atomstr: false}]);
   const {page, errors} = await setup(t, locale, {relay: true, cachedCollection: cached, saved: 'invalid-json'});
   await page.waitForFunction(() => window.finishStringer && window.finishMirrors);
   assert.equal(await page.locator('#stringer-news h3').textContent(), 'Cached Stringer reporting');
   await page.clock.fastForward(300_000);
   assert.equal(await page.evaluate(() => window.mirrorCalls), 1);
-  await page.evaluate(({id, value}) => window.emitMirror(id, value), {id: first.id, value: entry([{...story(), mirroredVia: 'Bluesky'}])});
+  await page.evaluate(({id, value}) => window.emitMirror!(id, value), {id: first.id, value: entry([{...story(), mirroredVia: 'Bluesky'}])});
   await page.clock.fastForward(200);
   assert.equal(await page.locator('#world-news h3').first().textContent(), 'Original publisher headline');
   assert.equal(await page.locator('.mirror-provenance').textContent(), tr('via {network} / Atomstr', {network: 'Bluesky'}));
   await finish(page, locale, {[first.id]: entry([story()]), [second.id]: entry([], 'failure')});
-  await page.evaluate(value => window.finishStringer(value), cached);
+  await page.evaluate(value => window.finishStringer!(value), cached);
   await ready(page);
-  assert.ok((await page.locator('#relay-status summary').textContent()).includes(tr('Partial')));
+  assert.ok((await page.locator('#relay-status summary').textContent() ?? '').includes(tr('Partial')));
   await page.clock.fastForward(300_000);
   await page.waitForFunction(() => window.mirrorCalls === 2);
-  await page.evaluate(() => {window.failStringer();window.rejectMirrors();});
+  await page.evaluate(() => {window.failStringer!();window.rejectMirrors!();});
   await ready(page);
   assert.equal(await page.locator('#world-news h3').first().textContent(), 'Original publisher headline');
   assert.deepEqual(errors, []);
@@ -122,7 +148,7 @@ test('localized polling retains stories on failures, serializes loads and report
 test('localized initial outages, denied preferences and import initialization failures remain honest', async t => {
   const locale = 'es', tr = translator(locale);
   const {page, errors} = await setup(t, locale, {storageDenied: true, failStatic: true, saved: '17'});
-  await finish(page, locale, Object.fromEntries(EDITION_SOURCES.es.map(source => [source.id, entry([], 'failure')])));
+  await finish(page, locale, Object.fromEntries(EDITION_SOURCES.es!.map(source => [source.id, entry([], 'failure')])));
   await ready(page);
   assert.equal(await page.locator('#refresh-status').textContent(), tr('The news collection is unavailable. We’ll retry automatically.'));
   await page.locator('#source-picker > summary').click();
@@ -142,15 +168,15 @@ test('localized fully successful relay collections and fallback preferences keep
   const {page, errors, assets} = await setup(t, locale, {relay: true, saved: JSON.stringify(['unknown', 17])});
   await page.waitForFunction(() => window.finishStringer && window.finishMirrors);
   await finish(page, locale);
-  const approved = [...STRINGER_MEDIA][0];
+  const approved = [...STRINGER_MEDIA][0]!;
   const reporting = collection(); reporting.sources.stringer = entry([{...story('Approved reporting'), url: approved[0], publishedAt: null, atomstr: false}]);
-  await page.evaluate(value => window.finishStringer(value), reporting);
+  await page.evaluate(value => window.finishStringer!(value), reporting);
   await ready(page);
-  assert.ok((await page.locator('#relay-status summary').textContent()).includes(translator(locale)('Loaded')));
+  assert.ok((await page.locator('#relay-status summary').textContent() ?? '').includes(translator(locale)('Loaded')));
   assert.equal(await page.locator('#source-search').isVisible(), false);
   await page.waitForFunction(() => document.querySelector('#stringer-news .story-placeholder'));
-  assert.ok(assets.includes(approved[1].image.replace('./', '')));
-  assert.equal(await page.locator('#source-options input:checked').count(), EDITION_SOURCES.de.length);
+  assert.ok(assets.includes(approved[1].image!.replace('./', '')));
+  assert.equal(await page.locator('#source-options input:checked').count(), EDITION_SOURCES.de!.length);
   assert.deepEqual(errors, []);
 });
 

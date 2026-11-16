@@ -1,20 +1,21 @@
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { SimplePool } from 'nostr-tools/pool';
-import { generateSecretKey, getPublicKey, finalizeEvent } from 'nostr-tools';
-import { readRelaySnapshot, cachedRelaySnapshot } from '../relay/reader.ts';
-import { MANIFEST_KIND } from '../relay/protocol.ts';
+import { generateSecretKey, getPublicKey, finalizeEvent, type Event, type Filter } from 'nostr-tools';
+import { readRelaySnapshot, cachedRelaySnapshot, type FeedLoadTiming } from '../relay/reader.ts';
+import { MANIFEST_KIND, type Manifest } from '../relay/protocol.ts';
 import { publicBatch } from './relay/fixture.ts';
 import { SOURCES } from '../news-model.ts';
+import type { Snapshot, SourceState } from '../relay/types.ts';
 const key = generateSecretKey(),
   pubkey = getPublicKey(key),
   config = { pubkey, relays: ['wss://relay.test'] };
 function fixture(count = 1, time = '2026-01-01T00:00:00.000Z') {
-  const snapshot = {
+  const snapshot: Snapshot = {
     schemaVersion: 2,
     generatedAt: time,
     sources: Object.fromEntries(
-      SOURCES.map(({ id }) => [
+      SOURCES.map(({ id }): [string, SourceState] => [
         id,
         { stories: [], attemptedAt: time, lastSuccessAt: null, status: 'paused', error: null },
       ]),
@@ -36,47 +37,69 @@ function fixture(count = 1, time = '2026-01-01T00:00:00.000Z') {
   };
   return publicBatch(snapshot, key).batch;
 }
-function storage(t, value = null) {
-  const values = new Map(
-    value
-      ? [
-          [
-            `stringer-relay:${pubkey}`,
-            JSON.stringify({ ...value, stories: value.stories ?? value.events }),
-          ],
-        ]
-      : [],
-  );
-  globalThis.localStorage = {
-    getItem: (k) => values.get(k) ?? null,
-    setItem: (k, v) => values.set(k, v),
+interface CachedCollectionFixture {
+  manifest: Event;
+  events?: Event[];
+  stories?: Event[];
+}
+
+function storage(t: TestContext, value?: CachedCollectionFixture) {
+  const values = new Map<string, string>();
+  if (value) {
+    values.set(`stringer-relay:${pubkey}`, JSON.stringify({ ...value, stories: value.stories ?? value.events }));
+  }
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const fixture: Storage = {
+    get length() { return values.size; },
+    clear() { values.clear(); },
+    getItem(key) { return values.get(key) ?? null; },
+    key(index) { return [...values.keys()][index] ?? null; },
+    removeItem(key) { values.delete(key); },
+    setItem(key, item) { values.set(key, item); },
   };
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: fixture });
   t.after(() => {
-    delete globalThis.localStorage;
+    if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
+    else Reflect.deleteProperty(globalThis, 'localStorage');
   });
   return values;
 }
-function relay(t, batch, options = {}) {
+
+interface RelayFixtureOptions {
+  manifests?: Event[];
+  events?: (attempt: number, filter: Filter) => Event[];
+  late?: boolean;
+  silent?: boolean;
+  delay?: number;
+}
+
+interface RelayCallbacks {
+  onevent(event: Event): void;
+  oneose(): void;
+  onclose(): void;
+}
+
+function relay(t: TestContext, batch: ReturnType<typeof fixture>, options: RelayFixtureOptions = {}) {
   let queries = 0,
     destroyed = false;
-  const calls = [];
+  const calls: Filter[] = [];
   t.mock.method(SimplePool.prototype, 'destroy', () => {
     destroyed = true;
   });
-  t.mock.method(SimplePool.prototype, 'subscribeMany', (_relays, filter, callbacks) => {
+  t.mock.method(SimplePool.prototype, 'subscribeMany', (_relays: string[], filter: Filter, callbacks: RelayCallbacks) => {
     calls.push(filter);
     let closed = false;
     setImmediate(() => {
-      if (filter.kinds.includes(MANIFEST_KIND)) {
+      if (filter.kinds?.includes(MANIFEST_KIND)) {
         for (const manifest of options.manifests ?? [batch.manifest]) callbacks.onevent(manifest);
       } else {
         queries++;
         for (const event of options.events?.(queries, filter) ??
-          batch.events.filter((e) => filter.ids.includes(e.id)))
+          batch.events.filter((e) => filter.ids?.includes(e.id)))
           callbacks.onevent(event);
       }
       if (!options.silent) {
-        if (options.delay && !filter.kinds.includes(MANIFEST_KIND))
+        if (options.delay && !filter.kinds?.includes(MANIFEST_KIND))
           setTimeout(() => {
             callbacks.oneose();
             callbacks.onclose();
@@ -86,7 +109,7 @@ function relay(t, batch, options = {}) {
           callbacks.onclose();
         }
       }
-      if (closed && options.late) callbacks.onevent(batch.events[0]);
+      if (closed && options.late) callbacks.onevent(batch.events[0]!);
     });
     return {
       close: () => {
@@ -112,15 +135,15 @@ test('reader caches verified collections, reports feed timings and ignores late 
   const batch = fixture(),
     values = storage(t),
     mock = relay(t, batch, { late: true }),
-    timings = [];
+    timings: Record<string, FeedLoadTiming>[] = [];
   const result = await readRelaySnapshot(config, undefined, undefined, (value) =>
     timings.push(value),
   );
-  assert.equal(result.sources.stringer.stories.length, 1);
-  assert.equal(timings.at(-1).stringer.state, 'loaded');
-  assert.equal(timings[0].bbc.state, 'empty');
+  assert.equal(result.sources.stringer!.stories.length, 1);
+  assert.equal(timings.at(-1)!.stringer!.state, 'loaded');
+  assert.equal(timings[0]!.bbc!.state, 'empty');
   assert.ok(values.has(`stringer-relay:${pubkey}`));
-  assert.equal(cachedRelaySnapshot(config).sources.stringer.stories.length, 1);
+  assert.equal(cachedRelaySnapshot(config)!.sources.stringer!.stories.length, 1);
   assert.ok(mock.destroyed());
 });
 test('reader rejects missing or invalid manifests and always destroys its pool', async (t) => {
@@ -133,20 +156,20 @@ test('reader rejects missing or invalid manifests and always destroys its pool',
 test('reader retries missing notes and fills gaps only from a verified matching cache', async (t) => {
   const batch = fixture(2);
   storage(t, batch);
-  relay(t, batch, { events: () => [batch.events[0]] });
-  const messages = [];
+  relay(t, batch, { events: () => [batch.events[0]!] });
+  const messages: string[] = [];
   const result = await readRelaySnapshot(config, (m) => messages.push(m));
-  assert.equal(result.sources.stringer.stories.length, 2);
+  assert.equal(result.sources.stringer!.stories.length, 2);
   assert.ok(messages.some((m) => m.includes('Retrying 1')));
 });
 test('reader reports partial timing and rejects unusable cached events', async (t) => {
   const batch = fixture(2);
   storage(t, { manifest: batch.manifest, stories: [] });
-  relay(t, batch, { events: () => [batch.events[0]] });
-  const timings = [];
+  relay(t, batch, { events: () => [batch.events[0]!] });
+  const timings: Record<string, FeedLoadTiming>[] = [];
   const result = await readRelaySnapshot(config, undefined, undefined, (v) => timings.push(v));
-  assert.equal(result.sources.stringer.unavailable, 1);
-  assert.equal(timings.at(-1).stringer.state, 'partial');
+  assert.equal(result.sources.stringer!.unavailable, 1);
+  assert.equal(timings.at(-1)!.stringer!.state, 'partial');
 });
 test('storage failures never prevent a verified collection from loading', async (t) => {
   const batch = fixture();
@@ -159,7 +182,7 @@ test('storage failures never prevent a verified collection from loading', async 
   };
   relay(t, batch);
   assert.equal(cachedRelaySnapshot(config), null);
-  assert.equal((await readRelaySnapshot(config)).sources.stringer.stories.length, 1);
+  assert.equal((await readRelaySnapshot(config)).sources.stringer!.stories.length, 1);
 });
 test('cache is optional and corrupt JSON is discarded', (t) => {
   const values = storage(t);
@@ -177,7 +200,7 @@ test('empty manifests complete without story subscriptions', async (t) => {
   const batch = fixture(0);
   storage(t);
   const mock = relay(t, batch);
-  assert.equal((await readRelaySnapshot(config)).sources.stringer.stories.length, 0);
+  assert.equal((await readRelaySnapshot(config)).sources.stringer!.stories.length, 0);
   assert.equal(mock.calls.length, 1);
 });
 test('more than 100 story IDs use bounded batches and recover on retry', async (t) => {
@@ -185,21 +208,21 @@ test('more than 100 story IDs use bounded batches and recover on retry', async (
   storage(t);
   const mock = relay(t, batch, {
     events: (attempt, filter) =>
-      attempt <= 2 ? [] : batch.events.filter((e) => filter.ids.includes(e.id)),
+      attempt <= 2 ? [] : batch.events.filter((e) => filter.ids?.includes(e.id)),
   });
-  assert.equal((await readRelaySnapshot(config)).sources.stringer.stories.length, 101);
+  assert.equal((await readRelaySnapshot(config)).sources.stringer!.stories.length, 101);
   assert.ok(mock.calls.every((f) => !f.ids || f.ids.length <= 100));
 });
 test('legacy assignments are requested, while new inline groups need no reply fetch', async (t) => {
   const batch = fixture(),
-    value = JSON.parse(batch.manifest.content);
+    value: Manifest = JSON.parse(batch.manifest.content);
   delete value.groups;
-  value.assignments = { [batch.events[0].id]: 'a'.repeat(64) };
+  value.assignments = { [batch.events[0]!.id]: 'a'.repeat(64) };
   batch.manifest = finalizeEvent({ ...batch.manifest, content: JSON.stringify(value) }, key);
   storage(t);
   const mock = relay(t, batch);
   await readRelaySnapshot(config);
-  assert.ok(mock.calls[1].ids.includes('a'.repeat(64)));
+  assert.ok(mock.calls[1]!.ids?.includes('a'.repeat(64)));
 });
 test('competing manifests sort by newest creation time then stable identifier', async (t) => {
   const batch = fixture(),
@@ -211,9 +234,9 @@ test('competing manifests sort by newest creation time then stable identifier', 
 test('streamed progress exposes verified partial stories before completion', async (t) => {
   const batch = fixture(2);
   storage(t);
-  relay(t, batch, { delay: 150, events: () => [batch.events[0], batch.events[0]] });
-  const partials = [],
-    timings = [];
+  relay(t, batch, { delay: 150, events: () => [batch.events[0]!, batch.events[0]!] });
+  const partials: Snapshot[] = [],
+    timings: Record<string, FeedLoadTiming>[] = [];
   const result = await readRelaySnapshot(
     config,
     undefined,
@@ -221,52 +244,52 @@ test('streamed progress exposes verified partial stories before completion', asy
     (value) => timings.push(value),
   );
   assert.ok(partials.length > 0);
-  assert.equal(partials[0].sources.stringer.stories.length, 1);
-  assert.equal(result.sources.stringer.unavailable, 1);
-  assert.ok(timings.some((value) => value.stringer.state === 'loading'));
+  assert.equal(partials[0]!.sources.stringer!.stories.length, 1);
+  assert.equal(result.sources.stringer!.unavailable, 1);
+  assert.ok(timings.some((value) => value.stringer!.state === 'loading'));
 });
 test('silent relays are bounded by the manifest grace period and request deadline', async (t) => {
   const batch = fixture(2);
   storage(t);
-  relay(t, batch, { silent: true, events: () => [batch.events[0]] });
+  relay(t, batch, { silent: true, events: () => [batch.events[0]!] });
   const result = await readRelaySnapshot(config);
-  assert.equal(result.sources.stringer.unavailable, 1);
+  assert.equal(result.sources.stringer!.unavailable, 1);
 });
 test('legacy manifests can omit all optional grouping metadata', async (t) => {
   const batch = fixture(),
-    value = JSON.parse(batch.manifest.content);
+    value: Manifest = JSON.parse(batch.manifest.content);
   delete value.groups;
   batch.manifest = finalizeEvent({ ...batch.manifest, content: JSON.stringify(value) }, key);
   storage(t);
   relay(t, batch);
-  assert.equal((await readRelaySnapshot(config)).sources.stringer.stories.length, 1);
+  assert.equal((await readRelaySnapshot(config)).sources.stringer!.stories.length, 1);
 });
 test('tied manifest timestamps select the smallest event identifier', async (t) => {
   const batch = fixture(),
-    value = JSON.parse(batch.manifest.content);
-  value.sources.bbc.pending = 3;
+    value: Manifest = JSON.parse(batch.manifest.content);
+  value.sources.bbc!.pending = 3;
   const alternate = finalizeEvent({ ...batch.manifest, content: JSON.stringify(value) }, key);
   storage(t);
   relay(t, batch, { manifests: [batch.manifest, alternate] });
   const result = await readRelaySnapshot(config);
-  assert.equal(result.sources.bbc.pending, alternate.id < batch.manifest.id ? 3 : undefined);
+  assert.equal(result.sources.bbc!.pending, alternate.id < batch.manifest.id ? 3 : undefined);
 });
 test('group replies arriving before stories do not publish an unverified empty collection', async (t) => {
   const batch = fixture(),
-    value = JSON.parse(batch.manifest.content);
+    value: Manifest = JSON.parse(batch.manifest.content);
   delete value.groups;
   const reply = finalizeEvent(
     { kind: 1, created_at: 1767225600, tags: [], content: 'Grouping reply fixture' },
     key,
   );
-  value.assignments = { [batch.events[0].id]: reply.id };
+  value.assignments = { [batch.events[0]!.id]: reply.id };
   batch.manifest = finalizeEvent({ ...batch.manifest, content: JSON.stringify(value) }, key);
   storage(t);
   relay(t, batch, { delay: 150, events: (attempt) => (attempt === 1 ? [reply] : batch.events) });
-  const partials = [];
+  const partials: Snapshot[] = [];
   const result = await readRelaySnapshot(config, undefined, (p) => partials.push(p));
-  assert.equal(result.sources.stringer.stories.length, 1);
-  assert.ok(partials.every((p) => p.sources.stringer.stories.length === 1));
+  assert.equal(result.sources.stringer!.stories.length, 1);
+  assert.ok(partials.every((p) => p.sources.stringer!.stories.length === 1));
 });
 test('reader rejects invalid total load budgets', async () => {
   for (const timeoutMs of [0, -1, NaN, Infinity, 15001]) await assert.rejects(readRelaySnapshot(config, undefined, undefined, undefined, {timeoutMs}), /Invalid reader loading budget/);

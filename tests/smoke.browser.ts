@@ -1,26 +1,42 @@
+
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { launchBrowser } from '../scripts/browser.ts';
 import { checkHomepage, runSmoke } from '../scripts/smoke-homepage.ts';
 import { readFile } from 'node:fs/promises';
+import type { Browser, BrowserContext, BrowserContextOptions } from '@playwright/test';
 import { SOURCES } from '../news-model.ts';
 
 const version = '1234567890abcdef';
-let browser;
+let browser: Browser;
 before(async () => { browser = await launchBrowser(); });
 after(async () => { await browser?.close(); });
 
 // These fixtures exercise the monitor's acceptance contract, not relay behavior.
 // Existing signed-relay browser tests exercise real reader/relay interactions.
-function fixture(options = {}) {
-  const contexts = [];
+interface FixtureOptions {
+  abort?: boolean;
+  broken?: boolean;
+  delay?: number;
+  empty?: boolean;
+  error?: boolean;
+  failed?: boolean;
+  httpError?: boolean;
+  missing?: string;
+  overflow?: boolean;
+  pending?: boolean;
+  stale?: string;
+}
+
+function fixture(options: FixtureOptions = {}) {
+  const contexts: BrowserContext[] = [];
   return {
     contexts,
-    async newContext(settings) {
+    async newContext(settings?: BrowserContextOptions) {
       const context = await browser.newContext(settings);
       contexts.push(context);
       await context.route('https://smoke.test/**', async route => {
-        const name = new URL(route.request().url()).pathname.split('/').at(-1);
+        const name = new URL(route.request().url()).pathname.split('/').at(-1) ?? '';
         if (name.endsWith('.js') || name.endsWith('.css')) {
           if (options.abort && name === 'app.js') return route.abort();
           return route.fulfill({ status: options.broken && name === 'app.js' ? 503 : 200,
@@ -60,7 +76,7 @@ test('monitor checks desktop/mobile from clean contexts, honors the Worker base 
     assert.equal(result.headlines, 1);
     assert.equal(result.stories, 1);
     assert.equal(result.version, version);
-    assert.match(result.feedStatus, /1 unavailable/);
+    assert.match(result.feedStatus ?? '', /1 unavailable/);
     assert.ok(result.completedMs < 15000);
   }
   assert.equal(browser.contexts().length, 0);
@@ -78,7 +94,7 @@ test('monitor rejects stale releases, failed assets, script errors, overflow and
     [{ overflow: true }, /Horizontal overflow/],
     [{ failed: true }, /failed refresh/],
     [{ httpError: true }, /successful response/],
-  ]) {
+  ] satisfies [FixtureOptions, RegExp][]) {
     await assert.rejects(checkHomepage(fixture(options), 'https://smoke.test/', version,
       { widths: [375] }), message);
     assert.equal(browser.contexts().length, 0, 'Failure must close the empty context');
@@ -96,12 +112,13 @@ test('monitor bounds first content and refuses empty or never-finished columns',
 test('runner reads the approved artifact or explicit monitor version and closes the browser on failure', async () => {
   for (const explicit of [true, false]) {
     let closed = false;
-    const env = { READER_PUBLIC_URL: 'https://smoke.test/' };
+    const env: NodeJS.ProcessEnv = { READER_PUBLIC_URL: 'https://smoke.test/' };
     if (explicit) env.EXPECTED_READER_VERSION = version;
-    let output;
+    let output: unknown;
     await runSmoke({ env, read: async () => `<script src="./app.js?v=${version}"></script>`,
       launch: async () => ({ ...fixture(), close: async () => { closed = true; } }),
       write: text => { output = JSON.parse(text); } });
+    assert.ok(Array.isArray(output));
     assert.equal(output.length, 2);
     assert.equal(closed, true);
   }
@@ -120,7 +137,7 @@ test('monitor accepts the actual reader UI with a synthetic relay collection', a
         summary: '', publishedAt: time, image: null }],
     }])) };
   const target = {
-    async newContext(settings) {
+    async newContext(settings?: BrowserContextOptions) {
       const context = await browser.newContext(settings);
       await context.route('**/*', async route => {
         const url = new URL(route.request().url());
