@@ -132,7 +132,7 @@ let accountNip05: string | null = null;
 let identityPending = false;
 let connectingSigner = false;
 let accountRevision = 0;
-let attemptedSigner: Window['nostr'];
+let connectedSigner: Window['nostr'];
 let voteBusy = false;
 let voteMessage = '';
 const openImageReviews = new Set<string>();
@@ -188,7 +188,7 @@ async function castImageVote(storyId: string, candidateId: string | null, rememb
 }
 const imageToolbar = element('div', '', 'image-toolbar');
 imageToolbar.hidden = true;
-requiredElement('#world-news').before(imageToolbar);
+requiredElement('.footer-notes').append(imageToolbar);
 function syncImages() {
   const refs = snapshot?.imageCandidates || {};
   const storyIds = Object.entries(snapshot?.sources || {}).filter(([id]) => id !== 'stringer').flatMap(([, source]) => source.stories.flatMap(story => story.noteId ? [story.noteId] : []));
@@ -210,6 +210,7 @@ function refreshAccount() {
 async function connectNostr() {
   if (!hasSigner() || connectingSigner) return;
   const signer = window.nostr!, revision = ++accountRevision;
+  connectedSigner = signer;
   connectingSigner = true; voteMessage = ''; renderNostrAccount();
   try {
     let timer: ReturnType<typeof setTimeout>;
@@ -236,6 +237,7 @@ async function connectNostr() {
   }
 }
 function renderNostrAccount() {
+  const buttonFocused = imageToolbar.contains(document.activeElement);
   imageToolbar.replaceChildren();
   imageToolbar.hidden = !hasSigner();
   if (imageToolbar.hidden) return;
@@ -248,32 +250,36 @@ function renderNostrAccount() {
   const connect = element('button', connectingSigner ? 'Cancel Nostr connection' : voter ? 'Disconnect Nostr' : 'Connect Nostr');
   connect.type = 'button'; connect.disabled = voteBusy;
   connect.addEventListener('click', () => {
-    if (voter || connectingSigner) {
-      ++accountRevision; connectingSigner = false; voter = null; accountNpub = ''; accountNip05 = null; identityPending = false; voteMessage = ''; refreshAccount();
-    } else void connectNostr();
+    if (voter || connectingSigner) disconnectNostr();
+    else void connectNostr();
   });
   imageToolbar.append(connect);
+  if (buttonFocused) connect.focus({ preventScroll: true });
   let status = voter && imageSession?.trustLive && !imageSession.canVote(voter)
     ? 'This account is not followed by Stringer and cannot approve images.' : voteMessage;
   if (!status && voter && imageSession) status = imageSession.canVote(voter) ? 'You can approve illustrative images.' : 'Waiting for Stringer’s follow list.';
   const message = element('p', status); message.setAttribute('role', 'status'); imageToolbar.append(message);
 }
+function disconnectNostr() {
+  ++accountRevision;
+  connectedSigner = undefined;
+  connectingSigner = false;
+  voter = null;
+  accountNpub = '';
+  accountNip05 = null;
+  identityPending = false;
+  voteMessage = '';
+  refreshAccount();
+}
 function detectNostr() {
-  if (!hasSigner()) {
-    if (voter || connectingSigner) { ++accountRevision; connectingSigner = false; voter = null; accountNpub = ''; accountNip05 = null; identityPending = false; refreshAccount(); }
-    else renderNostrAccount();
-    return;
-  }
-  if (attemptedSigner === window.nostr) return;
-  ++accountRevision; connectingSigner = false;
-  attemptedSigner = window.nostr;
-  void connectNostr();
+  if ((voter || connectingSigner) && (!hasSigner() || connectedSigner !== window.nostr)) disconnectNostr();
+  else renderNostrAccount();
 }
 // Extensions can inject at document_end or shortly after the reader starts.
 let signerChecks = 0;
 const signerTimer = setInterval(() => {
   detectNostr();
-  if (++signerChecks >= 40 || attemptedSigner) clearInterval(signerTimer);
+  if (++signerChecks >= 40 || hasSigner()) clearInterval(signerTimer);
 }, 250);
 window.addEventListener('load', detectNostr);
 window.addEventListener('nostr:ready', detectNostr);
@@ -287,6 +293,28 @@ function commonsCaption(candidate: CommonsImage) {
     const link = element('a', label); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; caption.append(link);
   }
   if (candidate.sourceName) caption.append(document.createTextNode(` · ${candidate.sourceName}`));
+  return caption;
+}
+const creditDialog = element('dialog', '', 'image-credit-dialog');
+creditDialog.setAttribute('aria-label', 'Image credits');
+const closeCredit = element('button', 'Close');
+closeCredit.type = 'button';
+closeCredit.autofocus = true;
+closeCredit.addEventListener('click', () => creditDialog.close());
+document.body.append(creditDialog);
+function thumbnailCredit(candidate: CommonsImage, suggested: boolean) {
+  const caption = element('figcaption');
+  const credit = element('button', 'Image credits');
+  credit.type = 'button';
+  credit.setAttribute('aria-haspopup', 'dialog');
+  if (suggested) credit.setAttribute('aria-description', 'Automatically suggested image');
+  credit.addEventListener('click', () => {
+    const figure = element('figure');
+    figure.append(commonsCaption(candidate));
+    creditDialog.replaceChildren(figure, closeCredit);
+    creditDialog.showModal();
+  });
+  caption.append(credit);
   return caption;
 }
 function prepareImageSearch(storyId: string, title: string) {
@@ -481,7 +509,6 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
     const commons = imageStoryId
       ? imageOptions(imageStoryId).find(image => !skippedImages.get(choiceKey(imageStoryId))?.includes(image.filePage))
       : null;
-    const suggested = commons && commons.filePage !== selection?.winner?.filePage ? commons : null;
     const imageData = wire ? commons : story.image;
     const imageUrl = wire ? commons?.url : safeImageUrl(imageData?.url) || localImage;
     let wireFigure: HTMLElement | null = null;
@@ -534,7 +561,7 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
         imageLink.append(image);
         figure.append(imageLink);
       } else figure.append(image);
-      if (commons) { const caption = commonsCaption(commons); caption.tabIndex = 0; figure.append(caption); }
+      if (commons) figure.append(thumbnailCredit(commons, commons.filePage !== selection?.winner?.filePage));
       if (!wire && story.image?.credit) figure.append(element('figcaption', story.image.credit));
       article.classList.add('with-image'); if (!wire) article.append(figure);
     } else if (usePlaceholder) {
@@ -571,11 +598,7 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
       meta.firstElementChild!.after(separator);
     }
     body.append(meta);
-    if (suggested && imageStoryId) {
-      const pending = element('p', 'Needs approval', 'image-approval-status');
-      pending.title = 'Automatic suggestion — not yet approved by Stringer’s trusted accounts.';
-      pending.setAttribute('aria-label', pending.title); wireFigure?.insertBefore(pending, wireFigure.querySelector('figcaption'));
-    } else if (imageStoryId && !commons) {
+    if (imageStoryId && !commons) {
       const state = commonsSearches.get(imageStoryId);
       wireFigure?.append(element('p', state?.error || (state?.searched
         ? state.results.length ? 'No more suggestions. Undo a skip or search again.' : trusted ? 'No reusable image found. Open image review to refine the search.' : 'No reusable image found for this headline.'

@@ -157,9 +157,12 @@ test('image commands reject stale actions, recover from signer/search failures, 
       lateKey(key); await removed;
       outcomes.push(!document.querySelector('.account-npub'));
       const oldSigner = {getPublicKey: () => new Promise<string>(resolve => {lateKey = resolve;}), signEvent: async () => {}};
-      win.nostr = oldSigner; c.detectNostr(); c.detectNostr();
+      win.nostr = oldSigner; c.detectNostr();
+      const replaced = c.connectNostr(); c.detectNostr();
       win.nostr = {getPublicKey: async () => {throw new Error('New extension detected');}, signEvent: async () => {}};
-      c.detectNostr(); lateKey(key); await new Promise(resolve => setTimer(resolve, 0));
+      c.detectNostr(); lateKey(key); await replaced;
+      (document.querySelector('.image-toolbar button') as HTMLButtonElement).click();
+      await new Promise(resolve => setTimer(resolve, 0));
       outcomes.push(document.body.textContent!.includes('New extension detected'));
       window.setTimeout = setTimer;
       let resolveKey!: (key: string) => void;
