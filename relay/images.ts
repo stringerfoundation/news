@@ -141,8 +141,14 @@ export class ImageSession {
   follows = new Set<string>();
   trustLive = false;
   private cacheKey: string;
-  constructor(readonly config: ReaderConfig, readonly refs: Record<string, string[]>, private changed: () => void, storyIds = Object.keys(refs)) {
+  readonly config: ReaderConfig;
+  readonly refs: Record<string, string[]>;
+  private changed: () => void;
+
+  constructor(config: ReaderConfig, refs: Record<string, string[]>, changed: () => void, storyIds = Object.keys(refs)) {
+    this.config = config;
     this.refs = Object.fromEntries(storyIds.filter(hex).map(id => [id, [...(refs[id] || [])]]));
+    this.changed = changed;
     this.follows.add(config.pubkey);
     this.cacheKey = `stringer-images:${config.pubkey}`;
     try {
