@@ -1427,9 +1427,9 @@ function sourcesForLocale(language) {
 }
 
 // app.ts
-import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=3b93a0c429337eae";
-import relayConfig from "./relay-config.js?v=3b93a0c429337eae";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=3b93a0c429337eae";
+import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=e1c6113f933fcdd6";
+import relayConfig from "./relay-config.js?v=e1c6113f933fcdd6";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=e1c6113f933fcdd6";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1666,7 +1666,7 @@ async function connectNostr() {
       })
     ]).finally(() => clearTimeout(timer));
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=3b93a0c429337eae");
+    const identity = await import("./relay-reader.js?v=e1c6113f933fcdd6");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -2162,7 +2162,13 @@ function renderStories(target, stories, emptyMessage) {
     body.append(meta);
     if (imageStoryId && !commons) {
       const state = commonsSearches.get(imageStoryId);
-      wireFigure?.append(element("p", state?.error || (state?.searched ? state.results.length ? "No more suggestions. Undo a skip or search again." : trusted ? "No reusable image found. Open image review to refine the search." : "No reusable image found for this headline." : "Finding a suggested image\u2026"), state?.error ? "warning" : "image-search-status"));
+      let message = "Finding a suggested image\u2026";
+      if (state?.searched) {
+        if (state.results.length) message = "No more suggestions. Undo a skip or search again.";
+        else if (trusted) message = "No reusable image found. Open image review to refine the search.";
+        else message = "No reusable image found for this headline.";
+      }
+      wireFigure?.append(element("p", state?.error || message, state?.error ? "warning" : "image-search-status"));
     }
     if (imageStoryId && trusted) wireFigure?.insertBefore(imageControls(imageStoryId, story.title, commons), wireFigure.querySelector("figcaption"));
     article.append(body);
@@ -2325,7 +2331,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=3b93a0c429337eae");
+      const reader = await import("./relay-reader.js?v=e1c6113f933fcdd6");
       ImageSessionClass = reader.ImageSession;
       searchImages = reader.searchImages;
       commonsSubject = reader.commonsSubject;
@@ -2399,7 +2405,7 @@ async function loadAtomstr() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = await import("./atomstr-reader.js?v=3b93a0c429337eae");
+    const reader = await import("./atomstr-reader.js?v=e1c6113f933fcdd6");
     if (!snapshot) {
       const sources = reader.cachedAtomstrSources(mirrorSources);
       for (const source of Object.values(sources)) source.status = "loading";
@@ -2425,7 +2431,7 @@ async function loadAtomstr() {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=3b93a0c429337eae");
+            const relay = await import("./relay-reader.js?v=e1c6113f933fcdd6");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
