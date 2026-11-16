@@ -14,9 +14,15 @@ import { collect, snapshotUrl } from '../scripts/collect.ts';
 type FixtureSnapshot = Snapshot & { sources: Record<SourceId, SourceState> };
 let server: Server, browser: Browser, base: string, snapshot: FixtureSnapshot;
 const thumbnail = await readFile(new URL('../assets/favicon-192.png', import.meta.url));
+const footerWordmark = 'https://assets.zyrosite.com/cdn-cgi/image/format=auto,w=1440,h=78,fit=crop/YNqM8ZwbkKHLbB3N/namebig-VjDgG6FwCWdwy9g9.jpg';
 async function mockStoryImages(page: Page) {
-  await page.route('**/*', route => route.request().resourceType() === 'image' && !route.request().url().startsWith(base)
-    ? route.fulfill({body:thumbnail,contentType:'image/png'}) : route.continue());
+  await page.route('**/*', route => {
+    const request = route.request();
+    if (request.resourceType() === 'image' && !request.url().startsWith(base) && request.url() !== footerWordmark) {
+      return route.fulfill({body:thumbnail,contentType:'image/png'});
+    }
+    return route.continue();
+  });
 }
 const testPermissions = Object.fromEntries(SOURCES.map(s=>[s.id,{text:true,summaries:true,images:true}]));
 const errors: string[] = [];
@@ -392,7 +398,11 @@ test('Stringer logo is visible, loaded, correctly sized, and linked on desktop a
     assert.ok(box);
     assert.equal(box.width, expected.logoWidth); assert.equal(box.height, expected.logoHeight);
     assert.equal(await page.locator('header .brand').getAttribute('href'), new URL('/', branding.source).href);
-    assert.equal(await page.locator('footer img').evaluate(el => (el as HTMLImageElement).complete && (el as HTMLImageElement).naturalWidth > 0), true);
+    const wordmark = page.getByRole('contentinfo').getByRole('link', { name: 'The Stringer Foundation home' });
+    assert.equal(await wordmark.getAttribute('href'), new URL('/', branding.source).href);
+    assert.equal(await wordmark.locator('img').getAttribute('src'), footerWordmark);
+    const wordmarkBox = await wordmark.locator('img').boundingBox();
+    assert.ok(wordmarkBox && Math.abs(wordmarkBox.height - wordmarkBox.width * 78 / 1440) < 1);
     await page.close();
   }
 });
@@ -448,13 +458,13 @@ test('header and footer use main-site type sizes, colours, and hover treatments'
     await button.hover(); assert.equal(await cssValue(button, 'backgroundColor'), branding.colors.ink);
     assert.equal(await cssValue(button, 'color'), branding.colors.white);
   }
-  assert.equal(await cssValue(page.locator('.footer-appeal'), 'fontSize'), '16px');
+  assert.equal(await cssValue(page.locator('.footer-appeal'), 'fontSize'), '15px');
   assert.equal(await cssValue(page.locator('.nonprofit'), 'fontSize'), '15px');
   await page.close();
 });
 
 test('header positions match the main site and the mobile menu preserves navigation', async () => {
-  for (const width of [1440, 1280, 1024, 375]) {
+  for (const width of [1440, 1024, 921, 920, 375]) {
     const page = await pageAt('/', width);
     const logo = await page.locator('.brand').boundingBox();
     assert.ok(logo);
@@ -462,15 +472,20 @@ test('header positions match the main site and the mobile menu preserves navigat
     if (width > branding.mobile.breakpoint) {
       const inset = Math.max(0, (width - branding.desktop.headerMaxWidth) / 2);
       assert.equal((await page.locator('header').boundingBox())!.height, branding.desktop.headerHeight);
+      assert.equal(logo.y, 15);
       const mission = await page.getByRole('link', {name: 'Mission', exact: true}).boundingBox();
       assert.equal(mission?.x, inset + branding.desktop.buttonRightInset);
+      assert.equal(mission?.y, 66.25);
       const button = await page.locator('header .donate').boundingBox();
       assert.ok(button);
       assert.equal(button.x + button.width, width - inset - branding.desktop.buttonRightInset);
     } else {
       assert.equal((await page.locator('header').boundingBox())!.height, branding.mobile.headerHeight);
+      assert.equal(logo.y, 5);
       assert.equal(await page.locator('.main-nav').isVisible(), false);
       const toggle = page.getByRole('button', {name: 'Open menu', exact: true});
+      const menuIcon = await toggle.locator('svg').boundingBox();
+      assert.deepEqual(menuIcon, { x: 32, y: 33, width: 24, height: 18 });
       await toggle.click();
       assert.equal(await page.locator('.main-nav').isVisible(), true);
       assert.equal(await page.locator('.header-menu-toggle').getAttribute('aria-expanded'), 'true');
@@ -578,7 +593,7 @@ test('reader hides publisher thumbnails and preserves Stringer photos', async ()
   assert.equal(await page.locator('#stringer-news img').count(),24);
   assert.equal(await page.locator('#stringer-news article').count(),24);
   const sourceImages = new Set(Object.values(snapshot.sources).flatMap(source=>source.stories.flatMap(story=>story.image ? [story.image.url] : [])));
-  assert.ok(imageRequests.every(url=>url.startsWith(base) || sourceImages.has(url)), 'Only configured source photos are requested');
+  assert.ok(imageRequests.every(url=>url.startsWith(base) || url === footerWordmark || sourceImages.has(url)), 'Only configured source photos are requested');
   for (const width of [1280,375]) {
     await page.setViewportSize({width,height:1000});
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
