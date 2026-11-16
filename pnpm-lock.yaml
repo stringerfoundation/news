@@ -18,8 +18,8 @@ importers:
         specifier: 5.11.2
         version: 5.11.2
       nostr-tools:
-        specifier: 2.25.4
-        version: 2.25.4(nostr-wasm@0.1.0)(typescript@7.0.2)
+        specifier: 2.26.0
+        version: 2.26.0(nostr-wasm@0.1.0)(typescript@7.0.2)
     devDependencies:
       '@babel/eslint-parser':
         specifier: 8.0.7
@@ -931,8 +931,8 @@ packages:
     resolution: {integrity: sha512-5qr2okC4ItAI0hG5SaV0HoYMpnM/Y6+Oqr7AmPYy/2uEoGvS+GbSKLeRxSS1uAdu59yz0ouzcuXievSgg///WA==}
     engines: {node: '>=18'}
 
-  nostr-tools@2.25.4:
-    resolution: {integrity: sha512-hL2IS2cX24IfcromireLRm32ZCTivE7VxRZRTjzakOp8EGXzFbBvnqtZtCymm0IRCHkB9D1Za5gV8vmSdehYgg==}
+  nostr-tools@2.26.0:
+    resolution: {integrity: sha512-PMy//IuirMQR61o44UvjKQcQ4C7puKLxELHGv2ghn16P4NvmgdOMX7kyr9VZW9SxHeZHrSTiNoLeRe3fDbE4RA==}
     peerDependencies:
       nostr-wasm: 0.1.0
       typescript: '>=5.0.0'
@@ -1919,7 +1919,7 @@ snapshots:
 
   node-releases@2.0.59: {}
 
-  nostr-tools@2.25.4(nostr-wasm@0.1.0)(typescript@7.0.2):
+  nostr-tools@2.26.0(nostr-wasm@0.1.0)(typescript@7.0.2):
     dependencies:
       '@noble/ciphers': 2.1.1
       '@noble/curves': 2.0.1
