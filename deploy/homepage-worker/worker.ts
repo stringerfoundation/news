@@ -19,6 +19,7 @@ interface Environment {
 type Route =
   | { kind: 'identity' }
   | { kind: 'donate'; search: string }
+  | { kind: 'about'; search: string }
   | { kind: 'legacy' }
   | { kind: 'missing' }
   | { kind: 'home'; path: string }
@@ -32,6 +33,8 @@ export function routeFor(request: Request): Route {
   if (!['GET', 'HEAD'].includes(request.method)) return { kind: 'legacy' };
   if (url.pathname === '/donate' || url.pathname === '/donate/')
     return { kind: 'donate', search: url.search };
+  if (url.pathname === '/who-we-are' || url.pathname === '/who-we-are/')
+    return { kind: 'about', search: url.search };
   if (url.pathname === '/') return { kind: 'home', path: '/' };
   if (!url.pathname.startsWith(prefix)) return { kind: 'legacy' };
   const path = url.pathname.slice(prefix.length);
@@ -59,6 +62,11 @@ export default {
       return new Response(null, {
         status: 301,
         headers: { Location: 'https://stringerjournalism.org/get-involved' + route.search },
+      });
+    if (route.kind === 'about')
+      return new Response(null, {
+        status: 301,
+        headers: { Location: '/about' + route.search },
       });
     if (route.kind === 'legacy') {
       // On a Cloudflare Route, fetch(request) reaches the existing DNS origin.
