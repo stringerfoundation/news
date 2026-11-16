@@ -1,0 +1,78 @@
+name: Deploy homepage Worker
+on:
+  push:
+    branches: [main]
+    paths:
+      - deploy/homepage-worker/worker.ts
+      - public-assets.ts
+      - relay-config.ts
+permissions:
+  contents: read
+concurrency:
+  group: cloudflare-homepage-worker
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: cloudflare-homepage-worker
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Confirm the push changed a Worker input
+        id: changed
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          git cat-file -e "${BEFORE_SHA}^{commit}"
+          git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- \
+            deploy/homepage-worker/worker.ts public-assets.ts relay-config.ts > "$RUNNER_TEMP/worker-changes"
+          if test -s "$RUNNER_TEMP/worker-changes"; then
+            echo 'deploy=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        if: steps.changed.outputs.deploy == 'true'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.changed.outputs.deploy == 'true'
+        with:
+          node-version: '24'
+          cache: pnpm
+      - name: Test homepage Worker routes
+        if: steps.changed.outputs.deploy == 'true'
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec tsx --test deploy/homepage-worker/worker.test.ts
+      - name: Check that Worker inputs are current
+        if: steps.changed.outputs.deploy == 'true'
+        id: current
+        run: |
+          git fetch --no-tags origin main
+          git diff --name-only "$GITHUB_SHA" FETCH_HEAD -- \
+            deploy/homepage-worker/worker.ts public-assets.ts relay-config.ts > "$RUNNER_TEMP/worker-staleness"
+          if test -s "$RUNNER_TEMP/worker-staleness"; then
+            echo 'Newer Worker inputs are on main. Skipping this deployment.'
+          else
+            echo 'deploy=true' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Upload and activate the homepage Worker version
+        if: steps.current.outputs.deploy == 'true'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          : "${CLOUDFLARE_ACCOUNT_ID:?Set the account ID in the cloudflare-homepage-worker environment}"
+          : "${CLOUDFLARE_API_TOKEN:?Set the Worker Edit token in the cloudflare-homepage-worker environment}"
+          config="$RUNNER_TEMP/homepage-worker.json"
+          cat > "$config" <<'JSON'
+          {
+            "name": "stringer-homepage",
+            "compatibility_date": "2026-10-12"
+          }
+          JSON
+          version_tag="gh-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          pnpm dlx wrangler@4.136.3 versions upload "$GITHUB_WORKSPACE/deploy/homepage-worker/worker.ts" \
+            --config "$config" --strict --keep-vars --tag "$version_tag" --message "News $GITHUB_SHA"
+          pnpm dlx wrangler@4.136.3 versions deploy --config "$config" \
+            --version-tag "$version_tag" --percentage 100 --yes --message "News $GITHUB_SHA"
