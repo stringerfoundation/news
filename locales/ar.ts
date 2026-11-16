@@ -33,6 +33,7 @@ const arabic: Readonly<Record<string, string>> = {
   'Feed status': 'حالة الخلاصات', 'Unavailable sources ({count})': 'المصادر غير المتاحة ({count})',
   'Language': 'اللغة', 'Skip to news': 'انتقل إلى الأخبار',
   'The Stringer Foundation home': 'الصفحة الرئيسية لمؤسسة Stringer',
+  'About': 'من نحن', 'Contact': 'اتصل بنا', 'Get involved': 'شارك معنا',
   'Main navigation': 'التنقل الرئيسي', 'Donate': 'تبرّع', 'Donate now': 'تبرّع الآن',
   'Home': 'الرئيسية', 'Mission': 'رسالتنا', 'Who we are': 'من نحن', 'Awards': 'الجوائز',
   'Contact us': 'اتصل بنا', 'World news': 'أخبار العالم',

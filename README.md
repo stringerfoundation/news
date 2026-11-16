@@ -6,7 +6,7 @@ Public source for the news homepage at https://stringerjournalism.org/.
 
 GitHub Actions checks pull requests and pushes. Successful CI on `main` updates production at https://stringerfoundation.github.io/news/. Successful same-repository PR builds are published alongside production at `/news/pr-preview/<number>/`. Each PR receives one bot comment linking to its deployed preview and the checked commit.
 
-The Cloudflare Worker in `deploy/homepage-worker/` serves `/` and `/news-assets/` from that Pages site. Other paths and form requests continue to Hostinger. The separate news-subdomain Worker redirects visitors to the main homepage. GitHub Pages has no custom domain; the public website domains stay on Cloudflare and Hostinger.
+The Cloudflare Worker in `deploy/homepage-worker/` serves `/` and `/news-assets/` from that Pages site. GET and HEAD requests to `/donate` (with or without a trailing slash) redirect to `https://stringerjournalism.org/get-involved`, preserving query attribution. Other paths and non-read requests continue to Hostinger. The separate news-subdomain Worker redirects visitors to the main homepage. GitHub Pages has no custom domain; the public website domains stay on Cloudflare and Hostinger.
 
 The private collector and dashboard continue running independently on the operator's server. This repository contains only the public reader, public relay protocol and configuration, public assets, Worker code, and tests. Never add credentials, private keys, journalist CSV files, or databases.
 
@@ -79,4 +79,4 @@ These editions translate the interface only; headlines and Stringer reporting re
 
 The catalogues use active feeds listed by [Atomstr](https://atomstr.data.haus/), checked on 19 October 2026. They do not claim exhaustive coverage. Arabic currently has two direct publisher mirrors; Chinese includes both simplified and traditional reporting and a clearly named Cantonese source. Dutch includes explicitly named football feeds alongside general news; Spanish currently includes EL PAÍS and the sports publisher Olé. All editions preserve the publisher’s original wording and script. A catalogue listing is not a guarantee of continued relay availability.
 
-Run `pnpm run build`, `pnpm test`, and `pnpm run test:browser` to check the generated pages and browser behavior. Locale routes are available on GitHub Pages after merge and deployment. This change does not activate them through the live Cloudflare Worker; its routing remains an independent operator action.
+Run `pnpm run build`, `pnpm test`, and `pnpm run test:browser` to check the generated pages and browser behavior. Locale routes are available on GitHub Pages after merge and deployment. The apex homepage links to those editions on GitHub Pages; the Cloudflare Worker continues to serve the homepage and reader assets only.

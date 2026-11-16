@@ -33,6 +33,7 @@ const chinese: Readonly<Record<string, string>> = {
   'Feed status': '信息源状态', 'Unavailable sources ({count})': '无法获取的来源（{count}）',
   'Language': '语言', 'Skip to news': '跳转到新闻',
   'The Stringer Foundation home': 'Stringer 基金会主页',
+  'About': '关于我们', 'Contact': '联系我们', 'Get involved': '参与其中',
   'Main navigation': '主导航', 'Donate': '捐赠', 'Donate now': '立即捐赠',
   'Home': '主页', 'Mission': '使命', 'Who we are': '关于我们', 'Awards': '奖项',
   'Contact us': '联系我们', 'World news': '世界新闻',

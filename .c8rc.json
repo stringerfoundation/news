@@ -1,0 +1,25 @@
+{
+  "all": true,
+  "include": [
+    "*.ts",
+    "relay/*.ts",
+    "locales/*.ts",
+    "sources/*.ts",
+    "scripts/*.ts",
+    "deploy/*/worker.ts",
+    ".test-output/coverage/browser-sources/*.js"
+  ],
+  "exclude": [
+    "eslint.config.ts",
+    "relay/types.ts"
+  ],
+  "reporter": [
+    "text",
+    "html",
+    "json",
+    "json-summary"
+  ],
+  "tempDirectory": ".test-output/coverage/tmp",
+  "reports-dir": ".test-output/coverage",
+  "excludeAfterRemap": true
+}
