@@ -22,6 +22,7 @@ test('only homepage and namespaced reader assets reach Pages', () => {
   for (const path of ['/mission', '/awards', '/assets/site.css', '/robots.txt', '/sitemap.xml'])
     assert.equal(routeFor(request(path)).kind, 'legacy');
   for (const path of ['/donate', '/donate/']) assert.equal(routeFor(request(path)).kind, 'donate');
+  for (const path of ['/who-we-are', '/who-we-are/']) assert.equal(routeFor(request(path)).kind, 'about');
   for (const path of ['/news-assets/app.js', '/news-assets/response.js', '/news-assets/publications.js', '/news-assets/relay-reader.js', '/news-assets/assets/stringer-thumbnails/photo-1.png'])
     assert.equal(routeFor(request(path)).kind, 'asset');
   for (const path of ['/news-assets/private.csv', '/news-assets/', '/news-assets/dashboard/index.html', '/news-assets/wire-images.js'])
@@ -39,6 +40,18 @@ test('donation links redirect GET and HEAD to the external page, preserving attr
       assert.equal(await response.text(), '');
     }
   }
+});
+test('who-we-are redirects GET and HEAD to about, preserving the query string', async t => {
+  t.mock.method(globalThis, 'fetch', () => { throw new Error('About redirects must not reach an origin'); });
+  for (const method of ['GET', 'HEAD']) {
+    for (const path of ['/who-we-are?utm_source=fixture&campaign=spring', '/who-we-are/?source=fixture']) {
+      const response = await worker.fetch(request(path, method), environment);
+      assert.equal(response.status, 301);
+      assert.equal(response.headers.get('location'), '/about' + new URL('https://example.org' + path).search);
+      assert.equal(await response.text(), '');
+    }
+  }
+  assert.equal(routeFor(request('/who-we-are', 'POST')).kind, 'legacy');
 });
 test('apex NIP-05 identifies the Stringer profile directly with browser CORS support', async t => {
   t.mock.method(globalThis, 'fetch', () => { throw new Error('Identity must not depend on an upstream request'); });
