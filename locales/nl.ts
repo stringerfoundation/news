@@ -33,6 +33,7 @@ const dutch: Readonly<Record<string, string>> = {
   'Feed status': 'Feedstatus', 'Unavailable sources ({count})': 'Niet-beschikbare bronnen ({count})',
   'Language': 'Taal', 'Skip to news': 'Ga naar het nieuws',
   'The Stringer Foundation home': 'Startpagina van The Stringer Foundation',
+  'About': 'Over ons', 'Contact': 'Contact', 'Get involved': 'Doe mee',
   'Main navigation': 'Hoofdnavigatie', 'Donate': 'Doneren', 'Donate now': 'Doneer nu',
   'Home': 'Startpagina', 'Mission': 'Missie', 'Who we are': 'Wie we zijn', 'Awards': 'Prijzen',
   'Contact us': 'Contact', 'World news': 'Wereldnieuws',
