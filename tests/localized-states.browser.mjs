@@ -155,11 +155,14 @@ test('localized fully successful relay collections and fallback preferences keep
 });
 
 
-test('the homepage proxy hides locale navigation and a missing optional options list does not break a refresh', async t => {
+test('the homepage proxy keeps locale navigation visible and a missing optional options list does not break a refresh', async t => {
   const {page, errors} = await setup(t, 'fr', {proxy: true, omitOptions: true});
   await finish(page, 'fr');
   await ready(page);
-  assert.equal(await page.locator('.edition-switcher').isVisible(), false);
+  const switcher = page.getByRole('navigation', {name: translator('fr')('Language')});
+  assert.equal(await switcher.isVisible(), true);
+  assert.equal(await switcher.evaluate(nav => getComputedStyle(nav).justifyContent), 'flex-end');
+  assert.ok(await switcher.evaluate(nav => nav.scrollWidth <= nav.clientWidth));
   assert.equal(await page.locator('#source-options').count(), 0);
   assert.equal(await page.locator('#refresh-status').textContent(), '');
   assert.deepEqual(errors, []);

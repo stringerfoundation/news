@@ -16,8 +16,6 @@ const locale = localeForLanguage(document.documentElement.lang);
 const mirrorSources = sourcesForLocale(locale);
 const atomstrEdition = mirrorSources.length > 0;
 const t = translator(locale);
-// The existing homepage proxy only exposes the English reader's asset allowlist.
-if (document.querySelector('base[href="/news-assets/"]')) requiredElement('.edition-switcher').hidden = true;
 const menuToggle = requiredElement('.header-menu-toggle');
 const headerMenu = requiredElement('#header-menu');
 function setHeaderMenu(open: boolean) {
