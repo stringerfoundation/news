@@ -33,6 +33,7 @@ const spanish: Readonly<Record<string, string>> = {
   'Feed status': 'Estado de los canales', 'Unavailable sources ({count})': 'Fuentes no disponibles ({count})',
   'Language': 'Idioma', 'Skip to news': 'Ir a las noticias',
   'The Stringer Foundation home': 'Página de inicio de The Stringer Foundation',
+  'About': 'Quiénes somos', 'Contact': 'Contacto', 'Get involved': 'Participa',
   'Main navigation': 'Navegación principal', 'Donate': 'Donar', 'Donate now': 'Donar ahora',
   'Home': 'Inicio', 'Mission': 'Misión', 'Who we are': 'Quiénes somos', 'Awards': 'Premios',
   'Contact us': 'Contactar', 'World news': 'Noticias del mundo',

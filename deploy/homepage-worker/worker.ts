@@ -18,6 +18,7 @@ interface Environment {
 
 type Route =
   | { kind: 'identity' }
+  | { kind: 'donate'; search: string }
   | { kind: 'legacy' }
   | { kind: 'missing' }
   | { kind: 'home'; path: string }
@@ -29,6 +30,8 @@ export function routeFor(request: Request): Route {
   if (url.pathname === '/.well-known/nostr.json' && ['GET', 'HEAD', 'OPTIONS'].includes(request.method))
     return { kind: 'identity' };
   if (!['GET', 'HEAD'].includes(request.method)) return { kind: 'legacy' };
+  if (url.pathname === '/donate' || url.pathname === '/donate/')
+    return { kind: 'donate', search: url.search };
   if (url.pathname === '/') return { kind: 'home', path: '/' };
   if (!url.pathname.startsWith(prefix)) return { kind: 'legacy' };
   const path = url.pathname.slice(prefix.length);
@@ -52,6 +55,11 @@ export default {
       });
       return new Response(request.method === 'HEAD' ? null : body, { headers });
     }
+    if (route.kind === 'donate')
+      return new Response(null, {
+        status: 301,
+        headers: { Location: 'https://stringerjournalism.org/get-involved' + route.search },
+      });
     if (route.kind === 'legacy') {
       // On a Cloudflare Route, fetch(request) reaches the existing DNS origin.
       // A separate origin is used only for workers.dev preview requests.
@@ -95,6 +103,10 @@ export default {
         const href = el.getAttribute('href');
         if (href === './') el.setAttribute('href', '/' + homepage.search);
         else if (href?.startsWith('#')) el.setAttribute('href', '/' + homepage.search + href);
+      } })
+      .on('.edition-switcher a[href^="./"][hreflang]:not([href="./"])', { element(el) {
+        // Edition HTML lives on Pages; the apex base URL serves assets only.
+        el.setAttribute('href', new URL(String(el.getAttribute('href')), target).href);
       } })
       .on('meta[name="robots"]', { element(el) {
         if (publicRequest && env.PUBLIC_INDEXING === 'true') el.remove();

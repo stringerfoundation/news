@@ -35,11 +35,11 @@ test('redirect preserves query parameters and disables caching', async () => {
 });
 test('preview forwards legacy requests to public origin', async (t) => {
   t.mock.method(globalThis, 'fetch', async (outgoing) => {
-    assert.equal(outgoing.url, 'https://example.org/donate?x=1');
+    assert.equal(outgoing.url, 'https://example.org/mission?x=1');
     return new Response('legacy');
   });
   assert.equal(
-    await (await worker.fetch(request('/donate?x=1', 'preview.example.org'), env)).text(),
+    await (await worker.fetch(request('/mission?x=1', 'preview.example.org'), env)).text(),
     'legacy',
   );
 });
@@ -66,7 +66,7 @@ test('homepage rewrites relative navigation and indexing only on the configured 
     'fetch',
     async () =>
       new Response(
-        '<html><head><meta name="robots" content="noindex"></head><body><a href="./">Home</a><a href="#stories">Stories</a><a href="https://outside.org">Outside</a></body></html>',
+        '<html><head><meta name="robots" content="noindex"></head><body><a href="./">Home</a><a href="#stories">Stories</a><a href="https://outside.org">Outside</a><nav class="edition-switcher"><a href="./" hreflang="en">English</a><a href="./br/" hreflang="pt-BR">Brazil</a><a href="./pt/" hreflang="pt-PT">Portugal</a></nav></body></html>',
         {
           headers: {
             'content-type': 'text/html',
@@ -87,6 +87,7 @@ test('homepage rewrites relative navigation and indexing only on the configured 
   ]) {
     const response = await worker.fetch(request('/?campaign=test', host), {
       ...env,
+      PAGES_ORIGIN: 'https://pages.example.org/news/',
       PUBLIC_INDEXING: indexing,
     });
     const $ = load(await response.text());
@@ -94,6 +95,9 @@ test('homepage rewrites relative navigation and indexing only on the configured 
     assert.equal($('a').eq(0).attr('href'), '/?campaign=test');
     assert.equal($('a').eq(1).attr('href'), '/?campaign=test#stories');
     assert.equal($('a').eq(2).attr('href'), 'https://outside.org');
+    assert.equal($('[hreflang="en"]').attr('href'), '/?campaign=test');
+    assert.equal($('[hreflang="pt-BR"]').attr('href'), 'https://pages.example.org/news/br/');
+    assert.equal($('[hreflang="pt-PT"]').attr('href'), 'https://pages.example.org/news/pt/');
     assert.equal($('meta[name="robots"]').length, publicIndex ? 0 : 1);
     assert.equal(response.headers.has('x-robots-tag'), !publicIndex);
     assert.equal(response.headers.get('cache-control'), 'no-store');
