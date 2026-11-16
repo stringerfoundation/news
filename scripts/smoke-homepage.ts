@@ -86,7 +86,10 @@ export async function checkHomepage(browser: Pick<Browser, 'newContext'>, url: s
 }
 
 export async function runSmoke({ env = process.env, read = readFile, launch = launchBrowser, write = console.log }: {
-  env?: NodeJS.ProcessEnv; read?: typeof readFile; launch?: typeof launchBrowser; write?: (value: string) => void;
+  env?: NodeJS.ProcessEnv;
+  read?: (path: URL, encoding: 'utf8') => Promise<string>;
+  launch?: () => Promise<Pick<Browser, 'newContext' | 'close'>>;
+  write?: (value: string) => void;
 } = {}) {
   const url = homepageURL(env.READER_PUBLIC_URL);
   const expected = env.EXPECTED_READER_VERSION

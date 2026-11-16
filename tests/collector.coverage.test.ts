@@ -1,10 +1,11 @@
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as collector from '../scripts/collect.ts';
 import { VERIFIED_PUBLICATIONS } from '../scripts/verified-publications.ts';
 import { SOURCES } from '../news-model.ts';
-const rss = (items) => `<rss><channel>${items}</channel></rss>`;
+const rss = (items: string) => `<rss><channel>${items}</channel></rss>`;
 const item = (extra = '', link = 'https://www.bbc.com/a') =>
   `<item><title>Headline</title><link>${link}</link>${extra}</item>`;
 const story = (url = 'https://www.bbc.com/a') => ({
@@ -34,11 +35,11 @@ test('RSS and RDF parsing handles missing dates, text cleanup, image formats and
         '<description><![CDATA[<script>bad</script><style>bad</style>Safe<br>text]]></description><pubDate>invalid</pubDate>',
       ),
     ),
-  )[0];
+  )[0]!;
   assert.equal(parsed.summary, 'Safe text');
   assert.equal(parsed.publishedAt, null);
   assert.equal(
-    collector.parseFeed(`<rdf:RDF>${item('<dc:date>2026-01-01</dc:date>')}</rdf:RDF>`)[0]
+    collector.parseFeed(`<rdf:RDF>${item('<dc:date>2026-01-01</dc:date>')}</rdf:RDF>`)[0]!
       .publishedAt,
     '2026-01-01T00:00:00.000Z',
   );
@@ -50,9 +51,9 @@ test('RSS and RDF parsing handles missing dates, text cleanup, image formats and
     '<media:group><media:content url="https://example.org/notimage"/><media:thumbnail url="https://example.org/i"/><media:description>Group</media:description><media:credit>Group credit</media:credit></media:group>',
   ];
   for (const format of formats)
-    assert.equal(collector.parseFeed(rss(item(format)))[0].image.url, 'https://example.org/i');
+    assert.equal(collector.parseFeed(rss(item(format)))[0]!.image!.url, 'https://example.org/i');
   assert.equal(
-    collector.parseFeed(rss(item('<media:thumbnail url="javascript:bad"/>')))[0].image,
+    collector.parseFeed(rss(item('<media:thumbnail url="javascript:bad"/>')))[0]!.image,
     null,
   );
 });
@@ -72,14 +73,14 @@ test('Open Graph uses secure images, relative paths, and ignores malformed URLs'
     null,
   );
   assert.equal(
-    collector.parseOgImage('<meta property="og:image" content="/i">', 'https://example.org').alt,
+    collector.parseOgImage('<meta property="og:image" content="/i">', 'https://example.org')!.alt,
     '',
   );
 });
 test('image enrichment only requests configured hosts and retains headlines on failure', async () => {
   const stories = [
     story(),
-    { ...story('https://www.bbc.com/has'), image: { url: 'https://example.org/i' } },
+    { ...story('https://www.bbc.com/has'), image: { url: 'https://example.org/i', alt: '', credit: '' } },
     story('https://evil.example/a'),
     story('https://www.bbc.com/fail'),
   ];
@@ -87,13 +88,13 @@ test('image enrichment only requests configured hosts and retains headlines on f
   const calls = [];
   const result = await collector.enrichFeedImages('bbc', stories, async (url, options) => {
     calls.push(url);
-    assert.deepEqual(options.allowedHosts, ['www.bbc.com', 'www.bbc.co.uk']);
+    assert.deepEqual(options?.allowedHosts, ['www.bbc.com', 'www.bbc.co.uk']);
     if (url.endsWith('fail')) throw Error('offline');
     return '<meta property="og:image" content="/photo">';
   });
-  assert.equal(result[0].image.url, 'https://www.bbc.com/photo');
-  assert.equal(result[3].image, null);
-  assert.equal(stories[0].image, null);
+  assert.equal(result[0]!.image!.url, 'https://www.bbc.com/photo');
+  assert.equal(result[3]!.image, null);
+  assert.equal(stories[0]!.image, null);
   assert.equal(calls.length, 2);
 });
 test('Stringer extraction fails closed when editorial structure changes', () => {
@@ -116,24 +117,24 @@ test('Stringer extraction fails closed when editorial structure changes', () => 
       undefined,
       '<a href="https://example.org/a/"><img src="https://example.org/photo" alt="Photo"></a><a href="https://example.org/a"><img src="https://example.org/other"></a><a href="javascript:bad"><img src="https://example.org/photo"></a><a href="https://example.org/no"><img src="http://example.org/unsafe"></a>',
     ),
-  )[0];
+  )[0]!;
   assert.equal(parsed.summary, 'Reporting text');
-  assert.equal(parsed.image.url, 'https://example.org/photo');
-  assert.equal(parsed.image.alt, 'Photo');
+  assert.equal(parsed.image!.url, 'https://example.org/photo');
+  assert.equal(parsed.image!.alt, 'Photo');
   assert.equal(
     collector.parseStringer(
       html(undefined, '<a href="https://example.org/a"><img src="https://example.org/photo"></a>'),
-    )[0].image.alt,
+    )[0]!.image!.alt,
     '',
   );
-  assert.equal(collector.parseStringer(html())[0].image, null);
+  assert.equal(collector.parseStringer(html())[0]!.image, null);
   assert.equal(
-    collector.parseStringer(html().replace('https://example.org/a', 'https://example.org/'))[0].url,
+    collector.parseStringer(html().replace('https://example.org/a', 'https://example.org/'))[0]!.url,
     'https://example.org/',
   );
 });
 test('publication metadata distinguishes confirmed instants from calendar dates', () => {
-  const meta = (value) => `<meta property="article:published_time" content="${value}">`;
+  const meta = (value: string) => `<meta property="article:published_time" content="${value}">`;
   for (const value of [
     'bad',
     '2026-02-30',
@@ -157,7 +158,7 @@ test('publication metadata distinguishes confirmed instants from calendar dates'
     collector.parsePublication(meta('2026-01-01T12:00:00')).publicationDate,
     '2026-01-01',
   );
-  const json = (value) => `<script type="application/ld+json">${JSON.stringify(value)}</script>`;
+  const json = (value: unknown) => `<script type="application/ld+json">${JSON.stringify(value)}</script>`;
   assert.equal(
     collector.parsePublication(
       json({ '@graph': [null, 5, { '@type': ['VideoObject'], uploadDate: '2026-01-02' }] }),
@@ -183,7 +184,7 @@ test('publication metadata distinguishes confirmed instants from calendar dates'
   );
 });
 test('publication enrichment prefers verified dates and retains matching confirmed instants', async () => {
-  const [url, verified] = [...VERIFIED_PUBLICATIONS].find(([, v]) => v.publicationDate);
+  const [url, verified] = [...VERIFIED_PUBLICATIONS].find(([, v]) => v.publicationDate)!;
   const same = {
     ...story(url),
     publishedAt: verified.publicationDate + 'T12:00:00Z',
@@ -209,16 +210,16 @@ test('publication enrichment prefers verified dates and retains matching confirm
       throw Error('offline');
     },
   );
-  assert.equal(result[0].publishedAt, same.publishedAt);
-  assert.equal(result[1].publicationDate, '2026-01-01');
-  assert.equal(result[2].publicationSource, null);
-  assert.equal(result[3].publicationDate, '2026-01-05');
+  assert.equal(result[0]!.publishedAt, same.publishedAt);
+  assert.equal(result[1]!.publicationDate, '2026-01-01');
+  assert.equal(result[2]!.publicationSource, null);
+  assert.equal(result[3]!.publicationDate, '2026-01-05');
   const conflict = await collector.enrichPublications(
     [story(url)],
     [{ ...same, publishedAt: '2000-01-01T00:00:00Z' }],
     async () => '',
   );
-  assert.equal(conflict[0].publicationDate, verified.publicationDate);
+  assert.equal(conflict[0]!.publicationDate, verified.publicationDate);
   assert.deepEqual(await collector.enrichPublications([]), []);
 });
 test('baseline permits reviewed resets but blocks unexpected losses', () => {
@@ -229,7 +230,7 @@ test('baseline permits reviewed resets but blocks unexpected losses', () => {
   assert.equal(collector.checkBaseline(stories, [story(), story()], true), stories);
 });
 test('fetch retries failures with exponential backoff and validates response limits', async () => {
-  const waits = [];
+  const waits: number[] = [];
   let attempts = 0;
   assert.equal(
     await collector.fetchText('https://example.org', {
@@ -237,7 +238,7 @@ test('fetch retries failures with exponential backoff and validates response lim
         if (attempts++ < 2) throw Error('offline');
         return new Response('feed');
       },
-      sleep: async (ms) => waits.push(ms),
+      sleep: async (ms) => { waits.push(ms); },
     }),
     'feed',
   );
@@ -264,13 +265,13 @@ test('restricted article fetches enforce HTTPS, host allowlists and redirect bou
       collector.fetchText(url, { ...options, fetchImpl: () => assert.fail() }),
       /host not configured/,
     );
-  const visited = [];
+  const visited: (Request | URL | string)[] = [];
   assert.equal(
     await collector.fetchText('https://example.org/a', {
       ...options,
       fetchImpl: async (url, init) => {
         visited.push(url);
-        assert.equal(init.redirect, 'manual');
+        assert.equal(init?.redirect, 'manual');
         return visited.length === 1
           ? new Response(null, { status: 302, headers: { location: '/b' } })
           : new Response('ok');
@@ -318,11 +319,11 @@ test('collection handles first runs, recovery, grants and daily Stringer schedul
       ),
     ]),
   );
-  const request = async (url) =>
+  const request = async (url: string) =>
     fixtures[url] || '<meta property="article:published_time" content="2025-01-01">';
   const first = await collector.collect({ previousSnapshot: null, now: () => time, request });
-  assert.equal(first.sources.stringer.status, 'success');
-  const messages = [];
+  assert.equal(first.sources.stringer!.status, 'success');
+  const messages: string[] = [];
   await assert.rejects(
     collector.collect({
       pagesUrl: 'https://example.org',
@@ -333,7 +334,7 @@ test('collection handles first runs, recovery, grants and daily Stringer schedul
     }),
     /Publication blocked/,
   );
-  assert.ok(messages[0].includes('Previous snapshot unavailable'));
+  assert.ok(messages[0]!.includes('Previous snapshot unavailable'));
   const recovered = await collector.collect({
     pagesUrl: 'https://example.org/',
     now: () => time,
@@ -349,14 +350,14 @@ test('collection handles first runs, recovery, grants and daily Stringer schedul
     request,
     permissions,
   });
-  assert.equal(limited.sources.stringer.status, 'paused');
+  assert.equal(limited.sources.stringer!.status, 'paused');
   const reset = await collector.collect({
     previousSnapshot: first,
     now: () => time,
     request,
     resetStringerBaseline: true,
   });
-  assert.equal(reset.sources.stringer.status, 'success');
+  assert.equal(reset.sources.stringer!.status, 'success');
   const failed = await collector.collect({
     previousSnapshot: first,
     now: () => '2026-01-03T00:00:00.000Z',
@@ -365,12 +366,12 @@ test('collection handles first runs, recovery, grants and daily Stringer schedul
     },
     log: () => {},
   });
-  assert.equal(failed.sources.stringer.status, 'failure');
-  assert.equal(failed.sources.stringer.lastSuccessAt, time);
+  assert.equal(failed.sources.stringer!.status, 'failure');
+  assert.equal(failed.sources.stringer!.lastSuccessAt, time);
 });
 test('enclosures without an image MIME type are ignored', () => {
   assert.equal(
-    collector.parseFeed(rss(item('<enclosure url="https://example.org/audio"/>')))[0].image,
+    collector.parseFeed(rss(item('<enclosure url="https://example.org/audio"/>')))[0]!.image,
     null,
   );
 });

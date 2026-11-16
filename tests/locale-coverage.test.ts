@@ -1,3 +1,4 @@
+
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
@@ -25,15 +26,15 @@ test('edition registry maps languages and region variants with the English fallb
     ['en', 'en-US'], ['en-GB', 'en-US'], ['pt', 'pt-BR'], ['PT-br', 'pt-BR'], ['pt-PT', 'pt-PT'],
     ['PT-pt', 'pt-PT'], ['fr-CA', 'fr'], ['ES-mx', 'es'], ['ar-EG', 'ar'], ['zh-TW', 'zh'],
     ['ru-RU', 'ru'], ['nl-BE', 'nl'], ['de-AT', 'de'], ['', 'en-US'], ['xx-ZZ', 'en-US'],
-  ]) assert.equal(localeForLanguage(input), expected, input);
+  ] as const) assert.equal(localeForLanguage(input), expected, input);
 });
 
 test('every imported locale catalogue is selected for its language and region variant only', () => {
   assert.strictEqual(EDITION_SOURCES['pt-BR'], EDITION_SOURCES['pt-PT']);
-  assert.ok(EDITION_SOURCES['pt-BR'].length > 0);
+  assert.ok(EDITION_SOURCES['pt-BR']!.length > 0);
   for (const locale of localizedLocales) {
     const sources = EDITION_SOURCES[locale];
-    assert.ok(sources.length > 0, `${locale} catalogue has sources`);
+    assert.ok(sources?.length, `${locale} catalogue has sources`);
     assert.strictEqual(sourcesForLocale(locale), sources);
     assert.strictEqual(sourcesForLocale(`${locale}-XX`), sources);
   }
@@ -95,7 +96,7 @@ test('localized reader HTML translates interface text, preserves routes, selects
     assert.equal($('nav.main-nav').attr('aria-label'), t('Main navigation'), `${input} translated aria label`);
     assert.equal($('.skip-link').text(), t('Skip to news'), `${input} translated body text`);
     assert.equal(Boolean($('#source-picker').length), true, `${input} source picker`);
-    assert.ok($('#source-count').text().includes(String(EDITION_SOURCES[locale].length)), `${input} source count`);
+    assert.ok($('#source-count').text().includes(String(EDITION_SOURCES[locale]!.length)), `${input} source count`);
     assert.ok($('.source-provenance').text().includes(t('Atomstr mirrors; these are not official publisher Nostr accounts.')),
       `${input} provenance`);
   }

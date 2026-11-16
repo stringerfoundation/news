@@ -1,3 +1,4 @@
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -17,9 +18,9 @@ test('approved version comes from the built application URL', () => {
 });
 
 test('invalid versions and budgets fail before launching a context', async () => {
-  await assert.rejects(checkHomepage(null, 'https://example.org/', 'bad'));
+  await assert.rejects(checkHomepage({ newContext: async () => { throw Error('Must not launch'); } }, 'https://example.org/', 'bad'));
   for (const options of [{ firstStoryMs: 0 }, { firstStoryMs: 10, completionMs: 1 }])
-    await assert.rejects(checkHomepage(null, 'https://example.org/', '1234567890abcdef', options), /Invalid loading budgets/);
+    await assert.rejects(checkHomepage({ newContext: async () => { throw Error('Must not launch'); } }, 'https://example.org/', '1234567890abcdef', options), /Invalid loading budgets/);
 });
 
 test('CLI fails before opening a browser when its destination is missing', () => {

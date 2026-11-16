@@ -1,18 +1,27 @@
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from 'cheerio';
 import worker from '../deploy/homepage-worker/worker.ts';
 import redirect from '../deploy/news-redirect/worker.ts';
+type ElementHandler = { element(element: ElementLike): void };
+type ElementLike = {
+  prepend(html: string): void;
+  getAttribute(name: string): string | undefined;
+  setAttribute(name: string, value: string): void;
+  remove(): void;
+};
+type RewriteHandler = [string, ElementHandler];
 const env = { PUBLIC_HOST: 'example.org', PAGES_ORIGIN: 'https://pages.example.org/' };
 const request = (path = '/', host = 'example.org') => new Request(`https://${host}${path}`);
 // Exercise the worker's HTMLRewriter callbacks against a parsed document.
 class Rewriter {
-  handlers = [];
-  on(selector, handler) {
+  handlers: RewriteHandler[] = [];
+  on(selector: string, handler: ElementHandler) {
     this.handlers.push([selector, handler]);
     return this;
   }
-  async transform(response) {
+  async transform(response: Response) {
     const $ = load(await response.text());
     for (const [selector, handler] of this.handlers)
       $(selector).each((_, node) =>
@@ -34,7 +43,8 @@ test('redirect preserves query parameters and disables caching', async () => {
   assert.equal(await result.text(), '');
 });
 test('preview forwards legacy requests to public origin', async (t) => {
-  t.mock.method(globalThis, 'fetch', async (outgoing) => {
+  t.mock.method(globalThis, 'fetch', async (outgoing: RequestInfo | URL) => {
+    assert.ok(outgoing instanceof Request);
     assert.equal(outgoing.url, 'https://example.org/mission?x=1');
     return new Response('legacy');
   });
@@ -57,9 +67,9 @@ test('worker reports missing assets, bad origins and invalid upstream responses'
   }
 });
 test('homepage rewrites relative navigation and indexing only on the configured public host', async (t) => {
-  globalThis.HTMLRewriter = Rewriter;
+  (globalThis as typeof globalThis & { HTMLRewriter: typeof Rewriter }).HTMLRewriter = Rewriter;
   t.after(() => {
-    delete globalThis.HTMLRewriter;
+    delete (globalThis as typeof globalThis & { HTMLRewriter?: typeof Rewriter }).HTMLRewriter;
   });
   t.mock.method(
     globalThis,
@@ -84,7 +94,7 @@ test('homepage rewrites relative navigation and indexing only on the configured 
     ['example.org', 'true', true],
     ['preview.example.org', 'true', false],
     ['example.org', 'false', false],
-  ]) {
+  ] as const) {
     const response = await worker.fetch(request('/?campaign=test', host), {
       ...env,
       PAGES_ORIGIN: 'https://pages.example.org/news/',

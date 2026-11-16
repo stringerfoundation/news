@@ -1,10 +1,12 @@
-import test from 'node:test';
+
+import test, { type TestContext } from 'node:test';
+import type { LaunchOptions } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm, cp } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 const root = resolve('.');
-async function directory(t) {
+async function directory(t: TestContext) {
   await mkdir('.test-output', { recursive: true });
   const dir = await mkdtemp(resolve('.test-output/tooling-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
@@ -63,7 +65,7 @@ test('browser helper honors an explicit Chrome path while enforcing headless mod
     else process.env.CHROME_PATH = old;
   });
   const marker = {};
-  t.mock.method(chromium, 'launch', async (options) => {
+  t.mock.method(chromium, 'launch', async (options: LaunchOptions) => {
     assert.equal(options.executablePath, '/synthetic/chrome');
     assert.equal(options.headless, true);
     assert.equal(options.timeout, 10);
@@ -77,13 +79,13 @@ test('syntax checker treats a terminated child as failure', async (t) => {
   const { syncBuiltinESMExports } = await import('node:module');
   t.mock.method(fs, 'readdir', async () => [{ name: 'fixture.js', isDirectory: () => false }]);
   t.mock.method(child, 'spawnSync', () => ({ status: null, signal: 'SIGTERM' }));
-  t.mock.method(process, 'exit', (code) => {
+  t.mock.method(process, 'exit', (code: number) => {
     assert.equal(code, 1);
     throw Error('Expected checker exit');
   });
   syncBuiltinESMExports();
   try {
-    await assert.rejects(import('../scripts/check-syntax.ts?terminated'), /Expected checker exit/);
+    await assert.rejects(import(new URL('../scripts/check-syntax.ts?terminated', import.meta.url).href), /Expected checker exit/);
   } finally {
     t.mock.restoreAll();
     syncBuiltinESMExports();

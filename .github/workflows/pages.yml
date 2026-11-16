@@ -85,7 +85,7 @@ jobs:
       matrix:
         include:
           - suite: reader
-            command: node --import tsx --test tests/browser.spec.ts tests/previews.browser.ts tests/smoke.browser.mjs
+            command: node --import tsx --test tests/browser.spec.ts tests/previews.browser.ts tests/smoke.browser.ts
           - suite: editions
             command: node --import tsx --test tests/portuguese.browser.ts tests/multilingual.browser.ts
           - suite: relay
