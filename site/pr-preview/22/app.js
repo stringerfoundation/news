@@ -1427,9 +1427,9 @@ function sourcesForLocale(language) {
 }
 
 // app.ts
-import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=a522020720e4f24d";
-import relayConfig from "./relay-config.js?v=a522020720e4f24d";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=a522020720e4f24d";
+import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=14f26edd7fca116e";
+import relayConfig from "./relay-config.js?v=14f26edd7fca116e";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=14f26edd7fca116e";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1665,7 +1665,7 @@ async function connectNostr() {
       })
     ]).finally(() => clearTimeout(timer));
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=a522020720e4f24d");
+    const identity = await import("./relay-reader.js?v=14f26edd7fca116e");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -2322,7 +2322,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=a522020720e4f24d");
+      const reader = await import("./relay-reader.js?v=14f26edd7fca116e");
       ImageSessionClass = reader.ImageSession;
       searchImages = reader.searchImages;
       commonsSubject = reader.commonsSubject;
@@ -2396,7 +2396,7 @@ async function loadAtomstr() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = await import("./atomstr-reader.js?v=a522020720e4f24d");
+    const reader = await import("./atomstr-reader.js?v=14f26edd7fca116e");
     if (!snapshot) {
       const sources = reader.cachedAtomstrSources(mirrorSources);
       for (const source of Object.values(sources)) source.status = "loading";
@@ -2422,7 +2422,7 @@ async function loadAtomstr() {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=a522020720e4f24d");
+            const relay = await import("./relay-reader.js?v=14f26edd7fca116e");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
