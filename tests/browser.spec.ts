@@ -87,14 +87,18 @@ test('all sources remain enabled without a source selector after polling and rel
     await page.close();
   }
 });
-test('mobile headings stay bold and readable without downloaded fonts', async () => {
+test('mobile masthead and bold news headlines remain readable without downloaded fonts', async () => {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await mockStoryImages(page);
   await page.route('https://fonts.googleapis.com/**', route => route.abort());
   await page.route('https://fonts.gstatic.com/**', route => route.abort());
+  await page.route('https://assets.zyrosite.com/**/*.woff', route => route.abort());
   await page.goto(base);
   await page.waitForSelector('#stringer-news article');
-  for (const selector of ['h1', '#world-title', '#world-news h3', '#stringer-news h3']) {
+  const masthead = page.locator('#page-title');
+  assert.match(await cssValue(masthead, 'fontFamily'), /Georgia, serif/);
+  assert.ok(parseFloat(await cssValue(masthead, 'fontSize')) >= 28);
+  for (const selector of ['#world-title', '#world-news h3', '#stringer-news h3']) {
     const style = await page.locator(selector).first().evaluate(element => {
       const css = getComputedStyle(element);
       return { family: css.fontFamily, weight: css.fontWeight };
@@ -174,8 +178,16 @@ test('desktop, 768px, and mobile layouts render two populated columns without ov
   }
   assert.deepEqual(errors,[]);
 });
-test('relative assets and JSON work at /stringer-news/ and a domain root',async()=>{
-  for(const path of ['/','/stringer-news/']){const page=await pageAt(path);assert.equal(await page.locator('#world-news article').count(),worldStories(snapshot).length);assert.equal(await page.locator('.main-nav [aria-current]').getAttribute('href'),'./');await page.close();}
+test('relative assets and JSON work at /stringer-news/ and a domain root', async () => {
+  for (const path of ['/', '/stringer-news/']) {
+    const page = await pageAt(path);
+    assert.equal(await page.locator('#world-news article').count(), worldStories(snapshot).length);
+    assert.equal(await page.locator('.edition-switcher [aria-current="page"]').getAttribute('href'), './');
+    const logo = page.locator('.brand img');
+    assert.equal(await logo.evaluate((image: HTMLImageElement) => new URL(image.currentSrc).pathname), path + 'assets/stringer-logo.png');
+    assert.ok(await logo.evaluate((image: HTMLImageElement) => image.naturalWidth));
+    await page.close();
+  }
 });
 test('mobile previews five stories per section and preserves independent choices through refresh and resizing', async () => {
   const page = await pageAt('/', 375);
@@ -367,7 +379,7 @@ test('keyboard navigation and requested removals',async()=>{
   assert.equal(await page.locator('#world-news article a').first().getAttribute('rel'),'noopener noreferrer');await page.close();
 });
 
-interface Branding { source: string; colors: Record<'ink' | 'accent' | 'navHover' | 'white', string>; desktop: { logoWidth: number; logoHeight: number; headerMaxWidth: number; logoLeftInset: number; buttonRightInset: number; navFontSize: string; navFontWeight: string; iconSize: number; buttonFontSize: string; buttonRadius: string; buttonPadding: string }; mobile: { breakpoint: number; headerHeight: number; logoLeftInset: number; logoWidth: number; logoHeight: number } }
+interface Branding { source: string; colors: Record<'ink' | 'accent' | 'navHover' | 'white', string>; desktop: { logoWidth: number; logoHeight: number; headerMaxWidth: number; headerHeight: number; buttonRightInset: number; navFontSize: string; navFontWeight: string; iconSize: number; buttonFontSize: string; buttonRadius: string; buttonPadding: string }; mobile: { breakpoint: number; headerHeight: number; logoWidth: number; logoHeight: number } }
 const branding: Branding = JSON.parse(await readFile(new URL('./fixtures/branding.json', import.meta.url), 'utf8'));
 const cssValue = (locator: Locator, property: keyof CSSStyleDeclaration) => locator.evaluate((el, prop) => String(getComputedStyle(el)[prop]), property);
 test('Stringer logo is visible, loaded, correctly sized, and linked on desktop and mobile', async () => {
@@ -379,10 +391,23 @@ test('Stringer logo is visible, loaded, correctly sized, and linked on desktop a
     const box = await logo.boundingBox();
     assert.ok(box);
     assert.equal(box.width, expected.logoWidth); assert.equal(box.height, expected.logoHeight);
-    assert.equal(await page.locator('header .brand').getAttribute('href'), branding.source);
+    assert.equal(await page.locator('header .brand').getAttribute('href'), new URL('/', branding.source).href);
     assert.equal(await page.locator('footer img').evaluate(el => (el as HTMLImageElement).complete && (el as HTMLImageElement).naturalWidth > 0), true);
     await page.close();
   }
+});
+test('Portuguese flags stay together with separate accessible edition links', async () => {
+  const page = await pageAt('/', 375);
+  const brazil = page.getByRole('link', { name: 'Português (Brasil)', exact: true });
+  const portugal = page.getByRole('link', { name: 'Português (Portugal)', exact: true });
+  assert.equal(await brazil.getAttribute('href'), './br/');
+  assert.equal(await portugal.getAttribute('href'), './pt/');
+  const [first, second] = await Promise.all([brazil.boundingBox(), portugal.boundingBox()]);
+  assert.ok(first && second);
+  const gap = second.x - first.x - first.width;
+  assert.equal(first.y, second.y);
+  assert.ok(gap >= 0 && gap < 8, `Expected adjacent flags, measured ${gap}px`);
+  await page.close();
 });
 test('favicons load as correctly sized images at the domain root and project path', async () => {
   for (const path of ['/', '/stringer-news/']) {
@@ -402,10 +427,10 @@ test('favicons load as correctly sized images at the domain root and project pat
 test('header and footer use main-site type sizes, colours, and hover treatments', async () => {
   const page = await pageAt('/', 1440);
   const nav = page.locator('.main-nav a').filter({ hasText: /^Mission$/ });
-  assert.match(await cssValue(nav, 'fontFamily'), /Barlow/);
+  assert.match(await cssValue(nav, 'fontFamily'), /Stringer Web Regular/);
   assert.equal(await cssValue(nav, 'fontSize'), branding.desktop.navFontSize);
   assert.equal(await cssValue(nav, 'fontWeight'), branding.desktop.navFontWeight);
-  assert.equal(await cssValue(nav, 'color'), branding.colors.ink);
+  assert.equal(await cssValue(nav, 'color'), branding.colors.accent);
   await nav.hover(); assert.equal(await cssValue(nav, 'color'), branding.colors.navHover);
   const icon = page.locator('.social-links a').first();
   assert.equal(await cssValue(icon, 'color'), branding.colors.ink);
@@ -413,13 +438,14 @@ test('header and footer use main-site type sizes, colours, and hover treatments'
   await icon.hover(); assert.equal(await cssValue(icon, 'color'), branding.colors.accent);
   for (const location of ['header', 'footer']) {
     const button = page.locator(`${location} .donate`);
-    assert.equal(await cssValue(button, 'backgroundColor'), branding.colors.ink);
+    assert.equal(await cssValue(button, 'backgroundColor'), branding.colors.accent);
+    assert.equal(await button.getAttribute('href'), new URL('/get-involved', branding.source).href);
     assert.equal(await cssValue(button, 'color'), branding.colors.white);
-    assert.match(await cssValue(button, 'fontFamily'), /Montserrat/);
+    assert.match(await cssValue(button, 'fontFamily'), /Stringer Web Regular/);
     assert.equal(await cssValue(button, 'fontSize'), branding.desktop.buttonFontSize);
     assert.equal(await cssValue(button, 'borderRadius'), branding.desktop.buttonRadius);
     assert.equal(await cssValue(button, 'padding'), branding.desktop.buttonPadding);
-    await button.hover(); assert.equal(await cssValue(button, 'backgroundColor'), branding.colors.accent);
+    await button.hover(); assert.equal(await cssValue(button, 'backgroundColor'), branding.colors.ink);
     assert.equal(await cssValue(button, 'color'), branding.colors.white);
   }
   assert.equal(await cssValue(page.locator('.footer-appeal'), 'fontSize'), '16px');
@@ -432,15 +458,16 @@ test('header positions match the main site and the mobile menu preserves navigat
     const page = await pageAt('/', width);
     const logo = await page.locator('.brand').boundingBox();
     assert.ok(logo);
+    assert.equal(logo.x + logo.width / 2, width / 2);
     if (width > branding.mobile.breakpoint) {
       const inset = Math.max(0, (width - branding.desktop.headerMaxWidth) / 2);
-      assert.equal(logo.x, inset + branding.desktop.logoLeftInset);
+      assert.equal((await page.locator('header').boundingBox())!.height, branding.desktop.headerHeight);
+      const mission = await page.getByRole('link', {name: 'Mission', exact: true}).boundingBox();
+      assert.equal(mission?.x, inset + branding.desktop.buttonRightInset);
       const button = await page.locator('header .donate').boundingBox();
       assert.ok(button);
       assert.equal(button.x + button.width, width - inset - branding.desktop.buttonRightInset);
-      assert.equal(button.y, 65);
     } else {
-      assert.equal(logo.x, branding.mobile.logoLeftInset);
       assert.equal((await page.locator('header').boundingBox())!.height, branding.mobile.headerHeight);
       assert.equal(await page.locator('.main-nav').isVisible(), false);
       const toggle = page.getByRole('button', {name: 'Open menu', exact: true});

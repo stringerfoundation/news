@@ -44,6 +44,7 @@ const german: Readonly<Record<string, string>> = {
   'Language': 'Sprache',
   'Skip to news': 'Zum Nachrichtenbereich springen',
   'The Stringer Foundation home': 'Startseite der The Stringer Foundation',
+  'About': 'Über uns', 'Contact': 'Kontakt', 'Get involved': 'Mitmachen',
   'Main navigation': 'Hauptnavigation',
   'Donate': 'Spenden',
   'Donate now': 'Jetzt spenden',
