@@ -3692,7 +3692,7 @@ function expand(hash, prk, info, length = 32) {
   return okm.slice(0, length);
 }
 
-// node_modules/.pnpm/nostr-tools@2.25.4_nostr-wasm@0.1.0_typescript@7.0.2/node_modules/nostr-tools/lib/esm/index.js
+// node_modules/.pnpm/nostr-tools@2.26.0_nostr-wasm@0.1.0_typescript@7.0.2/node_modules/nostr-tools/lib/esm/index.js
 var __defProp = Object.defineProperty;
 var __export = (target, all) => {
   for (var name in all)
@@ -5098,9 +5098,10 @@ function wrapManyEvents(event, senderPrivateKey, recipientsPublicKeys) {
     throw new Error("At least one recipient is required.");
   }
   const senderPublicKey = getPublicKey(senderPrivateKey);
-  const wrappeds = [wrapEvent(event, senderPrivateKey, senderPublicKey)];
+  const rumor = createRumor(event, senderPrivateKey);
+  const wrappeds = [createWrap(createSeal(rumor, senderPrivateKey, senderPublicKey), senderPublicKey)];
   recipientsPublicKeys.forEach((recipientPublicKey) => {
-    wrappeds.push(wrapEvent(event, senderPrivateKey, recipientPublicKey));
+    wrappeds.push(createWrap(createSeal(rumor, senderPrivateKey, recipientPublicKey), recipientPublicKey));
   });
   return wrappeds;
 }
@@ -5132,9 +5133,9 @@ function unwrapManyEvents(wrappedEvents, recipientPrivateKey) {
   unwrappedEvents.sort((a, b) => a.created_at - b.created_at);
   return unwrappedEvents;
 }
-function createEvent(recipients, message, conversationTitle, replyTo) {
+function createEvent(recipients, message, conversationTitle, replyTo, createdAt) {
   const baseEvent = {
-    created_at: Math.ceil(Date.now() / 1e3),
+    created_at: createdAt ?? Math.ceil(Date.now() / 1e3),
     kind: PrivateDirectMessage,
     tags: [],
     content: message
@@ -5151,17 +5152,18 @@ function createEvent(recipients, message, conversationTitle, replyTo) {
   }
   return baseEvent;
 }
-function wrapEvent2(senderPrivateKey, recipient, message, conversationTitle, replyTo) {
-  const event = createEvent(recipient, message, conversationTitle, replyTo);
+function wrapEvent2(senderPrivateKey, recipient, message, conversationTitle, replyTo, createdAt) {
+  const event = createEvent(recipient, message, conversationTitle, replyTo, createdAt);
   return wrapEvent(event, senderPrivateKey, recipient.publicKey);
 }
-function wrapManyEvents2(senderPrivateKey, recipients, message, conversationTitle, replyTo) {
+function wrapManyEvents2(senderPrivateKey, recipients, message, conversationTitle, replyTo, createdAt) {
   if (!recipients || recipients.length === 0) {
     throw new Error("At least one recipient is required.");
   }
   const senderPublicKey = getPublicKey(senderPrivateKey);
+  const rumorCreatedAt = createdAt ?? Math.ceil(Date.now() / 1e3);
   return [{ publicKey: senderPublicKey }, ...recipients].map(
-    (recipient) => wrapEvent2(senderPrivateKey, recipient, message, conversationTitle, replyTo)
+    (recipient) => wrapEvent2(senderPrivateKey, recipient, message, conversationTitle, replyTo, rumorCreatedAt)
   );
 }
 var unwrapEvent2 = unwrapEvent;
@@ -5878,9 +5880,13 @@ function validateZapRequest(zapRequestString) {
     return "Zap request doesn't have a 'p' tag.";
   if (!isHex32(p[1]))
     return "Zap request 'p' tag is not valid hex.";
+  if (zapRequest.tags.filter(([t]) => t === "p").length > 1)
+    return "Zap request has more than one 'p' tag.";
   let e = zapRequest.tags.find(([t, v]) => t === "e" && v);
   if (e && !isHex32(e[1]))
     return "Zap request 'e' tag is not valid hex.";
+  if (zapRequest.tags.filter(([t]) => t === "e").length > 1)
+    return "Zap request has more than one 'e' tag.";
   let relays = zapRequest.tags.find(([t, v]) => t === "relays" && v);
   if (!relays)
     return "Zap request doesn't have a 'relays' tag.";
@@ -6553,7 +6559,7 @@ async function validateEvent2(event, url, method, body) {
   return true;
 }
 
-// node_modules/.pnpm/nostr-tools@2.25.4_nostr-wasm@0.1.0_typescript@7.0.2/node_modules/nostr-tools/lib/esm/pool.js
+// node_modules/.pnpm/nostr-tools@2.26.0_nostr-wasm@0.1.0_typescript@7.0.2/node_modules/nostr-tools/lib/esm/pool.js
 var utf8Decoder2 = new TextDecoder("utf-8");
 var utf8Encoder3 = new TextEncoder();
 function normalizeURL2(url) {
@@ -6882,14 +6888,27 @@ var AbstractRelay = class {
         this.reconnectAttempts = 0;
         for (const sub of this.openSubs.values()) {
           sub.eosed = false;
-          if (isReconnection) {
-            for (let f = 0; f < sub.filters.length; f++) {
-              if (sub.lastEmitted) {
-                sub.filters[f].since = sub.lastEmitted + 1;
-              }
+          const since = isReconnection ? sub.lastEmitted : void 0;
+          let originalSince;
+          if (since !== void 0) {
+            originalSince = sub.filters.map((filter) => filter.since);
+            sub.filters = sub.filters.map((filter) => ({ ...filter }));
+            const cursor = Math.min(Math.floor(Date.now() / 1e3), since);
+            for (const filter of sub.filters) {
+              filter.since = cursor;
             }
           }
           sub.fire();
+          if (originalSince) {
+            for (let i22 = 0; i22 < sub.filters.length; i22++) {
+              const value = originalSince[i22];
+              if (value === void 0) {
+                delete sub.filters[i22].since;
+              } else {
+                sub.filters[i22].since = value;
+              }
+            }
+          }
         }
         if (this.enablePing) {
           this.pingIntervalHandle = setInterval(() => this.pingpong(), this.pingFrequency);
@@ -7115,12 +7134,12 @@ var AbstractRelay = class {
           const so = this.openSubs.get(data[1]);
           const event = data[2];
           if (matchFilters(so.filters, event) && this.verifyEvent(event, this.url)) {
+            if (!so.lastEmitted || so.lastEmitted < event.created_at)
+              so.lastEmitted = event.created_at;
             so.onevent(event);
           } else {
             so.oninvalidevent?.(event);
           }
-          if (!so.lastEmitted || so.lastEmitted < event.created_at)
-            so.lastEmitted = event.created_at;
           return;
         }
         case "COUNT": {
@@ -7454,9 +7473,11 @@ var AbstractSimplePool = class {
       if (params.alreadyHaveEvent?.(id)) {
         return true;
       }
-      const have = _knownIds.has(id);
-      _knownIds.add(id);
-      return have;
+      return _knownIds.has(id);
+    };
+    const localOneventHandler = function(event) {
+      _knownIds.add(event.id);
+      params.onevent?.call(this, event);
     };
     const allOpened = Promise.all(
       groupedRequests.map(async ({ url, filters }, i22) => {
@@ -7488,6 +7509,7 @@ var AbstractSimplePool = class {
                   onclose: (reason2) => {
                     handleClose(i22, url, reason2);
                   },
+                  onevent: params.onevent && localOneventHandler,
                   alreadyHaveEvent: localAlreadyHaveEventHandler,
                   eoseTimeout: params.maxWait,
                   abort: params.abort
@@ -7499,6 +7521,7 @@ var AbstractSimplePool = class {
               handleClose(i22, url, reason);
             }
           },
+          onevent: params.onevent && localOneventHandler,
           alreadyHaveEvent: localAlreadyHaveEventHandler,
           eoseTimeout: params.maxWait,
           abort: params.abort
