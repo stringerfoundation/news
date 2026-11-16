@@ -159,7 +159,7 @@ test('the homepage proxy keeps locale navigation visible and a missing optional 
   const {page, errors} = await setup(t, 'fr', {proxy: true, omitOptions: true});
   await finish(page, 'fr');
   await ready(page);
-  const switcher = page.getByRole('navigation', {name: translator('fr')('Language')});
+  const switcher = page.locator('footer').getByRole('navigation', {name: translator('fr')('Language')});
   assert.equal(await switcher.isVisible(), true);
   assert.equal(await switcher.evaluate(nav => getComputedStyle(nav).justifyContent), 'flex-end');
   assert.ok(await switcher.evaluate(nav => nav.scrollWidth <= nav.clientWidth));
