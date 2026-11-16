@@ -45,7 +45,7 @@ class ScreenshotScopeTests(unittest.TestCase):
                 self.assertTrue(scope.affects_reader(name))
 
     def test_docs_tests_tooling_and_ci_do_not_publish_screenshots(self):
-        for name in ('README.md', 'package-lock.json', 'package.json', 'tsconfig.json',
+        for name in ('README.md', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json', 'tsconfig.json',
                      'eslint.config.ts', 'public-assets.ts', '.github/workflows/pages.yml',
                      'scripts/build.ts', 'scripts/pages-preview.py',
                      'tests/browser.spec.ts', 'tests/fixtures/page.html',

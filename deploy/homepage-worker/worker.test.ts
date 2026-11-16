@@ -19,13 +19,26 @@ function assertIdentity(value: unknown): asserts value is {
 }
 test('only homepage and namespaced reader assets reach Pages', () => {
   for (const path of ['/', '/?utm_source=fixture']) assert.equal(routeFor(request(path)).kind, 'home');
-  for (const path of ['/donate', '/mission', '/awards', '/assets/site.css', '/robots.txt', '/sitemap.xml'])
+  for (const path of ['/mission', '/awards', '/assets/site.css', '/robots.txt', '/sitemap.xml'])
     assert.equal(routeFor(request(path)).kind, 'legacy');
+  for (const path of ['/donate', '/donate/']) assert.equal(routeFor(request(path)).kind, 'donate');
   for (const path of ['/news-assets/app.js', '/news-assets/response.js', '/news-assets/publications.js', '/news-assets/relay-reader.js', '/news-assets/assets/stringer-thumbnails/photo-1.png'])
     assert.equal(routeFor(request(path)).kind, 'asset');
   for (const path of ['/news-assets/private.csv', '/news-assets/', '/news-assets/dashboard/index.html', '/news-assets/wire-images.js'])
     assert.equal(routeFor(request(path)).kind, 'missing');
   assert.equal(routeFor(request('/', 'POST')).kind, 'legacy');
+  assert.equal(routeFor(request('/donate?source=fixture', 'POST')).kind, 'legacy');
+});
+test('donation links redirect GET and HEAD to the external page, preserving attribution', async t => {
+  t.mock.method(globalThis, 'fetch', () => { throw new Error('Donation redirects must not reach an origin'); });
+  for (const method of ['GET', 'HEAD']) {
+    for (const path of ['/donate?utm_source=fixture&campaign=spring', '/donate/?source=fixture']) {
+      const response = await worker.fetch(request(path, method), environment);
+      assert.equal(response.status, 301);
+      assert.equal(response.headers.get('location'), 'https://stringerjournalism.org/get-involved' + new URL('https://example.org' + path).search);
+      assert.equal(await response.text(), '');
+    }
+  }
 });
 test('apex NIP-05 identifies the Stringer profile directly with browser CORS support', async t => {
   t.mock.method(globalThis, 'fetch', () => { throw new Error('Identity must not depend on an upstream request'); });

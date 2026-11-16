@@ -1,0 +1,267 @@
+{
+  "description": "Synthetic offline fixture signed and assembled by the maintained TypeScript protocol. No keys or live data.",
+  "now": 1793880000000,
+  "pubkey": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+  "englishSources": [
+    {
+      "id": "bbc",
+      "homepage": "https://www.bbc.com/news",
+      "linkLabel": "BBC News",
+      "name": "BBC World",
+      "url": "https://feeds.bbci.co.uk/news/world/rss.xml"
+    },
+    {
+      "id": "nyt",
+      "homepage": "https://www.nytimes.com/section/world",
+      "linkLabel": "The New York Times",
+      "name": "NYT World",
+      "mayRequireSubscription": true,
+      "url": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"
+    },
+    {
+      "id": "aljazeera",
+      "homepage": "https://www.aljazeera.com/",
+      "linkLabel": "Al Jazeera",
+      "name": "Al Jazeera",
+      "url": "https://www.aljazeera.com/xml/rss/all.xml"
+    },
+    {
+      "id": "dw",
+      "homepage": "https://www.dw.com/",
+      "linkLabel": "DW",
+      "name": "DW",
+      "url": "https://rss.dw.com/rdf/rss-en-all"
+    },
+    {
+      "id": "cna",
+      "homepage": "https://www.channelnewsasia.com/world",
+      "linkLabel": "CNA",
+      "name": "CNA",
+      "url": "https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml&category=6311"
+    },
+    {
+      "id": "stringer",
+      "homepage": "https://stringerjournalism.org/courageous-stories",
+      "linkLabel": "Stringer",
+      "name": "Stringer",
+      "url": "https://stringerjournalism.org/courageous-stories"
+    }
+  ],
+  "permissions": {
+    "bbc": {
+      "text": true,
+      "summaries": false,
+      "images": false
+    },
+    "nyt": {
+      "text": true,
+      "summaries": false,
+      "images": false
+    },
+    "aljazeera": {
+      "text": true,
+      "summaries": false,
+      "images": false
+    },
+    "dw": {
+      "text": true,
+      "summaries": false,
+      "images": false
+    },
+    "cna": {
+      "text": true,
+      "summaries": false,
+      "images": false
+    },
+    "stringer": {
+      "text": true,
+      "summaries": true,
+      "images": true
+    }
+  },
+  "source": {
+    "id": "test",
+    "name": "Synthetic publisher",
+    "feeds": [
+      {
+        "url": "https://example.org/rss",
+        "pubkey": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f"
+      }
+    ]
+  },
+  "batch": {
+    "events": [
+      {
+        "kind": 1,
+        "created_at": 1793880000,
+        "content": "خبر أصلي — ação e ciência\nhttps://example.org/bbc",
+        "tags": [
+          [
+            "r",
+            "https://example.org/bbc"
+          ],
+          [
+            "stringer",
+            "bbc",
+            "{\"title\":\"خبر أصلي — ação e ciência\",\"url\":\"https://example.org/bbc\",\"summary\":\"Synthetic summary\",\"credits\":\"Synthetic reporter\",\"publishedAt\":\"2026-11-05T12:00:00.000Z\",\"publicationDate\":\"2026-11-05\",\"publicationSource\":\"https://example.org/bbc\",\"image\":null}"
+          ]
+        ],
+        "pubkey": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "id": "28861873e7898d31af6b3fc41df50b847943e1c5a0fc5c272c7873d83bfbf38e",
+        "sig": "1a5f2c5223198e8405fc8d2322915c0362a34544811b37403ed102c8895f37aec204a97b280abc83f25d075ca20db6d3110f8e861fe26223262b47e8da5d958b"
+      },
+      {
+        "kind": 1,
+        "created_at": 1793880000,
+        "content": "خبر أصلي — ação e ciência\nhttps://example.org/nyt",
+        "tags": [
+          [
+            "r",
+            "https://example.org/nyt"
+          ],
+          [
+            "stringer",
+            "nyt",
+            "{\"title\":\"خبر أصلي — ação e ciência\",\"url\":\"https://example.org/nyt\",\"summary\":\"Synthetic summary\",\"credits\":\"Synthetic reporter\",\"publishedAt\":\"2026-11-05T12:00:00.000Z\",\"publicationDate\":\"2026-11-05\",\"publicationSource\":\"https://example.org/nyt\",\"image\":null}"
+          ]
+        ],
+        "pubkey": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "id": "dde9d990dbc46b845660010949b8e9c7e5f629dfddfbdebc47001558cfe83717",
+        "sig": "c43de3b6e8caa9407aea6171c7457d110d3030af9ccffbafc2e37892ebca5064fe0388435379d6af3de216c39da6f3d5555ce7886b8001a7be293cdc447345ae"
+      },
+      {
+        "kind": 1,
+        "created_at": 1793880000,
+        "content": "خبر أصلي — ação e ciência\nhttps://example.org/aljazeera",
+        "tags": [
+          [
+            "r",
+            "https://example.org/aljazeera"
+          ],
+          [
+            "stringer",
+            "aljazeera",
+            "{\"title\":\"خبر أصلي — ação e ciência\",\"url\":\"https://example.org/aljazeera\",\"summary\":\"Synthetic summary\",\"credits\":\"Synthetic reporter\",\"publishedAt\":\"2026-11-05T12:00:00.000Z\",\"publicationDate\":\"2026-11-05\",\"publicationSource\":\"https://example.org/aljazeera\",\"image\":null}"
+          ]
+        ],
+        "pubkey": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "id": "e9fa3a8ff9067c949fbe32c3fc524904c2a95192d0fae6d07df21b11f0079cff",
+        "sig": "c49e8445126a8c76fa454fce49aafdae8afbd1b1cdce0ff41bbc5000ef0513e976b272e1ec1a72c133c353e9c6c5b40d828740edf5ddbf72e9a02edfe3983dc9"
+      },
+      {
+        "kind": 1,
+        "created_at": 1793880000,
+        "content": "خبر أصلي — ação e ciência\nhttps://example.org/dw",
+        "tags": [
+          [
+            "r",
+            "https://example.org/dw"
+          ],
+          [
+            "stringer",
+            "dw",
+            "{\"title\":\"خبر أصلي — ação e ciência\",\"url\":\"https://example.org/dw\",\"summary\":\"Synthetic summary\",\"credits\":\"Synthetic reporter\",\"publishedAt\":\"2026-11-05T12:00:00.000Z\",\"publicationDate\":\"2026-11-05\",\"publicationSource\":\"https://example.org/dw\",\"image\":null}"
+          ]
+        ],
+        "pubkey": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "id": "ecf576b28d75132960586884a56a33f576e19d7a4d407aecbdeaf6df401d4b20",
+        "sig": "538aed4aa3eebaa82a27a0f89d901e5b45f0d6f6e25937ed872be264065c6292a6d30966278c97998fd644796a99e5fdc01549ab60103336d9599d866dc8d543"
+      },
+      {
+        "kind": 1,
+        "created_at": 1793880000,
+        "content": "خبر أصلي — ação e ciência\nhttps://example.org/cna",
+        "tags": [
+          [
+            "r",
+            "https://example.org/cna"
+          ],
+          [
+            "stringer",
+            "cna",
+            "{\"title\":\"خبر أصلي — ação e ciência\",\"url\":\"https://example.org/cna\",\"summary\":\"Synthetic summary\",\"credits\":\"Synthetic reporter\",\"publishedAt\":\"2026-11-05T12:00:00.000Z\",\"publicationDate\":\"2026-11-05\",\"publicationSource\":\"https://example.org/cna\",\"image\":null}"
+          ]
+        ],
+        "pubkey": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "id": "c6b3eb1a87b7a7e350e6ba5d12edcf70630ef5074fafaba8a51574d61d4f803a",
+        "sig": "86c1005826e2693c17a7d266a7a48af2d7c2a5f43d3494244395a59c4acfb88eb8a9bc8a0476e1783b5962171a2f3dc6fcded1476e8e666d1bccd06eedc97b54"
+      },
+      {
+        "kind": 1,
+        "created_at": 1793880000,
+        "content": "خبر أصلي — ação e ciência\nhttps://example.org/stringer",
+        "tags": [
+          [
+            "r",
+            "https://example.org/stringer"
+          ],
+          [
+            "stringer",
+            "stringer",
+            "{\"title\":\"خبر أصلي — ação e ciência\",\"url\":\"https://example.org/stringer\",\"summary\":\"Synthetic summary\",\"credits\":\"Synthetic reporter\",\"publishedAt\":\"2026-11-05T12:00:00.000Z\",\"publicationDate\":\"2026-11-05\",\"publicationSource\":\"https://example.org/stringer\",\"image\":null}"
+          ]
+        ],
+        "pubkey": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+        "id": "7b82af363a5d165a3f27eb5011b54ed0d1ffc3d5a4bf384c135df5bbec006025",
+        "sig": "eadbb255c42be5b4ca736b0d31fec657b3f9ade114597e7add2feb62fae7bb56e4784df1fb19b75b9ba0915af6a99d18f820c4adb11c37731bca2ff4e23adfe2"
+      }
+    ],
+    "manifest": {
+      "kind": 30078,
+      "created_at": 1793880000,
+      "tags": [
+        [
+          "d",
+          "stringer-news-v1"
+        ]
+      ],
+      "content": "{\"version\":1,\"generatedAt\":\"2026-11-05T12:00:00.000Z\",\"sources\":{\"bbc\":{\"status\":\"success\",\"attemptedAt\":\"2026-11-05T12:00:00.000Z\",\"lastSuccessAt\":\"2026-11-05T12:00:00.000Z\",\"error\":null,\"ids\":[\"28861873e7898d31af6b3fc41df50b847943e1c5a0fc5c272c7873d83bfbf38e\"]},\"nyt\":{\"status\":\"success\",\"attemptedAt\":\"2026-11-05T12:00:00.000Z\",\"lastSuccessAt\":\"2026-11-05T12:00:00.000Z\",\"error\":null,\"ids\":[\"dde9d990dbc46b845660010949b8e9c7e5f629dfddfbdebc47001558cfe83717\"]},\"aljazeera\":{\"status\":\"success\",\"attemptedAt\":\"2026-11-05T12:00:00.000Z\",\"lastSuccessAt\":\"2026-11-05T12:00:00.000Z\",\"error\":null,\"ids\":[\"e9fa3a8ff9067c949fbe32c3fc524904c2a95192d0fae6d07df21b11f0079cff\"]},\"dw\":{\"status\":\"success\",\"attemptedAt\":\"2026-11-05T12:00:00.000Z\",\"lastSuccessAt\":\"2026-11-05T12:00:00.000Z\",\"error\":null,\"ids\":[\"ecf576b28d75132960586884a56a33f576e19d7a4d407aecbdeaf6df401d4b20\"]},\"cna\":{\"status\":\"success\",\"attemptedAt\":\"2026-11-05T12:00:00.000Z\",\"lastSuccessAt\":\"2026-11-05T12:00:00.000Z\",\"error\":null,\"ids\":[\"c6b3eb1a87b7a7e350e6ba5d12edcf70630ef5074fafaba8a51574d61d4f803a\"]},\"stringer\":{\"status\":\"success\",\"attemptedAt\":\"2026-11-05T12:00:00.000Z\",\"lastSuccessAt\":\"2026-11-05T12:00:00.000Z\",\"error\":null,\"ids\":[\"7b82af363a5d165a3f27eb5011b54ed0d1ffc3d5a4bf384c135df5bbec006025\"]}},\"groups\":{}}",
+      "pubkey": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+      "id": "73665eb868b95e0c21acba73a93c3cdce6384e8a12cd48c195605149ba311f40",
+      "sig": "0f631ac1af14b596c84829f03b3f8f086c8a28c214d5dd31ab2f851964ba47bdd148a6118163a3a99311771f96b830d14a555fded84989d06b63777d180070c3"
+    }
+  },
+  "atomstr": {
+    "kind": 1,
+    "created_at": 1793879970,
+    "tags": [
+      [
+        "proxy",
+        "https://example.org/rss#https%3A%2F%2Fexample.org%2Foriginal%3Fq%3D1%23part",
+        "rss"
+      ]
+    ],
+    "content": "خبر أصلي — ação e ciência\n\nDiscard this summary and photo.\n\nhttps://example.org/photo.jpg",
+    "pubkey": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+    "id": "4e1bac806ff15d01777513f4f56c1b5e69f23989bef6edbc34673955de23c175",
+    "sig": "f2e8eb6c4fe71d27440b80975fc015e0c7d45c3b97e69243d40e346d2acbdedbd907101bd248cdb8bb349d6f878f8ebb9e856b9c54351d367073f686cc4fbb82"
+  },
+  "olderManifest": {
+    "kind": 30078,
+    "tags": [
+      [
+        "d",
+        "stringer-news-v1"
+      ]
+    ],
+    "created_at": 1793879940,
+    "content": "{\"version\":1,\"generatedAt\":\"2026-11-05T11:59:00.000Z\",\"sources\":{\"bbc\":{\"status\":\"success\",\"attemptedAt\":\"2026-11-05T11:59:00.000Z\",\"lastSuccessAt\":\"2026-11-05T11:59:00.000Z\",\"error\":null,\"ids\":[\"28861873e7898d31af6b3fc41df50b847943e1c5a0fc5c272c7873d83bfbf38e\"]},\"nyt\":{\"status\":\"success\",\"attemptedAt\":\"2026-11-05T11:59:00.000Z\",\"lastSuccessAt\":\"2026-11-05T11:59:00.000Z\",\"error\":null,\"ids\":[\"dde9d990dbc46b845660010949b8e9c7e5f629dfddfbdebc47001558cfe83717\"]},\"aljazeera\":{\"status\":\"success\",\"attemptedAt\":\"2026-11-05T11:59:00.000Z\",\"lastSuccessAt\":\"2026-11-05T11:59:00.000Z\",\"error\":null,\"ids\":[\"e9fa3a8ff9067c949fbe32c3fc524904c2a95192d0fae6d07df21b11f0079cff\"]},\"dw\":{\"status\":\"success\",\"attemptedAt\":\"2026-11-05T11:59:00.000Z\",\"lastSuccessAt\":\"2026-11-05T11:59:00.000Z\",\"error\":null,\"ids\":[\"ecf576b28d75132960586884a56a33f576e19d7a4d407aecbdeaf6df401d4b20\"]},\"cna\":{\"status\":\"success\",\"attemptedAt\":\"2026-11-05T11:59:00.000Z\",\"lastSuccessAt\":\"2026-11-05T11:59:00.000Z\",\"error\":null,\"ids\":[\"c6b3eb1a87b7a7e350e6ba5d12edcf70630ef5074fafaba8a51574d61d4f803a\"]},\"stringer\":{\"status\":\"success\",\"attemptedAt\":\"2026-11-05T11:59:00.000Z\",\"lastSuccessAt\":\"2026-11-05T11:59:00.000Z\",\"error\":null,\"ids\":[\"7b82af363a5d165a3f27eb5011b54ed0d1ffc3d5a4bf384c135df5bbec006025\"]}},\"groups\":{}}",
+    "pubkey": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+    "id": "d9df1d8a71a7d2a51097d3dab02713c7d0d1e8405081174dd0111bc821e0055e",
+    "sig": "edd68e0bc650ce0feed50f5569e8966b09f17615721522018dc7754142dfa0394e96755f8caf52d4d30ddb32a07bb5178f3f91e135bb71c54de48b51f4e9518c"
+  },
+  "newerManifest": {
+    "kind": 30078,
+    "tags": [
+      [
+        "d",
+        "stringer-news-v1"
+      ]
+    ],
+    "created_at": 1793880060,
+    "content": "{\"version\":1,\"generatedAt\":\"2026-11-05T12:01:00.000Z\",\"sources\":{\"bbc\":{\"status\":\"success\",\"attemptedAt\":\"2026-11-05T12:01:00.000Z\",\"lastSuccessAt\":\"2026-11-05T12:01:00.000Z\",\"error\":null,\"ids\":[\"28861873e7898d31af6b3fc41df50b847943e1c5a0fc5c272c7873d83bfbf38e\"]},\"nyt\":{\"status\":\"success\",\"attemptedAt\":\"2026-11-05T12:01:00.000Z\",\"lastSuccessAt\":\"2026-11-05T12:01:00.000Z\",\"error\":null,\"ids\":[\"dde9d990dbc46b845660010949b8e9c7e5f629dfddfbdebc47001558cfe83717\"]},\"aljazeera\":{\"status\":\"success\",\"attemptedAt\":\"2026-11-05T12:01:00.000Z\",\"lastSuccessAt\":\"2026-11-05T12:01:00.000Z\",\"error\":null,\"ids\":[\"e9fa3a8ff9067c949fbe32c3fc524904c2a95192d0fae6d07df21b11f0079cff\"]},\"dw\":{\"status\":\"success\",\"attemptedAt\":\"2026-11-05T12:01:00.000Z\",\"lastSuccessAt\":\"2026-11-05T12:01:00.000Z\",\"error\":null,\"ids\":[\"ecf576b28d75132960586884a56a33f576e19d7a4d407aecbdeaf6df401d4b20\"]},\"cna\":{\"status\":\"success\",\"attemptedAt\":\"2026-11-05T12:01:00.000Z\",\"lastSuccessAt\":\"2026-11-05T12:01:00.000Z\",\"error\":null,\"ids\":[\"c6b3eb1a87b7a7e350e6ba5d12edcf70630ef5074fafaba8a51574d61d4f803a\"]},\"stringer\":{\"status\":\"success\",\"attemptedAt\":\"2026-11-05T12:01:00.000Z\",\"lastSuccessAt\":\"2026-11-05T12:01:00.000Z\",\"error\":null,\"ids\":[\"7b82af363a5d165a3f27eb5011b54ed0d1ffc3d5a4bf384c135df5bbec006025\"]}},\"groups\":{}}",
+    "pubkey": "989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f",
+    "id": "a921594b79611473a5bfd1758316deb2f379262c47eaab912754b63c294cc278",
+    "sig": "d6d5af7e7c19f236bfd5182d59ae0a5c74fdd3ace986f28b44b18b86ab0029f7359a3f8cd1fb0bcde8948edbf1b717b113246534d5ae97dbe6c495da5b990ff3"
+  }
+}

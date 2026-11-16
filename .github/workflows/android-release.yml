@@ -1,0 +1,141 @@
+name: Android release
+on:
+  workflow_run:
+    workflows: ['Android CI']
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: android-release-main
+  cancel-in-progress: false
+jobs:
+  release:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: write
+    env:
+      ANDROID_VERSION_CODE: ${{ github.run_number }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      SOURCE_COMMIT: ${{ github.event.workflow_run.head_sha }}
+      SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v4.4.2
+      - name: Skip an older queued release
+        id: ordering
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CURRENT_VERSION_CODE: ${{ github.run_number }}
+          SOURCE_COMMIT: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          main_status="$(gh api "repos/$GITHUB_REPOSITORY/compare/$SOURCE_COMMIT...main" --jq .status)"
+          case "$main_status" in
+            ahead|identical) ;;
+            behind)
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "Skipping stale source commit $SOURCE_COMMIT; main has advanced since it passed Android CI."
+              exit 0
+              ;;
+            *) echo "Source commit $SOURCE_COMMIT is not on the current main history (compare status: $main_status)." >&2; exit 1 ;;
+          esac
+          latest_tag="$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[].tag_name' | sed -n 's/^android-v0\.1\.\([0-9][0-9]*\)$/android-v0.1.\1/p' | sort -t. -k3,3n | tail -n 1)"
+          if [[ -n "$latest_tag" ]]; then
+            latest_version="${latest_tag##*.}"
+            if (( CURRENT_VERSION_CODE < latest_version )); then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "Skipping stale release run $CURRENT_VERSION_CODE; later release $latest_tag already exists."
+              exit 0
+            fi
+            latest_dir="$(mktemp -d)"
+            gh release download "$latest_tag" --pattern android-release-provenance.txt --dir "$latest_dir"
+            latest_source="$(sed -n 's/^Source commit: //p' "$latest_dir/android-release-provenance.txt")"
+            [[ "$latest_source" =~ ^[0-9a-f]{40}$ ]]
+            release_status="$(gh api "repos/$GITHUB_REPOSITORY/compare/$latest_source...$SOURCE_COMMIT" --jq .status)"
+            case "$release_status" in
+              ahead|identical) ;;
+              behind)
+                echo "skip=true" >> "$GITHUB_OUTPUT"
+                echo "Skipping source commit $SOURCE_COMMIT because release $latest_tag already contains newer source $latest_source."
+                exit 0
+                ;;
+              *) echo "Candidate source commit $SOURCE_COMMIT is not a descendant of $latest_source (compare status: $release_status)." >&2; exit 1 ;;
+            esac
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+      - name: Require release signing secrets
+        if: steps.ordering.outputs.skip != 'true'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          test -n "$ANDROID_KEYSTORE_PASSWORD"
+          test -n "$ANDROID_KEY_ALIAS"
+          test -n "$ANDROID_KEY_PASSWORD"
+          umask 077
+          keystore="$RUNNER_TEMP/android-release.keystore"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          test -s "$keystore"
+          echo "ANDROID_KEYSTORE_PATH=$keystore" >> "$GITHUB_ENV"
+      - name: Build the signed universal release APK
+        if: steps.ordering.outputs.skip != 'true'
+        working-directory: android
+        run: ./gradlew --no-daemon :app:assembleRelease
+      - name: Record release provenance
+        if: steps.ordering.outputs.skip != 'true'
+        run: bash scripts/android-release-metadata.sh android/app/build/outputs/apk/release/app-release.apk "$ANDROID_VERSION_CODE" "$SOURCE_COMMIT" "$SOURCE_RUN_ID" "$RUNNER_TEMP/android-release"
+      - name: Create immutable GitHub release
+        if: steps.ordering.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
+          SOURCE_COMMIT: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          tag="android-v0.1.${ANDROID_VERSION_CODE}"
+          apk=android/app/build/outputs/apk/release/app-release.apk
+          provenance="$RUNNER_TEMP/android-release/android-release-provenance.txt"
+          checksum="$RUNNER_TEMP/android-release/app-release.apk.sha256"
+          if gh release view "$tag" --json tagName,targetCommitish >/dev/null 2>&1; then
+            existing_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/$tag" --jq .sha)"
+            if [[ "$existing_commit" != "$SOURCE_COMMIT" ]]; then
+              echo "Release $tag already exists for a different source commit; refusing to replace it." >&2
+              exit 1
+            fi
+            existing_dir="$(mktemp -d)"
+            gh release download "$tag" --pattern app-release.apk --pattern app-release.apk.sha256 --pattern android-release-provenance.txt --dir "$existing_dir"
+            (cd "$existing_dir" && sha256sum --check app-release.apk.sha256)
+            grep -Fx "Source commit: $SOURCE_COMMIT" "$existing_dir/android-release-provenance.txt"
+            echo "Release $tag already exists for this source commit; leaving its published assets unchanged."
+          else
+            gh release create "$tag" "$apk" "$checksum" "$provenance" \
+              --target "$SOURCE_COMMIT" \
+              --title "$tag" \
+              --notes "Stringer Android 0.1.${ANDROID_VERSION_CODE}. Signed APK, checksum, and source provenance are attached."
+          fi
+          printf '%s\n' "$tag" > "$RUNNER_TEMP/android-release/release-tag.txt"
+      - name: Save release tag for independent Zapstore publishing
+        if: steps.ordering.outputs.skip != 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-release-context-${{ github.run_id }}
+          path: ${{ runner.temp }}/android-release/release-tag.txt
+          if-no-files-found: error
+          retention-days: 30

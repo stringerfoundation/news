@@ -1,11 +1,11 @@
 # Frontend tests and coverage
 
-Use Node 24 or newer, then install the pinned dependencies and Chromium:
+Use Node 24 or newer and the pnpm version pinned in `package.json`, then install the pinned dependencies and Chromium:
 
 ```sh
-npm ci
-npx playwright install --with-deps --only-shell chromium
-npm run test:coverage
+pnpm install --frozen-lockfile
+pnpm exec playwright install --with-deps --only-shell chromium
+pnpm run test:coverage
 ```
 
 The coverage command builds the reader, runs the unit, signed-relay, browser,
@@ -15,20 +15,24 @@ The command requires 100% statements, branches, functions, and lines for every
 source file. Missing files count as untested.
 
 Coverage includes the browser app and data model, relay implementation, worker
-entry points, and development scripts. Tests, third-party dependencies, the
+entry points, development scripts, translations, and language-specific publisher
+catalogues. Tests, third-party dependencies, the
 ESLint configuration, and TypeScript declarations are outside the source scope.
 Browser coverage is accepted only when the executed script matches the real
 source; mocked relay modules used in UI contract tests do not contribute.
 The relay bundle's source map attributes browser execution to the original
 TypeScript. Synthetic fixtures exercise relays without publishing any events.
+The multilingual app bundle and both relay bundles retain inline source maps
+only during coverage runs; browser fixtures use the same output location so
+their maps resolve to the original sources.
 
-`npm test` runs the unit tests; `npm run test:browser` runs the static reader
-browser tests; `npm run test:relay-browser` runs the relay integration test after
-`npm run build`. The full coverage command also exercises loading, empty, failed,
+`pnpm test` runs the unit tests; `pnpm run test:browser` runs the static reader
+browser tests; `pnpm run test:relay-browser` runs the relay integration test after
+`pnpm run build`. The full coverage command also exercises loading, empty, failed,
 partial, cached, and stale UI states at desktop and mobile sizes.
 
 The coverage build enables inline source maps for measurement. Rebuild with
-`npm run build` before publishing; ordinary builds omit those maps. Coverage
+`pnpm run build` before publishing; ordinary builds omit those maps. Coverage
 reports and temporary files stay outside the public `_site` artifact. CI runs
 the enforced coverage command on Node 24 and 26 and checks the ordinary build's
 public asset allowlist afterward.
@@ -48,4 +52,18 @@ are labelled explicitly. Superseded commits and closed PRs are skipped.
 The reporting workflow uses default-branch code with read access to artifacts and
 permission to comment on PRs. It reads only bounded numeric summary JSON from
 ZIP artifacts and never extracts or executes PR code. Human comments are retained.
-Its tests run with `npm run test:previews` and mock all GitHub writes.
+Its tests run with `pnpm run test:previews` and mock all GitHub writes.
+
+## Parallel browser CI
+
+Website CI runs the reader/preview/smoke, language-edition, and relay browser
+suites in three independent jobs. They use the digest-pinned official Playwright
+image, with Chromium and its system dependencies already installed. Keep the
+image version in `.github/workflows/pages.yml` aligned with `@playwright/test`
+when upgrading Playwright.
+
+The existing **Public build, artifact and browser regressions** check requires
+all three suites to pass, then rebuilds and validates the public artifact before
+uploading `checked-site`. Only the reader job uploads `preview-screenshots`, so
+artifact names and the trusted publisher's successful-workflow gate stay intact.
+Coverage continues to run the complete suite on both supported Node versions.

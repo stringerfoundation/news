@@ -1,0 +1,12 @@
+repository: https://github.com/stringerfoundation/news
+release_source: ./app-release.apk
+name: Stringer News
+summary: An independent multilingual news reader.
+description: |
+  Stringer News presents publisher headlines with attribution and links to
+  original articles, alongside Stringer reporting. The interface is available
+  in English, Brazilian and European Portuguese, French, Spanish, Arabic,
+  Chinese, Russian, Dutch, and German.
+license: MIT
+website: https://stringerjournalism.org/
+tags: [news, journalism]

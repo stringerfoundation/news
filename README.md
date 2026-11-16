@@ -6,30 +6,32 @@ Public source for the news homepage at https://stringerjournalism.org/.
 
 GitHub Actions checks pull requests and pushes. Successful CI on `main` updates production at https://stringerfoundation.github.io/news/. Successful same-repository PR builds are published alongside production at `/news/pr-preview/<number>/`. Each PR receives one bot comment linking to its deployed preview and the checked commit.
 
-The Cloudflare Worker in `deploy/homepage-worker/` serves `/` and `/news-assets/` from that Pages site. Other paths and form requests continue to Hostinger. The separate news-subdomain Worker redirects visitors to the main homepage. GitHub Pages has no custom domain; the public website domains stay on Cloudflare and Hostinger.
+The Cloudflare Worker in `deploy/homepage-worker/` serves `/` and `/news-assets/` from that Pages site. GET and HEAD requests to `/donate` (with or without a trailing slash) redirect to `https://stringerjournalism.org/get-involved`, preserving query attribution. Other paths and non-read requests continue to Hostinger. The separate news-subdomain Worker redirects visitors to the main homepage. GitHub Pages has no custom domain; the public website domains stay on Cloudflare and Hostinger.
 
 The private collector and dashboard continue running independently on the operator's server. This repository contains only the public reader, public relay protocol and configuration, public assets, Worker code, and tests. Never add credentials, private keys, journalist CSV files, or databases.
 
 ## Development
 
-Use Node 24 or newer:
+The native Android reader lives in [`android/`](android/README.md). It uses the same signed relay protocol and publisher catalogues as the website. Generate its bundled editions and interface translations with `node --import tsx scripts/generate-android-catalogue.ts`; add `--check` to detect drift. Android development requires Java 17 and the Android SDK. See the [Android release guide](docs/android-releases.md) for signing setup, Obtainium updates, and independent Zapstore publication.
+
+Use Node 24 or newer and pnpm 11.18.0 (pinned in `package.json`). Install pnpm with `npm install --global pnpm@11.18.0` if needed:
 
 ```sh
-npm ci
-npm run check
-npm run lint
-npm run typecheck
-npm test
-npm run test:relay
-npm run test:previews
-npm run build
-npm run test:artifact
-npx playwright install chromium
-npm run test:browser
-npm run test:relay-browser
+pnpm install --frozen-lockfile
+pnpm run check
+pnpm run lint
+pnpm run typecheck
+pnpm test
+pnpm run test:relay
+pnpm run test:previews
+pnpm run build
+pnpm run test:artifact
+pnpm exec playwright install chromium
+pnpm run test:browser
+pnpm run test:relay-browser
 ```
 
-All maintained JavaScript source is now TypeScript: the reader, relay implementation, collector, build tooling, Workers, tests, and ESLint configuration share strict compiler checks. `npm run build` compiles browser source to the existing relative JavaScript asset paths in `_site`; TypeScript sources, declarations, and source maps are excluded from the published allowlist. Tests load source modules through `tsx`; browser fixtures compile their source with esbuild. Node 24+ runs build scripts with native type stripping and ESLint with its native TypeScript config loader.
+All maintained JavaScript source is now TypeScript: the reader, relay implementation, collector, build tooling, Workers, tests, and ESLint configuration share strict compiler checks. `pnpm run build` compiles browser source to the existing relative JavaScript asset paths in `_site`; TypeScript sources, declarations, and source maps are excluded from the published allowlist. Tests load source modules through `tsx`; browser fixtures compile their source with esbuild. Node 24+ runs build scripts with native type stripping and ESLint with its native TypeScript config loader.
 
 The reader loads verified news from the configured Nostr relays. CI uses synthetic fixtures; it does not publish or collect news. Global publishers supply headlines, attribution, dates and original links; Stringer reporting and photos remain separate. See `LEGAL.md` for the publication policy. Source availability does not grant reuse rights to publisher material or photographs.
 
@@ -63,9 +65,7 @@ The publisher reconciles all current PR heads on every successful CI run or PR-c
 
 Production HTML permits indexing; every preview receives server-rendered `noindex, nofollow, noarchive, noimageindex` metadata. Crawling stays allowed so search engines can read `noindex`; blocking crawling with `robots.txt` can leave linked URLs indexed. Project Pages cannot set a separate host-root robots policy. Previews are public test URLs, are not linked from production, and are removed when PRs close. The existing public Worker configuration (`PUBLIC_INDEXING=true`) continues to permit indexing of the main hostname.
 
-Preview publishing and archive tests use Python 3.10+ from the GitHub Ubuntu runner, with only standard-library modules. `npm run test:previews` also exercises generated-branch persistence and cleanup using a local temporary Git repository. Browser checks exercise the real combined production/preview build at desktop and mobile sizes.
-
-Dependabot opens weekly npm and GitHub Action update pull requests. A weekly audit checks for newly disclosed dependency vulnerabilities even without source changes. Repository admins can require the CI jobs in a branch protection rule; workflows alone do not prevent direct pushes.
+Preview publishing and archive tests use Python 3.10+ from the GitHub Ubuntu runner, with only standard-library modules. `pnpm run test:previews` also exercises generated-branch persistence and cleanup using a local temporary Git repository. Browser checks exercise the real combined production/preview build at desktop and mobile sizes.
 
 ## Openly licensed images and trusted approvals
 
@@ -122,3 +122,16 @@ Publish a newer vote with `candidateId: null` to withdraw. A new candidate ID ch
 The image session runs independently of headline loading. It fetches manifest-listed candidates by ID and independently indexed candidates by Stringer author, current news-note references and the candidate topic tag (up to 750 initial results), subscribes to the trust list and live votes, and loads latest-vote history through batches of five author/story filters with at most three history requests in flight and a six-second timeout. Signed image events are cached separately (up to 5 MB) and reverified on recovery; cached counts are never trusted. Cached approvals can be displayed offline, but voting by other accounts requires a current live trust-list response. Stringer’s own account does not depend on a self-follow or contact-list response. Sessions are disposed when the current news-note set or manifest candidate mapping changes, or the page closes.
 
 Illustrations display Commons attribution, file and license links, and an explicit illustrative-image label. Publisher image metadata remains stripped, including in old snapshots; Stringer's approved photos remain separate. A failed Commons image leaves the headline readable.
+Dependabot opens weekly pnpm and GitHub Action update pull requests. A weekly audit checks for newly disclosed dependency vulnerabilities even without source changes. Repository admins can require the CI jobs in a branch protection rule; workflows alone do not prevent direct pushes.
+
+## Language editions
+
+The Pages build includes `/fr/` (French), `/es/` (Spanish), `/ar/` (Arabic), `/zh/` (Simplified Chinese), `/ru/` (Russian), `/nl/` (Dutch), and `/de/` (German). Each edition has its own pinned publisher catalogue in `sources/`; source selection is saved separately for each language. Arabic uses a right-to-left interface; story text keeps its original direction.
+
+It also includes `/br/` (Brazilian Portuguese) and `/pt/` (European Portuguese), sharing the pinned catalogue in `portuguese-sources.ts`. On the project site these resolve beneath `/stringer-news/`. The edition links and shared assets remain relative. The locale pages preserve the same UTC build stamp as the English reader.
+
+These editions translate the interface only; headlines and Stringer reporting remain in their original languages. Localized headlines are read directly from the configured Atomstr relay and require both a pinned mirror signature and matching RSS provenance. Publisher summaries and photos are discarded. Mirror timestamps and social-feed fallbacks are labeled, and unavailable mirrors retain previously verified stories without claiming a successful refresh. BR and PT share source choices in browser storage; other language choices remain independent. The English reader continues to enable every configured global publisher.
+
+The catalogues use active feeds listed by [Atomstr](https://atomstr.data.haus/), checked on 19 October 2026. They do not claim exhaustive coverage. Arabic currently has two direct publisher mirrors; Chinese includes both simplified and traditional reporting and a clearly named Cantonese source. Dutch includes explicitly named football feeds alongside general news; Spanish currently includes EL PAÍS and the sports publisher Olé. All editions preserve the publisher’s original wording and script. A catalogue listing is not a guarantee of continued relay availability.
+
+Run `pnpm run build`, `pnpm test`, and `pnpm run test:browser` to check the generated pages and browser behavior. Locale routes are available on GitHub Pages after merge and deployment. The apex homepage links to those editions on GitHub Pages; the Cloudflare Worker continues to serve the homepage and reader assets only.

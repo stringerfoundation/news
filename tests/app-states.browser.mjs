@@ -93,6 +93,8 @@ test('progress timings, partial updates and failures retain displayed stories', 
   };
   const page = await setup(t, cached);
   await page.evaluate(() => window.readerCallbacks.report('Loading test stories…'));
+  await page.evaluate(() => window.readerCallbacks.report('Received 2 published notes. Retrying 1 missing notes…'));
+  assert.match(await page.locator('#relay-status-details').textContent(), /Retrying 1 missing notes/);
   await page.evaluate(() => {
     const now = performance.now();
     window.readerCallbacks.timing({

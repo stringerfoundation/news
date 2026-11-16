@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.StringerNews" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#B94D2E</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">#F7F5F1</item>
+        <item name="android:navigationBarColor">#F7F5F1</item>
+    </style>
+</resources>
