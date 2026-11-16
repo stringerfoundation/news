@@ -126,7 +126,7 @@ test('relay reader verifies complete collections, preserves order, caches offlin
             ? [batch.manifest]
             : batch.events.filter(
                 (e) =>
-                  filter.ids.includes(e.id) &&
+                  filter.ids?.includes(e.id) &&
                   (!missingStory || !e.content.startsWith('Second story')),
               );
           const send = (notes: typeof events) => {

@@ -26,6 +26,7 @@ export interface SourceState {
   error: string | null;
 }
 export interface Snapshot {
+  imageCandidates?: Record<string, string[]>;
   schemaVersion: number;
   generatedAt: string;
   sources: Record<string, SourceState>;
