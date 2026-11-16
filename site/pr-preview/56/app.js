@@ -80,6 +80,9 @@ var french = {
   "Language": "Langue",
   "Skip to news": "Aller aux actualit\xE9s",
   "The Stringer Foundation home": "Accueil de The Stringer Foundation",
+  "About": "\xC0 propos",
+  "Contact": "Contact",
+  "Get involved": "Impliquez-vous",
   "Main navigation": "Navigation principale",
   "Donate": "Faire un don",
   "Donate now": "Faire un don maintenant",
@@ -192,6 +195,9 @@ var spanish = {
   "Language": "Idioma",
   "Skip to news": "Ir a las noticias",
   "The Stringer Foundation home": "P\xE1gina de inicio de The Stringer Foundation",
+  "About": "Qui\xE9nes somos",
+  "Contact": "Contacto",
+  "Get involved": "Participa",
   "Main navigation": "Navegaci\xF3n principal",
   "Donate": "Donar",
   "Donate now": "Donar ahora",
@@ -300,6 +306,9 @@ var arabic = {
   "Language": "\u0627\u0644\u0644\u063A\u0629",
   "Skip to news": "\u0627\u0646\u062A\u0642\u0644 \u0625\u0644\u0649 \u0627\u0644\u0623\u062E\u0628\u0627\u0631",
   "The Stringer Foundation home": "\u0627\u0644\u0635\u0641\u062D\u0629 \u0627\u0644\u0631\u0626\u064A\u0633\u064A\u0629 \u0644\u0645\u0624\u0633\u0633\u0629 Stringer",
+  "About": "\u0645\u0646 \u0646\u062D\u0646",
+  "Contact": "\u0627\u062A\u0635\u0644 \u0628\u0646\u0627",
+  "Get involved": "\u0634\u0627\u0631\u0643 \u0645\u0639\u0646\u0627",
   "Main navigation": "\u0627\u0644\u062A\u0646\u0642\u0644 \u0627\u0644\u0631\u0626\u064A\u0633\u064A",
   "Donate": "\u062A\u0628\u0631\u0651\u0639",
   "Donate now": "\u062A\u0628\u0631\u0651\u0639 \u0627\u0644\u0622\u0646",
@@ -412,6 +421,9 @@ var chinese = {
   "Language": "\u8BED\u8A00",
   "Skip to news": "\u8DF3\u8F6C\u5230\u65B0\u95FB",
   "The Stringer Foundation home": "Stringer \u57FA\u91D1\u4F1A\u4E3B\u9875",
+  "About": "\u5173\u4E8E\u6211\u4EEC",
+  "Contact": "\u8054\u7CFB\u6211\u4EEC",
+  "Get involved": "\u53C2\u4E0E\u5176\u4E2D",
   "Main navigation": "\u4E3B\u5BFC\u822A",
   "Donate": "\u6350\u8D60",
   "Donate now": "\u7ACB\u5373\u6350\u8D60",
@@ -524,6 +536,9 @@ var russian = {
   "Language": "\u042F\u0437\u044B\u043A",
   "Skip to news": "\u041F\u0435\u0440\u0435\u0439\u0442\u0438 \u043A \u043D\u043E\u0432\u043E\u0441\u0442\u044F\u043C",
   "The Stringer Foundation home": "\u0413\u043B\u0430\u0432\u043D\u0430\u044F \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0430 The Stringer Foundation",
+  "About": "\u041E \u043D\u0430\u0441",
+  "Contact": "\u041A\u043E\u043D\u0442\u0430\u043A\u0442\u044B",
+  "Get involved": "\u041F\u0440\u0438\u0441\u043E\u0435\u0434\u0438\u043D\u0438\u0442\u044C\u0441\u044F",
   "Main navigation": "\u041E\u0441\u043D\u043E\u0432\u043D\u0430\u044F \u043D\u0430\u0432\u0438\u0433\u0430\u0446\u0438\u044F",
   "Donate": "\u041F\u043E\u0436\u0435\u0440\u0442\u0432\u043E\u0432\u0430\u0442\u044C",
   "Donate now": "\u0421\u0434\u0435\u043B\u0430\u0442\u044C \u043F\u043E\u0436\u0435\u0440\u0442\u0432\u043E\u0432\u0430\u043D\u0438\u0435",
@@ -640,6 +655,9 @@ var dutch = {
   "Language": "Taal",
   "Skip to news": "Ga naar het nieuws",
   "The Stringer Foundation home": "Startpagina van The Stringer Foundation",
+  "About": "Over ons",
+  "Contact": "Contact",
+  "Get involved": "Doe mee",
   "Main navigation": "Hoofdnavigatie",
   "Donate": "Doneren",
   "Donate now": "Doneer nu",
@@ -748,6 +766,9 @@ var german = {
   "Language": "Sprache",
   "Skip to news": "Zum Nachrichtenbereich springen",
   "The Stringer Foundation home": "Startseite der The Stringer Foundation",
+  "About": "\xDCber uns",
+  "Contact": "Kontakt",
+  "Get involved": "Mitmachen",
   "Main navigation": "Hauptnavigation",
   "Donate": "Spenden",
   "Donate now": "Jetzt spenden",
@@ -882,6 +903,9 @@ var portuguese = {
   "Language": "Idioma",
   "Skip to news": "Ir para as not\xEDcias",
   "The Stringer Foundation home": "P\xE1gina inicial da The Stringer Foundation",
+  "About": "Sobre",
+  "Contact": "Contato",
+  "Get involved": "Participe",
   "Main navigation": "Navega\xE7\xE3o principal",
   "Donate": "Doar",
   "Donate now": "Doe agora",
@@ -931,6 +955,8 @@ var portugal = {
   "May require subscription": "Pode exigir subscri\xE7\xE3o",
   "Donate now": "Fa\xE7a um donativo",
   "Donate": "Fazer um donativo",
+  "Contact": "Contactos",
+  "Get involved": "Participe",
   "Contact us": "Contactos",
   "Awards": "Pr\xE9mios",
   "Stringer Awards": "Pr\xE9mios Stringer",
@@ -1401,9 +1427,9 @@ function sourcesForLocale(language) {
 }
 
 // app.ts
-import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=498b5c861911f8c8";
-import relayConfig from "./relay-config.js?v=498b5c861911f8c8";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=498b5c861911f8c8";
+import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=33a937739c0b3419";
+import relayConfig from "./relay-config.js?v=33a937739c0b3419";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=33a937739c0b3419";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1744,7 +1770,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=498b5c861911f8c8");
+      const reader = await import("./relay-reader.js?v=33a937739c0b3419");
       if (!snapshot) {
         snapshot = reader.cachedRelaySnapshot(relayConfig);
         if (snapshot) render();
@@ -1815,7 +1841,7 @@ async function loadAtomstr() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = await import("./atomstr-reader.js?v=498b5c861911f8c8");
+    const reader = await import("./atomstr-reader.js?v=33a937739c0b3419");
     if (!snapshot) {
       const sources = reader.cachedAtomstrSources(mirrorSources);
       for (const source of Object.values(sources)) source.status = "loading";
@@ -1841,7 +1867,7 @@ async function loadAtomstr() {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=498b5c861911f8c8");
+            const relay = await import("./relay-reader.js?v=33a937739c0b3419");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
