@@ -54,9 +54,15 @@ test('image commands reject stale actions, recover from signer/search failures, 
       window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true})); commands.skipImage(storyId, image as Parameters<typeof commands.skipImage>[1]);
       await commands.undoImage(storyId); await commands.publishCommons(storyId, image as Parameters<typeof commands.publishCommons>[1]);
       await commands.findCommons(storyId, 'Before modules arrive'); await commands.connectNostr();
+      const win = window as unknown as Record<string, unknown>;
+      win.nostr = { getPublicKey: async () => { throw new Error('Signer declined while news loaded'); }, signEvent: async () => {} };
+      commands.detectNostr();
+      (document.querySelector('footer .image-toolbar button') as HTMLButtonElement).click();
+      await Promise.resolve();
       return {options: commands.imageOptions(storyId), voted: await commands.castImageVote(storyId, null), review: commands.imageReview(storyId, 'Example')};
     }, { storyId, image });
     assert.deepEqual(initial, {options: [], voted: false, review: null});
+    await page.getByRole('status').filter({ hasText: 'Signer declined while news loaded' }).waitFor();
     allowReader();
     await page.waitForFunction(() => typeof (window as unknown as {finish?: unknown}).finish === 'function');
     const snapshot = {schemaVersion: 2, generatedAt: new Date().toISOString(), sources: Object.fromEntries(SOURCES.map(source => [source.id, {stories: source.id === 'bbc' ? [{ title: 'Example', url: 'https://example.org/story', publishedAt: null, image: null, summary: '', noteId: storyId }] : [], attemptedAt: null, lastSuccessAt: null, status: source.id === 'bbc' ? 'success' : 'paused', error: null}]))};
@@ -92,6 +98,12 @@ test('image commands reject stale actions, recover from signer/search failures, 
       win.searchTask = async (_query: string, progress: (value: unknown) => void) => { progress({images: [], issues: ['Optional provider unavailable']}); return {images: [], issues: ['All providers unavailable']}; };
       await c.findCommons(storyId, 'Unavailable');
       outcomes.push(document.body.textContent!.includes('All providers unavailable'));
+      win.searchTask = async () => ({images: [], issues: []});
+      await c.findCommons(storyId, 'No matches');
+      outcomes.push(document.body.textContent!.includes('No reusable image found. Open image review to refine the search.'));
+      win.eligible = false; c.renderWorld();
+      outcomes.push(document.body.textContent!.includes('No reusable image found for this headline.'));
+      win.eligible = true;
       win.searchTask = async () => ({images: [photo], issues: []});
       await c.findCommons('2'.repeat(64), 'New search');
       await c.findCommons(storyId, 'Example');

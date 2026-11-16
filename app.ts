@@ -600,9 +600,13 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
     body.append(meta);
     if (imageStoryId && !commons) {
       const state = commonsSearches.get(imageStoryId);
-      wireFigure?.append(element('p', state?.error || (state?.searched
-        ? state.results.length ? 'No more suggestions. Undo a skip or search again.' : trusted ? 'No reusable image found. Open image review to refine the search.' : 'No reusable image found for this headline.'
-        : 'Finding a suggested image…'), state?.error ? 'warning' : 'image-search-status'));
+      let message = 'Finding a suggested image…';
+      if (state?.searched) {
+        if (state.results.length) message = 'No more suggestions. Undo a skip or search again.';
+        else if (trusted) message = 'No reusable image found. Open image review to refine the search.';
+        else message = 'No reusable image found for this headline.';
+      }
+      wireFigure?.append(element('p', state?.error || message, state?.error ? 'warning' : 'image-search-status'));
     }
     if (imageStoryId && trusted) wireFigure?.insertBefore(imageControls(imageStoryId, story.title, commons), wireFigure.querySelector('figcaption'));
     article.append(body); target.append(article);
