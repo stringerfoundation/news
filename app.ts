@@ -474,21 +474,22 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
       article.prepend(placeholder);
     };
     // Publisher photos stay hidden, regardless of URL parameters or stored metadata.
-    const selection = wire && story.noteId ? imageSession?.selection(story.noteId) : null;
+    const imageStoryId = wire && !atomstrEdition ? story.noteId : undefined;
+    const selection = imageStoryId ? imageSession?.selection(imageStoryId) : null;
     const trusted = hasSigner() && voter && imageSession?.canVote(voter);
-    if (wire && story.noteId) prepareImageSearch(story.noteId, story.title);
-    const commons = wire && story.noteId
-      ? imageOptions(story.noteId).find(image => !skippedImages.get(choiceKey(story.noteId!))?.includes(image.filePage))
+    if (imageStoryId) prepareImageSearch(imageStoryId, story.title);
+    const commons = imageStoryId
+      ? imageOptions(imageStoryId).find(image => !skippedImages.get(choiceKey(imageStoryId))?.includes(image.filePage))
       : null;
     const suggested = commons && commons.filePage !== selection?.winner?.filePage ? commons : null;
     const imageData = wire ? commons : story.image;
     const imageUrl = wire ? commons?.url : safeImageUrl(imageData?.url) || localImage;
     let wireFigure: HTMLElement | null = null;
-    if (wire) {
+    if (wire && !atomstrEdition) {
       article.classList.add('with-image');
       wireFigure = element('figure', '', 'story-media wire-thumbnail');
-      if (story.noteId && !commonsSearches.get(story.noteId)?.searched) {
-        wireFigure.dataset.storyId = story.noteId; suggestionObserver.observe(wireFigure);
+      if (imageStoryId && !commonsSearches.get(imageStoryId)?.searched) {
+        wireFigure.dataset.storyId = imageStoryId; suggestionObserver.observe(wireFigure);
       }
       article.append(wireFigure);
     }
@@ -570,17 +571,17 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
       meta.firstElementChild!.after(separator);
     }
     body.append(meta);
-    if (suggested && story.noteId) {
+    if (suggested && imageStoryId) {
       const pending = element('p', 'Needs approval', 'image-approval-status');
       pending.title = 'Automatic suggestion — not yet approved by Stringer’s trusted accounts.';
       pending.setAttribute('aria-label', pending.title); wireFigure?.insertBefore(pending, wireFigure.querySelector('figcaption'));
-    } else if (wire && story.noteId && !commons) {
-      const state = commonsSearches.get(story.noteId);
+    } else if (imageStoryId && !commons) {
+      const state = commonsSearches.get(imageStoryId);
       wireFigure?.append(element('p', state?.error || (state?.searched
         ? state.results.length ? 'No more suggestions. Undo a skip or search again.' : trusted ? 'No reusable image found. Open image review to refine the search.' : 'No reusable image found for this headline.'
         : 'Finding a suggested image…'), state?.error ? 'warning' : 'image-search-status'));
     }
-    if (wire && story.noteId && trusted) wireFigure?.insertBefore(imageControls(story.noteId, story.title, commons), wireFigure.querySelector('figcaption'));
+    if (imageStoryId && trusted) wireFigure?.insertBefore(imageControls(imageStoryId, story.title, commons), wireFigure.querySelector('figcaption'));
     article.append(body); target.append(article);
   }
   if (!target.children.length && emptyMessage) target.append(element('p', emptyMessage, 'empty'));
