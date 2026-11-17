@@ -110,6 +110,20 @@ class PublisherTests(unittest.TestCase):
             self.assertTrue((incoming / 'response.js').exists())
             self.assertFalse((incoming / 'fr/index.html').exists())
 
+    def test_swahili_is_optional_and_preview_gets_noindex_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            incoming, site = root / 'incoming', root / 'site'
+            publisher.unpack(archive(omit='sw/index.html'), incoming)
+            self.assertFalse((incoming / 'sw/index.html').exists())
+            directory_entry = tarfile.TarInfo('sw/')
+            directory_entry.type = tarfile.DIRTYPE
+            publisher.unpack(archive(extra={'sw': directory_entry}), incoming)
+            publisher.apply_site(site, incoming, '18', SHA)
+            preview = (site / 'pr-preview/18/sw/index.html').read_text()
+            self.assertIn('noindex, nofollow', preview)
+            self.assertIn(SHA, preview)
+
     def test_rejects_traversal_links_source_extra_files_and_missing_assets_before_writing(self):
         link = tarfile.TarInfo('assets/stringer-thumbnails/link.png')
         link.type, link.linkname = tarfile.SYMTYPE, '/tmp/outside'
@@ -117,7 +131,7 @@ class PublisherTests(unittest.TestCase):
         hardlink.type = tarfile.LNKTYPE
         for extra, omit in [({'../escape': b'bad'}, None), ({'/index.html': b'bad'}, None),
                             ({'scripts/private.js': b'bad'}, None), ({'README.md': b'bad'}, None),
-                            ({'fr/private.js': b'bad'}, None), ({'it/index.html': b'bad'}, None),
+                            ({'fr/private.js': b'bad'}, None), ({'sw/private.js': b'bad'}, None), ({'it/index.html': b'bad'}, None),
                             ({link.name: link}, None), ({hardlink.name: hardlink}, None), ({}, 'app.js'), ({}, 'fr/index.html'), ({}, 'atomstr-reader.js'),
                             ({}, 'response.js'), ({}, 'publications.js')]:
             with self.subTest(extra=extra, omit=omit), tempfile.TemporaryDirectory() as directory:
