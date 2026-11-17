@@ -836,7 +836,7 @@ var de_default = german;
 
 // locales/sw.ts
 var swahili = {
-  "Headlines from publishers in this language.": "Vichwa vya habari vya Kiswahili kutoka DW.",
+  "Headlines from publishers in this language.": "Vichwa vya habari kutoka kwa vyombo vya habari vya Kiswahili.",
   "Close menu": "Funga menyu",
   "Open menu": "Fungua menyu",
   "Sources": "Vyanzo",
@@ -907,7 +907,7 @@ var swahili = {
   "Around the world": "Duniani kote",
   "Global Newswire": "Habari kwa Kiswahili",
   "Courageous Stories": "Ripoti za ujasiri",
-  "Headlines from global publishers.": "Vichwa vya habari vya Kiswahili kutoka DW.",
+  "Headlines from global publishers.": "Vichwa vya habari kutoka kwa vyombo vya habari vya Kiswahili.",
   "Beyond the headlines": "Zaidi ya vichwa vya habari",
   "Stringer's Courageous Stories": "Ripoti za ujasiri za Stringer",
   "Reporting selected by The Stringer Foundation.": "Ripoti zilizochaguliwa na The Stringer Foundation.",
@@ -953,6 +953,7 @@ var swahili = {
   "Meet us": "Kutana nasi",
   "Upcoming appearances": "Matukio yajayo",
   "Media": "Vyombo vya habari",
+  "{source}: fetched for this build at {time}.": "{source}: habari za toleo hili zilikusanywa {time}.",
   "GitHub repository": "Hazina ya msimbo kwenye GitHub"
 };
 var sw_default = swahili;
@@ -1628,10 +1629,21 @@ async function refreshSwahiliSource(previous) {
   }
 }
 
+// swahili-publishers.ts
+var collectedSwahiliPublishers = [
+  { id: "sw-rfi", name: "RFI Kiswahili", url: "https://www.rfi.fr/sw/rss", articleHosts: ["www.rfi.fr"] },
+  { id: "sw-habarileo", name: "HabariLeo", url: "https://habarileo.co.tz/feed/", articleHosts: ["habarileo.co.tz", "www.habarileo.co.tz"] },
+  { id: "sw-bbc", name: "BBC News Swahili", url: "https://feeds.bbci.co.uk/swahili/rss.xml", articleHosts: ["www.bbc.com", "www.bbc.co.uk"] },
+  { id: "sw-voa", name: "VOA Swahili", url: "https://www.voaswahili.com/api/z-_ktl-vomx-tperr-r", articleHosts: ["www.voaswahili.com"] }
+];
+var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
+  collectedSwahiliPublishers.map((source) => [source.id, Object.freeze({ text: true, summaries: false, images: false })])
+));
+
 // app.ts
-import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=453f59ff7e453fe5";
-import relayConfig from "./relay-config.js?v=453f59ff7e453fe5";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=453f59ff7e453fe5";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=128ef227921fc9fa";
+import relayConfig from "./relay-config.js?v=128ef227921fc9fa";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=128ef227921fc9fa";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1658,7 +1670,7 @@ document.addEventListener("keydown", (event) => {
 });
 matchMedia("(max-width: 920px)").addEventListener("change", () => setHeaderMenu(false));
 var feedback = requiredElement("#refresh-status");
-var publisherSources = swahiliEdition ? [swahiliPublisher] : localizedEdition ? mirrorSources : SOURCES2.filter((source) => source.id !== "stringer");
+var publisherSources = swahiliEdition ? [swahiliPublisher, ...collectedSwahiliPublishers] : localizedEdition ? mirrorSources : SOURCES2.filter((source) => source.id !== "stringer");
 var sourcePreferenceKey = `stringer-disabled-sources-${locale.startsWith("pt-") ? "pt" : locale}-v1`;
 var disabledSources = /* @__PURE__ */ new Set();
 try {
@@ -1894,6 +1906,8 @@ function renderStatuses() {
     for (const source of sources) {
       const entry = snapshot.sources[source.id];
       if (entry.status === "paused") continue;
+      if (collectedSwahiliPublishers.some((publisher) => publisher.id === source.id) && entry.lastSuccessAt)
+        notes.push(t("{source}: fetched for this build at {time}.", { source: source.name, time: formatLocalDateTime(entry.lastSuccessAt, locale) }));
       const retained = retainedSources.get(source.id);
       if (retained) notes.push(`${source.name} \xB7 Showing ${retained.stories.length} previously collected stories${retained.lastSuccessAt ? ` from ${formatLocalDateTime(retained.lastSuccessAt)}` : ""}.`);
       if (relayConfig.enabled) {
@@ -1972,7 +1986,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=453f59ff7e453fe5");
+      const reader = await import("./relay-reader.js?v=128ef227921fc9fa");
       if (!snapshot) {
         snapshot = reader.cachedRelaySnapshot(relayConfig);
         if (snapshot) render();
@@ -2043,12 +2057,19 @@ async function loadLocalized() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=453f59ff7e453fe5");
+    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=128ef227921fc9fa");
     if (!snapshot) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
       const sources = reader ? reader.cachedAtomstrSources(mirrorSources) : { [swahiliPublisher.id]: initialSource };
       for (const source of Object.values(sources)) source.status = "loading";
+      if (swahiliEdition) {
+        const data = document.querySelector("#swahili-headlines");
+        const collected = JSON.parse(data?.textContent || "{}");
+        for (const source of collectedSwahiliPublishers) {
+          sources[source.id] = collected[source.id] ?? { ...initialSource, status: "failure", error: "Publisher feed unavailable" };
+        }
+      }
       snapshot = { schemaVersion: 2, generatedAt: now, sources: { ...sources, stringer: initialSource } };
       renderWorld();
       render();
@@ -2071,7 +2092,7 @@ async function loadLocalized() {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=453f59ff7e453fe5");
+            const relay = await import("./relay-reader.js?v=128ef227921fc9fa");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
