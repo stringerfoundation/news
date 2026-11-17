@@ -85,7 +85,7 @@ jobs:
       matrix:
         include:
           - suite: reader
-            command: node --import tsx --test tests/browser.spec.ts tests/previews.browser.ts tests/smoke.browser.mjs
+            command: node --import tsx --test tests/browser.spec.ts tests/previews.browser.ts tests/smoke.browser.ts
           - suite: editions
             command: node --import tsx --test tests/portuguese.browser.ts tests/multilingual.browser.ts
           - suite: relay
@@ -153,9 +153,13 @@ jobs:
           retention-days: 30
           if-no-files-found: error
   codeql:
-    name: CodeQL security analysis
+    name: CodeQL security analysis (${{ matrix.language }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, python]
     permissions:
       contents: read
       security-events: write
@@ -165,6 +169,8 @@ jobs:
           persist-credentials: false
       - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
         with:
-          languages: javascript-typescript, python
+          languages: ${{ matrix.language }}
           queries: security-extended
       - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
+        with:
+          category: /language:${{ matrix.language }}

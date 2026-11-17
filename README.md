@@ -41,9 +41,13 @@ Relay lookups, story downloads and retries share a 15-second network loading bud
 
 Keep Wrangler configuration and Cloudflare account/zone details outside tracked source. Set `PAGES_ORIGIN=https://stringerfoundation.github.io/news/`, `PUBLIC_HOST=stringerjournalism.org`, and `PUBLIC_INDEXING=true`. Deploy as a Worker Route over the existing Hostinger DNS origin. Hostinger passthrough preserves methods, headers, bodies and queries. Pages requests omit visitor cookies and credentials. The Worker preserves the repository path in the Pages origin.
 
-The Worker serves the apex Nostr identity endpoint directly. The existing news-subdomain redirect and identity handling remain independent. Worker deployment is a separate operator action; frontend updates deploy automatically through GitHub Actions without a Cloudflare token in GitHub.
+The Worker serves the apex Nostr identity endpoint directly. The existing news-subdomain redirect and identity handling remain independent. Worker deployment is a separate operator action. The GitHub Pages publisher uses its GitHub credentials.
 
 To roll back the Pages origin, restore the previous `PAGES_ORIGIN` in private operator configuration and redeploy the Worker. Disabling the homepage route restores Hostinger's original homepage.
+
+### Cloudflare Pages Direct Upload
+
+The Cloudflare Pages workflow uploads the checked public artifact after the website CI workflow succeeds on `main`. Set `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_PAGES_PROJECT` as secrets in the GitHub `cloudflare-pages` environment. Allow the `main` branch in that environment and grant the token Cloudflare Pages Edit access to the account that owns the Direct Upload project. A push or a manual run of the website workflow on `main` can deploy the checked build.
 
 ## License
 
