@@ -41,7 +41,13 @@ Relay lookups, story downloads and retries share a 15-second network loading bud
 
 Keep Wrangler configuration and Cloudflare account/zone details outside tracked source. Set `PAGES_ORIGIN=https://stringerfoundation.github.io/news/`, `PUBLIC_HOST=stringerjournalism.org`, and `PUBLIC_INDEXING=true`. Deploy as a Worker Route over the existing Hostinger DNS origin. Hostinger passthrough preserves methods, headers, bodies and queries. Pages requests omit visitor cookies and credentials. The Worker preserves the repository path in the Pages origin.
 
-The Worker serves the apex Nostr identity endpoint directly. The existing news-subdomain redirect and identity handling remain independent. Worker deployment is a separate operator action. The GitHub Pages publisher uses its GitHub credentials.
+The Worker serves the apex Nostr identity endpoint directly. The existing news-subdomain redirect and identity handling remain independent. The GitHub Pages publisher uses its GitHub credentials.
+
+### Homepage Worker CI
+
+The homepage Worker workflow runs its routing tests and publishes a new `stringer-homepage` version when a push to `main` changes `deploy/homepage-worker/worker.ts`, `public-assets.ts`, or `relay-config.ts`. Update its trigger and diff checks when the Worker gains another local runtime import. The version upload uses the existing Worker variables and the release uses the existing route.
+
+Allow `main` in the GitHub `cloudflare-homepage-worker` environment. Set `CLOUDFLARE_ACCOUNT_ID` to the account that owns the Worker and `CLOUDFLARE_API_TOKEN` to a token with Editor access to `stringer-homepage`. Keep production bindings and routing in private operator configuration.
 
 To roll back the Pages origin, restore the previous `PAGES_ORIGIN` in private operator configuration and redeploy the Worker. Disabling the homepage route restores Hostinger's original homepage.
 
