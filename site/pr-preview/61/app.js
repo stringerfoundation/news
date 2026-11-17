@@ -834,6 +834,129 @@ var german = {
 };
 var de_default = german;
 
+// locales/sw.ts
+var swahili = {
+  "Headlines from publishers in this language.": "Vichwa vya habari kutoka kwa vyombo vya habari vya lugha hii.",
+  "Close menu": "Funga menyu",
+  "Open menu": "Fungua menyu",
+  "Sources": "Vyanzo",
+  "Choose news sources": "Chagua vyanzo vya habari",
+  "Enable all": "Washa vyote",
+  "Your choices are saved in this browser.": "Chaguo zako zinahifadhiwa katika kivinjari hiki.",
+  "{enabled} of {total} enabled": "Vyanzo vilivyowashwa: {enabled} kati ya {total}",
+  "Search sources": "Tafuta vyanzo",
+  "No sources selected.": "Hakuna chanzo kilichochaguliwa.",
+  "No matching sources.": "Hakuna chanzo kinacholingana na utafutaji wako.",
+  "May require subscription": "Huenda ukahitaji kujisajili",
+  "{count} articles": "Makala {count}",
+  "View {count} articles": "Tazama makala {count}",
+  "Show fewer headlines": "Onyesha vichwa vichache vya habari",
+  "More headlines ({count})": "Vichwa zaidi vya habari ({count})",
+  "Show more headlines": "Onyesha vichwa zaidi vya habari",
+  "Show more courageous stories": "Onyesha ripoti zaidi za ujasiri",
+  "Show fewer courageous stories": "Onyesha ripoti chache za ujasiri",
+  "View source for this build": "Tazama msimbo wa toleo hili",
+  "Global headlines are currently unavailable.": "Vichwa vya habari vya kimataifa havipatikani kwa sasa.",
+  "No headlines available in this collection.": "Hakuna vichwa vya habari katika mkusanyo huu.",
+  "Loading headlines\u2026": "Inapakia vichwa vya habari\u2026",
+  "Loading news\u2026": "Inapakia habari\u2026",
+  "Loading courageous stories\u2026": "Inapakia ripoti za ujasiri\u2026",
+  "Loading the latest published collection\u2026": "Inapakia mkusanyo uliochapishwa karibuni zaidi\u2026",
+  "Headlines unavailable.": "Vichwa vya habari havipatikani.",
+  "Courageous stories unavailable. You can still visit the Stringer collection below.": "Ripoti za ujasiri hazipatikani. Bado unaweza kutazama mkusanyo wa Stringer hapa chini.",
+  "Courageous stories are currently unavailable. Visit the Stringer collection below.": "Ripoti za ujasiri hazipatikani kwa sasa. Tazama mkusanyo wa Stringer hapa chini.",
+  "Could not check for updates. Keeping the previously loaded collection.": "Imeshindwa kukagua masasisho. Mkusanyo uliopakiwa awali unaendelea kuonyeshwa.",
+  "The news collection is unavailable. We\u2019ll retry automatically.": "Mkusanyo wa habari haupatikani. Mfumo utajaribu tena kiotomatiki.",
+  "Local time ({zone})": "Saa za eneo lako ({zone})",
+  "Publication date; source does not provide a confirmed time zone and time": "Tarehe ya kuchapishwa. Chanzo hakijathibitisha saa wala ukanda wa saa.",
+  "Publication date unavailable": "Tarehe ya kuchapishwa haipatikani",
+  "Date unavailable": "Tarehe haipatikani",
+  "{source}: refresh unavailable.{retained}": "{source}: imeshindwa kusasisha.{retained}",
+  " Showing previously collected stories.": " Inaonyesha habari zilizokusanywa awali.",
+  " No stories available.": " Hakuna habari zinazopatikana.",
+  "{count} unavailable": "{count} hazipatikani",
+  "{count} queued": "{count} zinasubiri",
+  "Read {title} at the original source": "Soma {title} katika chanzo cha awali",
+  "Atomstr mirror timestamp ({zone})": "Muhuri wa muda wa nakala ya Atomstr ({zone})",
+  "via {network} / Atomstr": "kupitia {network} / Atomstr",
+  "Atomstr mirrors; these are not official publisher Nostr accounts.": "Nakala za Atomstr kutoka nje ya akaunti rasmi za wachapishaji kwenye Nostr.",
+  "Feed status": "Hali ya vyanzo",
+  "Unavailable sources ({count})": "Vyanzo visivyopatikana ({count})",
+  "Language": "Lugha",
+  "Skip to news": "Nenda moja kwa moja kwenye habari",
+  "The Stringer Foundation home": "Ukurasa wa mwanzo wa The Stringer Foundation",
+  "About": "Kutuhusu",
+  "Contact": "Mawasiliano",
+  "Get involved": "Shiriki",
+  "Main navigation": "Menyu kuu",
+  "Donate": "Toa mchango",
+  "Donate now": "Toa mchango sasa",
+  "Home": "Mwanzo",
+  "Mission": "Dhamira",
+  "Who we are": "Sisi ni nani",
+  "Awards": "Tuzo",
+  "Contact us": "Wasiliana nasi",
+  "World news": "Habari za dunia",
+  "Stringer social media": "Mitandao ya kijamii ya Stringer",
+  "Stringer on Nostr via Primal": "Stringer kwenye Nostr kupitia Primal",
+  "Stringer on Instagram": "Stringer kwenye Instagram",
+  "Stringer on Facebook": "Stringer kwenye Facebook",
+  "Stringer on LinkedIn": "Stringer kwenye LinkedIn",
+  "Stringer on YouTube": "Stringer kwenye YouTube",
+  "Stringer World News": "Habari za dunia za Stringer",
+  "Around the world": "Duniani kote",
+  "Global Newswire": "Habari za kimataifa",
+  "Courageous Stories": "Ripoti za ujasiri",
+  "Headlines from global publishers.": "Vichwa vya habari kutoka kwa vyombo vya habari duniani kote.",
+  "Beyond the headlines": "Zaidi ya vichwa vya habari",
+  "Stringer's Courageous Stories": "Ripoti za ujasiri za Stringer",
+  "Reporting selected by The Stringer Foundation.": "Ripoti zilizochaguliwa na The Stringer Foundation.",
+  "Explore the Stringer collection": "Tazama mkusanyo wa Stringer",
+  "Enable JavaScript to load the news collection, or": "Washa JavaScript ili kupakia mkusanyo wa habari, au",
+  "read Courageous Stories on Stringer\u2019s website": "soma ripoti za ujasiri kwenye tovuti ya Stringer",
+  "The Stringer Foundation (EIN: 33-4278131) is a 501(c)(3) non-profit organization.": "The Stringer Foundation (EIN: 33-4278131) ni shirika lisilo la faida la aina ya 501(c)(3).",
+  "Support courageous journalism": "Unga mkono uandishi wa habari wa ujasiri",
+  "Contribute to scaling up courageous journalism and nurturing the next generation of brave reporters.": "Saidia kukuza uandishi wa habari wa ujasiri na kuandaa kizazi kijacho cha wanahabari jasiri.",
+  "Footer navigation": "Menyu ya chini ya ukurasa",
+  "Explore Stringer": "Ifahamu Stringer",
+  "Our mission": "Dhamira yetu",
+  "Stringer Awards": "Tuzo za Stringer",
+  "Courageous stories": "Ripoti za ujasiri",
+  "Stories belong to their original publishers. Follow each headline to read or watch the original reporting.": "Habari ni mali ya wachapishaji wake wa awali. Fuata kiungo cha kila kichwa cha habari ili kusoma au kutazama ripoti ya awali.",
+  "Preview images, including social media cards, belong to their rights holders. No endorsement or reuse rights implied. Rights or removal:": "Picha za hakikisho, zikiwemo kadi za mitandao ya kijamii, ni mali ya wenye haki. Kuzionyesha hakumaanishi kuwa zimeidhinishwa au kwamba zinaruhusiwa kutumiwa tena. Kuhusu haki au kuondoa picha:",
+  "English": "Kiswahili",
+  "Global headlines": "Vichwa vya habari vya kimataifa",
+  "Build": "Toleo",
+  "Global publisher headlines and Stringer reporting in their original languages.": "Vichwa vya habari vya kimataifa na ripoti za Stringer katika lugha zake za awali.",
+  "Stringer on X": "Stringer kwenye X",
+  "Loading \xB7 {seconds} s elapsed": "Inapakia \xB7 sekunde {seconds} zimepita",
+  "{outcome} in {seconds} s": "{outcome} baada ya sekunde {seconds}",
+  "{stage} Total elapsed: {seconds} s.": "{stage} Jumla ya muda uliopita ni sekunde {seconds}.",
+  "Latest feed load: {timing}.": "Upakiaji wa mwisho wa vyanzo: {timing}.",
+  "Story retrieval from news relays:": "Upataji wa habari kutoka kwenye seva za Nostr:",
+  "no published stories": "hakuna habari zilizochapishwa",
+  "loaded in {seconds} s": "zimepakiwa baada ya sekunde {seconds}",
+  "loading \xB7 {seconds} s elapsed \xB7 {received}/{total} stories": "inapakia \xB7 sekunde {seconds} zimepita \xB7 habari {received}/{total}",
+  "{received}/{total} stories received after {seconds} s": "Habari {received}/{total} zimepokelewa baada ya sekunde {seconds}",
+  "Feed status \xB7 {timing}": "Hali ya vyanzo \xB7 {timing}",
+  "Loaded": "Imepakiwa",
+  "Failed": "Imeshindikana",
+  "Partial": "Sehemu imepakiwa",
+  "Checking for updates\u2026": "Inakagua masasisho\u2026",
+  "Connecting to news relays\u2026": "Inaunganisha kwenye seva za habari za Nostr\u2026",
+  "Verified collection. Loading published stories\u2026": "Mkusanyo umethibitishwa. Inapakia habari zilizochapishwa\u2026",
+  "Received {received} published notes. Retrying {missing} missing notes\u2026": "Machapisho {received} yamepokelewa. Inajaribu tena kupata machapisho {missing} yaliyokosekana\u2026",
+  "Your support matters": "Msaada wako ni muhimu",
+  "The Stringer Foundation supports courageous journalism and nurtures the next generation of reporters.": "The Stringer Foundation huunga mkono uandishi wa habari wa ujasiri na huandaa kizazi kijacho cha wanahabari.",
+  "The Stringer Foundation is a 501(c)(3) non-profit organization. EIN: 33-4278131.": "The Stringer Foundation ni shirika lisilo la faida la aina ya 501(c)(3). EIN: 33-4278131.",
+  "Join our mailing list": "Jiunge na orodha yetu ya barua pepe",
+  "Meet us": "Kutana nasi",
+  "Upcoming appearances": "Matukio yajayo",
+  "Media": "Vyombo vya habari",
+  "GitHub repository": "Hazina ya msimbo kwenye GitHub"
+};
+var sw_default = swahili;
+
 // reader-locales.ts
 var portuguese = {
   "Show more headlines": "Mostrar mais manchetes",
@@ -981,9 +1104,10 @@ var EDITIONS = [
   { path: "zh", locale: "zh", label: "\u4E2D\u6587", direction: "ltr" },
   { path: "ru", locale: "ru", label: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439", direction: "ltr" },
   { path: "nl", locale: "nl", label: "Nederlands", direction: "ltr" },
-  { path: "de", locale: "de", label: "Deutsch", direction: "ltr" }
+  { path: "de", locale: "de", label: "Deutsch", direction: "ltr" },
+  { path: "sw", locale: "sw", label: "Kiswahili", direction: "ltr" }
 ];
-var dictionaries = { fr: fr_default, es: es_default, ar: ar_default, zh: zh_default, ru: ru_default, nl: nl_default, de: de_default };
+var dictionaries = { fr: fr_default, es: es_default, ar: ar_default, zh: zh_default, ru: ru_default, nl: nl_default, de: de_default, sw: sw_default };
 function localeForLanguage(language) {
   const normalized = language.toLowerCase();
   if (normalized === "pt-pt") return "pt-PT";
@@ -1427,9 +1551,9 @@ function sourcesForLocale(language) {
 }
 
 // app.ts
-import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=3f578c43eb514e88";
-import relayConfig from "./relay-config.js?v=3f578c43eb514e88";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=3f578c43eb514e88";
+import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=270135d14c501725";
+import relayConfig from "./relay-config.js?v=270135d14c501725";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=270135d14c501725";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1769,7 +1893,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=3f578c43eb514e88");
+      const reader = await import("./relay-reader.js?v=270135d14c501725");
       if (!snapshot) {
         snapshot = reader.cachedRelaySnapshot(relayConfig);
         if (snapshot) render();
@@ -1840,7 +1964,7 @@ async function loadAtomstr() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = await import("./atomstr-reader.js?v=3f578c43eb514e88");
+    const reader = await import("./atomstr-reader.js?v=270135d14c501725");
     if (!snapshot) {
       const sources = reader.cachedAtomstrSources(mirrorSources);
       for (const source of Object.values(sources)) source.status = "loading";
@@ -1866,7 +1990,7 @@ async function loadAtomstr() {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=3f578c43eb514e88");
+            const relay = await import("./relay-reader.js?v=270135d14c501725");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
