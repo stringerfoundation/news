@@ -21,6 +21,7 @@ MARKER = '<!-- stringer-pr-preview -->'
 MAX_BYTES = 64 * 1024 * 1024
 SCREENSHOTS = ('news-375.png', 'news-768.png', 'news-1280.png')
 EDITION_PATHS = ('br', 'pt', 'fr', 'es', 'ar', 'zh', 'ru', 'nl', 'de')
+OPTIONAL_EDITION_PATHS = ('sw',)
 REQUIRED_FILES = {
     'index.html', 'app.js', 'style.css', 'news-model.js', 'relay-config.js',
     'stringer-media.js', 'relay-reader.js',
@@ -33,7 +34,9 @@ EDITION_FILES = {
     *{f'{edition}/index.html' for edition in EDITION_PATHS},
 }
 SHARED_MODULE_FILES = {'response.js', 'publications.js'}
-FILES = REQUIRED_FILES | EDITION_FILES | SHARED_MODULE_FILES
+FILES = REQUIRED_FILES | EDITION_FILES | SHARED_MODULE_FILES | {
+    f'{edition}/index.html' for edition in OPTIONAL_EDITION_PATHS
+}
 
 
 def allowed(path):
@@ -52,7 +55,7 @@ def unpack(data, destination):
     with tarfile.open(fileobj=io.BytesIO(payload), mode='r:') as archive:
         for entry in archive:
             path = entry.name.removeprefix('./').rstrip('/')
-            if entry.isdir() and path in ('', '.', 'assets', 'assets/stringer-thumbnails', '.well-known', *EDITION_PATHS):
+            if entry.isdir() and path in ('', '.', 'assets', 'assets/stringer-thumbnails', '.well-known', *EDITION_PATHS, *OPTIONAL_EDITION_PATHS):
                 continue
             if not entry.isfile() or not allowed(path) or path in files or entry.size > MAX_BYTES:
                 raise ValueError('Unexpected artifact entry: ' + entry.name)
@@ -146,7 +149,7 @@ def apply_site(site, incoming, preview=None, sha=''):
     elif target.exists():
         shutil.rmtree(target)
     shutil.copytree(incoming, target, dirs_exist_ok=True)
-    for page in (target / 'index.html', *(target / edition / 'index.html' for edition in EDITION_PATHS)):
+    for page in (target / 'index.html', *(target / edition / 'index.html' for edition in EDITION_PATHS + OPTIONAL_EDITION_PATHS)):
         if not page.is_file():
             continue
         html = page.read_text()
