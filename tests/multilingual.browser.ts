@@ -16,6 +16,7 @@ import russian from '../locales/ru.ts';
 import dutch from '../locales/nl.ts';
 import german from '../locales/de.ts';
 import swahili from '../locales/sw.ts';
+import { swahiliPublisher } from '../sources/sw.ts';
 
 const collectedAt = new Date(Date.now() - 60_000).toISOString();
 const editions = [
@@ -73,7 +74,7 @@ const fixtureApp = await build({entryPoints: ['app.ts'], bundle: true, write: fa
 });
 
 async function openEdition(browser: Awaited<ReturnType<typeof launchBrowser>>, prefix: string, editionPath: string,
-  options: {holdData?: boolean; unavailable?: boolean} = {}) {
+  options: {holdData?: boolean; unavailable?: boolean; builtApp?: boolean} = {}) {
   const page = await browser.newPage({viewport: {width: 375, height: 900}});
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -87,7 +88,7 @@ async function openEdition(browser: Awaited<ReturnType<typeof launchBrowser>>, p
     if (!url.pathname.startsWith(prefix)) return route.fulfill({status: 404});
     let file = url.pathname.slice(prefix.length) || 'index.html';
     if (file.endsWith('/')) file += 'index.html';
-    if (file === 'app.js') return route.fulfill({contentType: 'text/javascript', body: fixtureApp.outputFiles[0]!.text});
+    if (file === 'app.js' && !options.builtApp) return route.fulfill({contentType: 'text/javascript', body: fixtureApp.outputFiles[0]!.text});
     if (file === 'relay-config.js') return route.fulfill({contentType: 'text/javascript', body: 'export default {enabled: false};'});
     if (file === 'data/news.json') {
       if (options.holdData) await dataGate;
@@ -212,25 +213,72 @@ test('localized reader shows loading and first-load failure, then retains a coll
   } finally { await browser.close(); }
 });
 
-test('Kiswahili is reachable from the French preview and localizes the global reader', async () => {
+test('Kiswahili displays DW headlines and keeps its stories through publisher refresh failures', async () => {
   const browser = await launchBrowser();
+  const title = 'Habari za leo <img src=x onerror=window.pwned=true>';
+  const article = 'https://www.dw.com/sw/habari-za-leo/a-1';
+  const atom = `<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="sw">
+    <entry><title><![CDATA[${title}]]></title>
+      <link rel="alternate" hreflang="sw" href="${article}"/>
+      <published>2026-11-17T12:00:00Z</published><summary>Publisher summary</summary></entry>
+    <entry><title>Habari nyingine</title>
+      <link rel="alternate" hreflang="sw" href="https://www.dw.com/sw/habari-nyingine/a-2"/></entry>
+    <entry><link rel="alternate" hreflang="sw" href="${article}"/></entry>
+    <entry><title>Kiungo kisichoruhusiwa</title><link rel="alternate" hreflang="sw" href="javascript:alert(1)"/></entry>
+    <entry><title>Kiungo cha nje</title><link rel="alternate" hreflang="sw" href="https://example.org/sw/a-3"/></entry>
+  </feed>`;
   try {
-    const {page, errors} = await openEdition(browser, '/pr-preview/61/', 'fr');
+    const {page, errors} = await openEdition(browser, '/pr-preview/61/', 'fr', {builtApp: true});
+    let body = atom;
+    let status = 200;
+    await page.route(swahiliPublisher.url, route => route.fulfill({
+      status, body, contentType: 'application/atom+xml',
+      headers: {'Access-Control-Allow-Origin': '*'},
+    }));
     await page.getByRole('link', {name: 'Kiswahili', exact: true}).click();
     await page.waitForURL('**/pr-preview/61/sw/');
     await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
     assert.equal(await page.locator('html').getAttribute('lang'), 'sw');
     assert.equal(await page.locator('#world-title').textContent(), swahili['Global Newswire']);
-    assert.equal(await page.locator('#global-newswire h3').first().textContent(), publisherHeadline);
+    assert.deepEqual(await page.locator('#world-news h3').allTextContents(), [title, 'Habari nyingine']);
+    assert.equal(await page.locator('#world-news article a').first().getAttribute('href'), article);
+    assert.equal(await page.locator('#world-news .source').first().textContent(), 'DW Kiswahili');
+    assert.equal(await page.locator('#world-news time').getAttribute('datetime'), '2026-11-17T12:00:00.000Z');
+    assert.equal(await page.locator('#world-news img, #world-news .summary').count(), 0);
     assert.equal(await page.locator('#stringer-news h3').textContent(), 'تقرير Stringer 原文报道');
-    assert.equal(await page.locator('#source-picker').count(), 0);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
 
-    await page.route('**/pr-preview/61/data/news.json', route => route.fulfill({status: 503, body: 'Unavailable'}));
+    await page.locator('#source-picker > summary').click();
+    const source = page.getByRole('checkbox', {name: 'DW Kiswahili'});
+    await source.uncheck();
+    assert.equal(await page.locator('#world-news article').count(), 0);
+    await source.check();
+    assert.equal(await page.locator('#world-news article').count(), 2);
+
+    const failures = [
+      [503, 'Unavailable'], [200, '<broken>'], [200, '<feed xml:lang="sw"/>'],
+      [200, atom.replace('xml:lang="sw"', 'xml:lang="en"')],
+      [200, atom.replace('<feed ', '<other ').replace('</feed>', '</other>')],
+      [200, atom.replace('</feed>', '</broken>')],
+    ] as const;
+    for (const [nextStatus, nextBody] of failures) {
+      status = nextStatus;
+      body = nextBody;
+      const request = page.waitForResponse(swahiliPublisher.url);
+      await page.clock.fastForward(300_000);
+      await request;
+      await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
+      assert.match(await page.locator('#world-status').textContent() ?? '', /DW Kiswahili: imeshindwa kusasisha/);
+      assert.equal(await page.locator('#world-news h3').first().textContent(), title);
+    }
+    status = 200;
+    body = '<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="sw"/>';
+    const request = page.waitForResponse(swahiliPublisher.url);
     await page.clock.fastForward(300_000);
-    await page.waitForFunction(expected => document.querySelector('#refresh-status')?.textContent === expected,
-      swahili['Could not check for updates. Keeping the previously loaded collection.']!);
-    assert.equal(await page.locator('#global-newswire h3').first().textContent(), publisherHeadline);
+    await request;
+    await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
+    assert.equal(await page.locator('#world-news article').count(), 0, 'A verified empty feed replaces the previously loaded headlines');
+    assert.equal(await page.locator('#world-status').textContent(), '');
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 });

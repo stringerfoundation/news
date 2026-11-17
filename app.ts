@@ -4,6 +4,7 @@ import type { DisplayStory } from './news-model.js';
 import type { FeedLoadTiming } from './relay/reader.js';
 import { localeForLanguage, translator } from './reader-locales.ts';
 import { sourcesForLocale } from './edition-sources.ts';
+import { refreshSwahiliSource, swahiliPublisher } from './sources/sw.ts';
 import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from './news-model.js';
 import relayConfig from './relay-config.js';
 import { STRINGER_MEDIA } from './stringer-media.js';
@@ -14,7 +15,8 @@ function requiredElement<T extends HTMLElement = HTMLElement>(selector: string):
 }
 const locale = localeForLanguage(document.documentElement.lang);
 const mirrorSources = sourcesForLocale(locale);
-const atomstrEdition = mirrorSources.length > 0;
+const swahiliEdition = locale === 'sw';
+const localizedEdition = swahiliEdition || mirrorSources.length > 0;
 const t = translator(locale);
 const menuToggle = requiredElement('.header-menu-toggle');
 const headerMenu = requiredElement('#header-menu');
@@ -31,18 +33,18 @@ document.addEventListener('keydown', event => {
 });
 matchMedia('(max-width: 920px)').addEventListener('change', () => setHeaderMenu(false));
 const feedback = requiredElement('#refresh-status');
-const publisherSources = atomstrEdition ? mirrorSources : SOURCES.filter(source => source.id !== 'stringer');
+const publisherSources = swahiliEdition ? [swahiliPublisher] : localizedEdition ? mirrorSources : SOURCES.filter(source => source.id !== 'stringer');
 const sourcePreferenceKey = `stringer-disabled-sources-${locale.startsWith('pt-') ? 'pt' : locale}-v1`;
 let disabledSources = new Set<string>();
 try {
-  const saved = atomstrEdition ? JSON.parse(localStorage.getItem(sourcePreferenceKey) || '[]') : [];
+  const saved = localizedEdition ? JSON.parse(localStorage.getItem(sourcePreferenceKey) || '[]') : [];
   if (Array.isArray(saved) && saved.every(id => typeof id === 'string')) {
     disabledSources = new Set(saved.filter(id => publisherSources.some(source => source.id === id)));
   }
 } catch { /* Preferences are optional when storage is unavailable. */ }
 const selectedSources = (): readonly string[] => publisherSources.filter(source => !disabledSources.has(source.id)).map(source => source.id);
 const sourceOptions = document.querySelector<HTMLElement>('#source-options');
-for (const source of atomstrEdition ? publisherSources : []) {
+for (const source of localizedEdition ? publisherSources : []) {
   const label = element('label');
   const checkbox = element('input');
   checkbox.type = 'checkbox'; checkbox.value = source.id;
@@ -61,7 +63,7 @@ function updateSourcePreferences() {
   if (snapshot) renderWorld();
 }
 function updateSourceControls() {
-  if (!atomstrEdition) return;
+  if (!localizedEdition) return;
   requiredElement('#source-count').textContent = t('{enabled} of {total} enabled', {enabled: selectedSources().length, total: publisherSources.length});
   for (const checkbox of sourceOptions?.querySelectorAll('input') || []) checkbox.checked = !disabledSources.has(checkbox.value);
   requiredElement<HTMLButtonElement>('#enable-all-sources').disabled = disabledSources.size === 0;
@@ -262,7 +264,7 @@ function renderStatuses() {
       if (entry.status === 'failure' && !(loading && entry.unavailable)) target.append(element('p', t('{source}: refresh unavailable.{retained}', {source: source.name, retained: t((retained?.stories.length || entry.stories.length) ? ' Showing previously collected stories.' : ' No stories available.')}), 'warning'));
     }
   }
-  if (atomstrEdition) {
+  if (localizedEdition) {
     const target = requiredElement('#world-status');
     const warnings = [...target.children];
     if (warnings.length) {
@@ -283,13 +285,13 @@ function renderWorld() {
   const worldPaused = selected.length > 0 && selected.every(id => current.sources[id]!.status === 'paused');
   const list = requiredElement('#world-news');
   const stories = worldStories(displayedSnapshot(), selected, publisherSources);
-  renderStories(list, atomstrEdition ? stories.slice(0, 300) : stories,
+  renderStories(list, localizedEdition ? stories.slice(0, 300) : stories,
     !selected.length ? t('No sources selected.') : loading ? '' : worldPaused ? t('Global headlines are currently unavailable.') : t('No headlines available in this collection.'));
   if (!selected.length) {
     const button = element('button', t('Enable all'), 'enable-all-empty');
     button.type = 'button'; button.addEventListener('click', enableAllSources); list.append(button);
   }
-  if (worldPaused && !atomstrEdition) {
+  if (worldPaused && !localizedEdition) {
     const links = element('p', '', 'publisher-links');
     for (const { name, homepage, linkLabel } of SOURCES.filter(source => source.id !== 'stringer')) {
       const link = element('a', linkLabel || name); link.href = homepage; link.target = '_blank'; link.rel = 'noopener noreferrer';
@@ -306,7 +308,7 @@ function render() {
   renderWorld();
 }
 async function load() {
-  if (atomstrEdition) return loadAtomstr();
+  if (localizedEdition) return loadLocalized();
   if (loading) return;
   loading = true; lastAttempt = Date.now();
   loadStarted = performance.now();
@@ -378,7 +380,7 @@ async function load() {
     if (snapshot) render(); else renderStatuses();
   }
 }
-async function loadAtomstr() {
+async function loadLocalized() {
   if (loading) return;
   loading = true; lastAttempt = Date.now();
   loadStarted = performance.now();
@@ -389,13 +391,13 @@ async function loadAtomstr() {
   document.querySelectorAll('.story-list').forEach(list => list.setAttribute('aria-busy', 'true'));
   let redraw: ReturnType<typeof setTimeout> | undefined;
   try {
-    const reader = await import('./atomstr-reader.js');
+    const reader = swahiliEdition ? null : await import('./atomstr-reader.js');
     if (!snapshot) {
-      const sources = reader.cachedAtomstrSources(mirrorSources);
+      const now = new Date().toISOString();
+      const initialSource: SourceState = {stories: [], status: 'loading', lastSuccessAt: null, attemptedAt: now, error: null};
+      const sources = reader ? reader.cachedAtomstrSources(mirrorSources) : {[swahiliPublisher.id]: initialSource};
       for (const source of Object.values(sources)) source.status = 'loading';
-      snapshot = { schemaVersion: 2, generatedAt: new Date().toISOString(), sources: {
-        ...sources, stringer: {stories: [], status: 'loading', lastSuccessAt: null, attemptedAt: new Date().toISOString(), error: null},
-      } };
+      snapshot = {schemaVersion: 2, generatedAt: now, sources: {...sources, stringer: initialSource}};
       renderWorld();
       render();
     }
@@ -403,9 +405,14 @@ async function loadAtomstr() {
       if (!redraw) redraw = setTimeout(() => { redraw = undefined; renderWorld(); }, 150);
     };
     await Promise.allSettled([
-      reader.readAtomstrSources({sources: mirrorSources, previous: snapshot.sources, onUpdate(id, entry) {
-        snapshot!.sources[id] = entry; queueDraw();
-      }}),
+      reader
+        ? reader.readAtomstrSources({sources: mirrorSources, previous: snapshot.sources, onUpdate(id, entry) {
+          snapshot!.sources[id] = entry; queueDraw();
+        }})
+        : refreshSwahiliSource(snapshot.sources[swahiliPublisher.id]!).then(entry => {
+          snapshot!.sources[swahiliPublisher.id] = entry;
+          queueDraw();
+        }),
       (async () => {
         try {
           let original: Snapshot;

@@ -1,5 +1,5 @@
 const swahili: Readonly<Record<string, string>> = {
-  'Headlines from publishers in this language.': 'Vichwa vya habari kutoka kwa vyombo vya habari vya lugha hii.',
+  'Headlines from publishers in this language.': 'Vichwa vya habari vya Kiswahili kutoka DW.',
   'Close menu': 'Funga menyu', 'Open menu': 'Fungua menyu', 'Sources': 'Vyanzo',
   'Choose news sources': 'Chagua vyanzo vya habari', 'Enable all': 'Washa vyote',
   'Your choices are saved in this browser.': 'Chaguo zako zinahifadhiwa katika kivinjari hiki.',
@@ -41,8 +41,8 @@ const swahili: Readonly<Record<string, string>> = {
   'Stringer on Instagram': 'Stringer kwenye Instagram', 'Stringer on Facebook': 'Stringer kwenye Facebook',
   'Stringer on LinkedIn': 'Stringer kwenye LinkedIn', 'Stringer on YouTube': 'Stringer kwenye YouTube',
   'Stringer World News': 'Habari za dunia za Stringer', 'Around the world': 'Duniani kote',
-  'Global Newswire': 'Habari za kimataifa', 'Courageous Stories': 'Ripoti za ujasiri',
-  'Headlines from global publishers.': 'Vichwa vya habari kutoka kwa vyombo vya habari duniani kote.',
+  'Global Newswire': 'Habari kwa Kiswahili', 'Courageous Stories': 'Ripoti za ujasiri',
+  'Headlines from global publishers.': 'Vichwa vya habari vya Kiswahili kutoka DW.',
   'Beyond the headlines': 'Zaidi ya vichwa vya habari', "Stringer's Courageous Stories": 'Ripoti za ujasiri za Stringer',
   'Reporting selected by The Stringer Foundation.': 'Ripoti zilizochaguliwa na The Stringer Foundation.',
   'Explore the Stringer collection': 'Tazama mkusanyo wa Stringer',

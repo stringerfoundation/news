@@ -75,6 +75,6 @@ test('edition HTML has language metadata, relative shared assets, edition links,
         : target.path ? `./${target.path}/` : './';
       assert.equal(link.attr('href'), expectedHref, `${edition.locale} link to ${target.locale}`);
     }
-    assert.equal(Boolean($('#source-picker').length), sourcesForLocale(edition.locale).length > 0);
+    assert.equal(Boolean($('#source-picker').length), edition.locale === 'sw' || sourcesForLocale(edition.locale).length > 0);
   }
 });
