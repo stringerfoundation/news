@@ -5,6 +5,7 @@ import type { FeedLoadTiming } from './relay/reader.js';
 import { localeForLanguage, translator } from './reader-locales.ts';
 import { sourcesForLocale } from './edition-sources.ts';
 import { refreshSwahiliSource, swahiliPublisher } from './sources/sw.ts';
+import { collectedSwahiliPublishers } from './swahili-publishers.ts';
 import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from './news-model.js';
 import relayConfig from './relay-config.js';
 import { STRINGER_MEDIA } from './stringer-media.js';
@@ -33,7 +34,7 @@ document.addEventListener('keydown', event => {
 });
 matchMedia('(max-width: 920px)').addEventListener('change', () => setHeaderMenu(false));
 const feedback = requiredElement('#refresh-status');
-const publisherSources = swahiliEdition ? [swahiliPublisher] : localizedEdition ? mirrorSources : SOURCES.filter(source => source.id !== 'stringer');
+const publisherSources = swahiliEdition ? [swahiliPublisher, ...collectedSwahiliPublishers] : localizedEdition ? mirrorSources : SOURCES.filter(source => source.id !== 'stringer');
 const sourcePreferenceKey = `stringer-disabled-sources-${locale.startsWith('pt-') ? 'pt' : locale}-v1`;
 let disabledSources = new Set<string>();
 try {
@@ -253,6 +254,8 @@ function renderStatuses() {
     for (const source of sources) {
       const entry = snapshot.sources[source.id]!;
       if (entry.status === 'paused') continue;
+      if (collectedSwahiliPublishers.some(publisher => publisher.id === source.id) && entry.lastSuccessAt)
+        notes.push(t('{source}: fetched for this build at {time}.', {source: source.name, time: formatLocalDateTime(entry.lastSuccessAt, locale)}));
       const retained = retainedSources.get(source.id);
       if (retained) notes.push(`${source.name} · Showing ${retained.stories.length} previously collected stories${retained.lastSuccessAt ? ` from ${formatLocalDateTime(retained.lastSuccessAt)}` : ''}.`);
       if (relayConfig.enabled) {
@@ -395,8 +398,15 @@ async function loadLocalized() {
     if (!snapshot) {
       const now = new Date().toISOString();
       const initialSource: SourceState = {stories: [], status: 'loading', lastSuccessAt: null, attemptedAt: now, error: null};
-      const sources = reader ? reader.cachedAtomstrSources(mirrorSources) : {[swahiliPublisher.id]: initialSource};
+      const sources: Record<string, SourceState> = reader ? reader.cachedAtomstrSources(mirrorSources) : {[swahiliPublisher.id]: initialSource};
       for (const source of Object.values(sources)) source.status = 'loading';
+      if (swahiliEdition) {
+        const data = document.querySelector<HTMLScriptElement>('#swahili-headlines');
+        const collected = JSON.parse(data?.textContent || '{}') as Record<string, SourceState>;
+        for (const source of collectedSwahiliPublishers) {
+          sources[source.id] = collected[source.id] ?? {...initialSource, status: 'failure', error: 'Publisher feed unavailable'};
+        }
+      }
       snapshot = {schemaVersion: 2, generatedAt: now, sources: {...sources, stringer: initialSource}};
       renderWorld();
       render();

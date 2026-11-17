@@ -1,5 +1,5 @@
 const swahili: Readonly<Record<string, string>> = {
-  'Headlines from publishers in this language.': 'Vichwa vya habari vya Kiswahili kutoka DW.',
+  'Headlines from publishers in this language.': 'Vichwa vya habari kutoka kwa vyombo vya habari vya Kiswahili.',
   'Close menu': 'Funga menyu', 'Open menu': 'Fungua menyu', 'Sources': 'Vyanzo',
   'Choose news sources': 'Chagua vyanzo vya habari', 'Enable all': 'Washa vyote',
   'Your choices are saved in this browser.': 'Chaguo zako zinahifadhiwa katika kivinjari hiki.',
@@ -42,7 +42,7 @@ const swahili: Readonly<Record<string, string>> = {
   'Stringer on LinkedIn': 'Stringer kwenye LinkedIn', 'Stringer on YouTube': 'Stringer kwenye YouTube',
   'Stringer World News': 'Habari za dunia za Stringer', 'Around the world': 'Duniani kote',
   'Global Newswire': 'Habari kwa Kiswahili', 'Courageous Stories': 'Ripoti za ujasiri',
-  'Headlines from global publishers.': 'Vichwa vya habari vya Kiswahili kutoka DW.',
+  'Headlines from global publishers.': 'Vichwa vya habari kutoka kwa vyombo vya habari vya Kiswahili.',
   'Beyond the headlines': 'Zaidi ya vichwa vya habari', "Stringer's Courageous Stories": 'Ripoti za ujasiri za Stringer',
   'Reporting selected by The Stringer Foundation.': 'Ripoti zilizochaguliwa na The Stringer Foundation.',
   'Explore the Stringer collection': 'Tazama mkusanyo wa Stringer',
@@ -73,6 +73,7 @@ const swahili: Readonly<Record<string, string>> = {
   'The Stringer Foundation is a 501(c)(3) non-profit organization. EIN: 33-4278131.': 'The Stringer Foundation ni shirika lisilo la faida la aina ya 501(c)(3). EIN: 33-4278131.',
   'Join our mailing list': 'Jiunge na orodha yetu ya barua pepe',
   'Meet us': 'Kutana nasi', 'Upcoming appearances': 'Matukio yajayo', 'Media': 'Vyombo vya habari',
+  '{source}: fetched for this build at {time}.': '{source}: habari za toleo hili zilikusanywa {time}.',
   'GitHub repository': 'Hazina ya msimbo kwenye GitHub',
 };
 

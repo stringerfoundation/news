@@ -1,6 +1,7 @@
 import { load } from 'cheerio';
 import { translator, localeForLanguage } from '../reader-locales.ts';
 import { sourcesForLocale } from '../edition-sources.ts';
+import { collectedSwahiliPublishers } from '../swahili-publishers.ts';
 
 export function localizedReaderHtml(html: string, locale: string) {
   const $ = load(html);
@@ -9,7 +10,7 @@ export function localizedReaderHtml(html: string, locale: string) {
   const t = translator(locale);
   const portuguese = locale.startsWith('pt-');
   const sources = sourcesForLocale(locale);
-  const sourceCount = locale === 'sw' ? 1 : sources.length;
+  const sourceCount = locale === 'sw' ? 1 + collectedSwahiliPublishers.length : sources.length;
   if (sourceCount && !$('#source-picker').length) $('.footer-notes').prepend("        <details id=\"source-picker\" class=\"source-picker\">\n          <summary>Sources <span id=\"source-count\" aria-live=\"polite\">5 of 5 enabled</span></summary>\n          <fieldset><legend>Choose news sources</legend><input id=\"source-search\" type=\"search\" aria-label=\"Search sources\" placeholder=\"Search sources\" hidden /><div id=\"source-options\" class=\"source-options\"></div><p id=\"no-matching-sources\" hidden>No matching sources.</p></fieldset>\n          <button type=\"button\" id=\"enable-all-sources\">Enable all</button>\n          <p class=\"source-help\">Your choices are saved in this browser.</p>\n        </details>\n");
   $('html').attr('lang', locale).attr('dir', locale === 'ar' ? 'rtl' : 'ltr');
   $('title').text(`${t('Stringer World News')} | The Stringer Foundation`);

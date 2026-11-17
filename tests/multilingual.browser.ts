@@ -5,7 +5,9 @@ import { browserExternals } from '../scripts/browser-build.ts';
 import type { Snapshot } from '../relay/types.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { launchBrowser } from '../scripts/browser.ts';
 import { SOURCES } from '../news-model.ts';
 import french from '../locales/fr.ts';
@@ -17,6 +19,8 @@ import dutch from '../locales/nl.ts';
 import german from '../locales/de.ts';
 import swahili from '../locales/sw.ts';
 import { swahiliPublisher } from '../sources/sw.ts';
+import { collectedSwahiliPublishers } from '../swahili-publishers.ts';
+import { embedSwahiliHeadlines } from '../scripts/collect-swahili.ts';
 
 const collectedAt = new Date(Date.now() - 60_000).toISOString();
 const editions = [
@@ -278,7 +282,47 @@ test('Kiswahili displays DW headlines and keeps its stories through publisher re
     await request;
     await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
     assert.equal(await page.locator('#world-news article').count(), 0, 'A verified empty feed replaces the previously loaded headlines');
-    assert.equal(await page.locator('#world-status').textContent(), '');
+    assert.doesNotMatch(await page.locator('#world-status').textContent() ?? '', /DW Kiswahili: imeshindwa/);
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }
+});
+
+test('the Kiswahili preview shows checked publisher snapshots with source attribution and collection time', async () => {
+  const browser = await launchBrowser();
+  const directory = await mkdtemp(join(tmpdir(), 'stringer-swahili-'));
+  try {
+    const pageFile = join(directory, 'sw.html');
+    await writeFile(pageFile, await readFile('_site/sw/index.html'));
+    await embedSwahiliHeadlines(pageFile, async (url, options) => {
+      const publisher = collectedSwahiliPublishers.find(source => source.url === url)!;
+      assert.deepEqual(options?.allowedHosts, [new URL(url).hostname]);
+      if (publisher.id === 'sw-voa') throw new Error('Unavailable');
+      return `<rss version="2.0"><channel><item>
+        <title>Habari kutoka ${publisher.name}</title><link><![CDATA[https://${publisher.articleHosts[0]}/sw/habari?a=1&#038;b=2]]></link>
+        <pubDate>Tue, 17 Nov 2026 09:30:00 GMT</pubDate>
+        <description>Unapproved publisher copy</description><enclosure url="https://example.org/photo.jpg" type="image/jpeg"/>
+      </item><item>
+        <title>Unexpected external link</title><link>https://example.org/sw/habari</link>
+      </item></channel></rss>`;
+    });
+    const html = await readFile(pageFile, 'utf8');
+    assert.doesNotMatch(html, /Unapproved publisher copy|photo\.jpg|Unexpected external link/);
+    const {page, errors} = await openEdition(browser, '/pr-preview/61/', 'fr', {builtApp: true});
+    await page.route('**/pr-preview/61/sw/', route => route.fulfill({body: html, contentType: 'text/html'}));
+    await page.route(swahiliPublisher.url, route => route.fulfill({status: 503, headers: {'Access-Control-Allow-Origin': '*'}}));
+    await page.getByRole('link', {name: 'Kiswahili', exact: true}).click();
+    await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
+    assert.deepEqual(await page.locator('#world-news h3').allTextContents(), [
+      'Habari kutoka RFI Kiswahili', 'Habari kutoka HabariLeo', 'Habari kutoka BBC News Swahili',
+    ]);
+    assert.deepEqual(await page.locator('#world-news .source').allTextContents(), ['RFI Kiswahili', 'HabariLeo', 'BBC News Swahili']);
+    assert.match(await page.locator('#relay-status-details').textContent() ?? '', /RFI Kiswahili: habari za toleo hili zilikusanywa/);
+    assert.match(await page.locator('#world-status').textContent() ?? '', /VOA Swahili: imeshindwa kusasisha/);
+    assert.equal(await page.locator('#source-options input').count(), 5);
+    assert.equal(await page.locator('#world-news article a').first().getAttribute('href'), 'https://www.rfi.fr/sw/habari?a=1&b=2');
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    await rm(directory, {recursive: true, force: true});
+  }
 });

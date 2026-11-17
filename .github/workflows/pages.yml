@@ -143,6 +143,12 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
+      - name: Collect Kiswahili headlines for publication
+        run: >-
+          node --input-type=module -e
+          "import { embedSwahiliHeadlines } from './scripts/collect-swahili.ts';
+          import { fetchText } from './scripts/collect.ts';
+          await embedSwahiliHeadlines('_site/sw/index.html', fetchText);"
       - run: pnpm run test:artifact
       - name: Package checked site
         run: tar -cf "$RUNNER_TEMP/public-site.tar" -C _site .
