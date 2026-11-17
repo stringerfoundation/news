@@ -15,6 +15,7 @@ import chinese from '../locales/zh.ts';
 import russian from '../locales/ru.ts';
 import dutch from '../locales/nl.ts';
 import german from '../locales/de.ts';
+import swahili from '../locales/sw.ts';
 
 const collectedAt = new Date(Date.now() - 60_000).toISOString();
 const editions = [
@@ -93,7 +94,7 @@ async function openEdition(browser: Awaited<ReturnType<typeof launchBrowser>>, p
       if (options.unavailable) return route.fulfill({status: 503, body: 'Unavailable'});
       return route.fulfill({json: snapshot});
     }
-    if (file.includes('..') || !/^(?:(?:fr|es|ar|zh|ru|nl|de)\/index\.html|[a-z-]+\.(?:js|css|html)|assets\/[a-zA-Z0-9/.-]+\.png)$/.test(file))
+    if (file.includes('..') || !/^(?:(?:fr|es|ar|zh|ru|nl|de|sw)\/index\.html|[a-z-]+\.(?:js|css|html)|assets\/[a-zA-Z0-9/.-]+\.png)$/.test(file))
       return route.fulfill({status: 404});
     try {
       const body = await readFile('_site/' + file);
@@ -208,5 +209,28 @@ test('localized reader shows loading and first-load failure, then retains a coll
     assert.equal(await failed.page.locator('html').getAttribute('dir'), 'rtl');
     assert.deepEqual([...failed.errors], []);
     await failed.page.close();
+  } finally { await browser.close(); }
+});
+
+test('Kiswahili is reachable from the French preview and localizes the global reader', async () => {
+  const browser = await launchBrowser();
+  try {
+    const {page, errors} = await openEdition(browser, '/pr-preview/61/', 'fr');
+    await page.getByRole('link', {name: 'Kiswahili', exact: true}).click();
+    await page.waitForURL('**/pr-preview/61/sw/');
+    await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
+    assert.equal(await page.locator('html').getAttribute('lang'), 'sw');
+    assert.equal(await page.locator('#world-title').textContent(), swahili['Global Newswire']);
+    assert.equal(await page.locator('#global-newswire h3').first().textContent(), publisherHeadline);
+    assert.equal(await page.locator('#stringer-news h3').textContent(), 'تقرير Stringer 原文报道');
+    assert.equal(await page.locator('#source-picker').count(), 0);
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+
+    await page.route('**/pr-preview/61/data/news.json', route => route.fulfill({status: 503, body: 'Unavailable'}));
+    await page.clock.fastForward(300_000);
+    await page.waitForFunction(expected => document.querySelector('#refresh-status')?.textContent === expected,
+      swahili['Could not check for updates. Keeping the previously loaded collection.']!);
+    assert.equal(await page.locator('#global-newswire h3').first().textContent(), publisherHeadline);
+    assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 });

@@ -9,25 +9,26 @@ import french from '../locales/fr.ts';
 import dutch from '../locales/nl.ts';
 import russian from '../locales/ru.ts';
 import chinese from '../locales/zh.ts';
+import swahili from '../locales/sw.ts';
+import { sourcesForLocale } from '../edition-sources.ts';
 import { EDITIONS, localeForLanguage } from '../reader-locales.ts';
 import { localizedReaderHtml } from '../scripts/reader-html.ts';
 
 const newEditions: Readonly<Record<string, Readonly<Record<string, string>>>> = {
-  ar: arabic, de: german, es: spanish, fr: french, nl: dutch, ru: russian, zh: chinese,
+  ar: arabic, de: german, es: spanish, fr: french, nl: dutch, ru: russian, zh: chinese, sw: swahili,
 };
 
 function placeholders(value: string): string[] {
   return [...value.matchAll(/\{([a-zA-Z]+)\}/g)].map(match => match[1]!).sort();
 }
 
-test('all new edition dictionaries have the French key set and preserve every placeholder', () => {
+test('all new edition dictionaries cover the French key set and preserve every placeholder', () => {
   const referenceKeys = Object.keys(french).sort();
   assert.ok(referenceKeys.length > 0);
   for (const key of referenceKeys)
     assert.deepEqual(placeholders(french[key]!), placeholders(key), `French placeholders for source key ${key}`);
   for (const [locale, dictionary] of Object.entries(newEditions)) {
-    assert.deepEqual(Object.keys(dictionary).sort(), referenceKeys, `${locale} key parity`);
-    for (const key of referenceKeys) {
+    for (const key of new Set([...referenceKeys, ...Object.keys(dictionary)])) {
       assert.ok(dictionary[key]?.trim(), `${locale} has a translation for ${key}`);
       assert.deepEqual(placeholders(dictionary[key]!), placeholders(key), `${locale} placeholders for source key ${key}`);
     }
@@ -38,7 +39,7 @@ test('edition registry and language mapping cover every locale and common region
   const expected = [
     ['', 'en-US', 'ltr'], ['br', 'pt-BR', 'ltr'], ['pt', 'pt-PT', 'ltr'],
     ['fr', 'fr', 'ltr'], ['es', 'es', 'ltr'], ['ar', 'ar', 'rtl'],
-    ['zh', 'zh', 'ltr'], ['ru', 'ru', 'ltr'], ['nl', 'nl', 'ltr'], ['de', 'de', 'ltr'],
+    ['zh', 'zh', 'ltr'], ['ru', 'ru', 'ltr'], ['nl', 'nl', 'ltr'], ['de', 'de', 'ltr'], ['sw', 'sw', 'ltr'],
   ];
   assert.deepEqual(EDITIONS.map(edition => [edition.path, edition.locale, edition.direction]), expected);
   assert.ok(EDITIONS.every(edition => edition.label.trim().length > 0));
@@ -46,7 +47,7 @@ test('edition registry and language mapping cover every locale and common region
   for (const [input, locale] of [
     ['en-GB', 'en-US'], ['pt', 'pt-BR'], ['pt-BR', 'pt-BR'], ['pt-PT', 'pt-PT'],
     ['fr-FR', 'fr'], ['fr-CA', 'fr'], ['es-MX', 'es'], ['ar-EG', 'ar'],
-    ['zh-TW', 'zh'], ['ru-RU', 'ru'], ['nl-BE', 'nl'], ['de-AT', 'de'], ['xx-ZZ', 'en-US'],
+    ['zh-TW', 'zh'], ['ru-RU', 'ru'], ['nl-BE', 'nl'], ['de-AT', 'de'], ['sw-KE', 'sw'], ['sw-TZ', 'sw'], ['xx-ZZ', 'en-US'],
   ]) assert.equal(localeForLanguage(input!), locale, input!);
 });
 
@@ -74,6 +75,6 @@ test('edition HTML has language metadata, relative shared assets, edition links,
         : target.path ? `./${target.path}/` : './';
       assert.equal(link.attr('href'), expectedHref, `${edition.locale} link to ${target.locale}`);
     }
-    assert.equal(Boolean($('#source-picker').length), edition.locale !== 'en-US');
+    assert.equal(Boolean($('#source-picker').length), sourcesForLocale(edition.locale).length > 0);
   }
 });

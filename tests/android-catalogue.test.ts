@@ -18,7 +18,7 @@ test('Android catalogue preserves all maintained editions, pinned identities and
   assert.deepEqual(catalogue.atomstr.relays, [ATOMSTR_RELAY]);
   assert.deepEqual(catalogue.englishSources, SOURCES);
   assert.deepEqual(catalogue.contentPermissions, CONTENT_PERMISSIONS);
-  assert.deepEqual(catalogue.editions.map(edition => edition.id), EDITIONS.map(edition => edition.locale));
+  assert.deepEqual(catalogue.editions.map(edition => edition.id), EDITIONS.filter(({locale}) => locale === 'en-US' || EDITION_SOURCES[locale]?.length).map(edition => edition.locale));
   for (const edition of catalogue.editions) {
     assert.deepEqual(edition.sources, edition.id === 'en-US' ? SOURCES : EDITION_SOURCES[edition.id]);
     assert.equal(edition.preferenceKey, edition.id.startsWith('pt-') ? 'pt' : edition.id);

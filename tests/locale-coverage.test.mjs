@@ -20,11 +20,12 @@ test('edition registry maps languages and region variants with the English fallb
     {path: 'ru', locale: 'ru', label: 'Русский', direction: 'ltr'},
     {path: 'nl', locale: 'nl', label: 'Nederlands', direction: 'ltr'},
     {path: 'de', locale: 'de', label: 'Deutsch', direction: 'ltr'},
+    {path: 'sw', locale: 'sw', label: 'Kiswahili', direction: 'ltr'},
   ]);
   for (const [input, expected] of [
     ['en', 'en-US'], ['en-GB', 'en-US'], ['pt', 'pt-BR'], ['PT-br', 'pt-BR'], ['pt-PT', 'pt-PT'],
     ['PT-pt', 'pt-PT'], ['fr-CA', 'fr'], ['ES-mx', 'es'], ['ar-EG', 'ar'], ['zh-TW', 'zh'],
-    ['ru-RU', 'ru'], ['nl-BE', 'nl'], ['de-AT', 'de'], ['', 'en-US'], ['xx-ZZ', 'en-US'],
+    ['ru-RU', 'ru'], ['nl-BE', 'nl'], ['de-AT', 'de'], ['sw-KE', 'sw'], ['', 'en-US'], ['xx-ZZ', 'en-US'],
   ]) assert.equal(localeForLanguage(input), expected, input);
 });
 
@@ -46,7 +47,7 @@ test('every imported locale catalogue is selected for its language and region va
 });
 
 test('translator keeps placeholders, substitutes values, falls back to source text, and preserves PT variants', () => {
-  for (const locale of ['pt-BR', 'pt-PT', ...localizedLocales]) {
+  for (const locale of ['pt-BR', 'pt-PT', 'sw', ...localizedLocales]) {
     const t = translator(locale);
     assert.equal(t('{enabled} of {total} enabled', {enabled: 4, total: 7}).includes('{enabled}'), false, locale);
     assert.equal(t('{count} articles', {count: 2}).includes('{count}'), false, locale);

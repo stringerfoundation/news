@@ -12,7 +12,7 @@ export function localizedReaderHtml(html: string, locale: string) {
   if (sources.length && !$('#source-picker').length) $('.footer-notes').prepend("        <details id=\"source-picker\" class=\"source-picker\">\n          <summary>Sources <span id=\"source-count\" aria-live=\"polite\">5 of 5 enabled</span></summary>\n          <fieldset><legend>Choose news sources</legend><input id=\"source-search\" type=\"search\" aria-label=\"Search sources\" placeholder=\"Search sources\" hidden /><div id=\"source-options\" class=\"source-options\"></div><p id=\"no-matching-sources\" hidden>No matching sources.</p></fieldset>\n          <button type=\"button\" id=\"enable-all-sources\">Enable all</button>\n          <p class=\"source-help\">Your choices are saved in this browser.</p>\n        </details>\n");
   $('html').attr('lang', locale).attr('dir', locale === 'ar' ? 'rtl' : 'ltr');
   $('title').text(`${t('Stringer World News')} | The Stringer Foundation`);
-  $('meta[name="description"]').attr('content', portuguese ? 'Manchetes de fontes em língua portuguesa e reportagens selecionadas pela The Stringer Foundation.' : t('Headlines from publishers in this language.'));
+  $('meta[name="description"]').attr('content', portuguese ? 'Manchetes de fontes em língua portuguesa e reportagens selecionadas pela The Stringer Foundation.' : t(sources.length ? 'Headlines from publishers in this language.' : 'Global publisher headlines and Stringer reporting in their original languages.'));
   // Translate static UI text, never reporting, identifiers, licenses or URLs.
   $('body *').contents().each((_, node) => {
     if (node.type !== 'text' || $(node).closest('.edition-switcher').length) return;
