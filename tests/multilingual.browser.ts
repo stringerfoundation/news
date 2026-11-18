@@ -78,11 +78,15 @@ const fixtureApp = await build({entryPoints: ['app.ts'], bundle: true, write: fa
 });
 
 async function openEdition(browser: Awaited<ReturnType<typeof launchBrowser>>, prefix: string, editionPath: string,
-  options: {holdData?: boolean; unavailable?: boolean; builtApp?: boolean; firstConnectionFailure?: 'drop' | 'silent'} = {}) {
+  options: {holdData?: boolean; unavailable?: boolean; builtApp?: boolean; firstConnectionFailure?: 'drop' | 'silent';
+    fallback?: Record<string, Partial<Snapshot['sources'][string]>>; cache?: Record<string, string>} = {}) {
   const page = await browser.newPage({viewport: {width: 375, height: 900}});
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.clock.install();
+  await page.addInitScript(cache => {
+    for (const [id, data] of Object.entries(cache)) localStorage.setItem('stringer-atomstr-v1:' + id, data);
+  }, options.cache ?? {});
   let mirrorUnavailable = options.unavailable ?? false;
   let mirrorConnections = 0;
   let onFirstQuery!: () => void;
@@ -105,7 +109,11 @@ async function openEdition(browser: Awaited<ReturnType<typeof launchBrowser>>, p
     if (file.includes('..') || !/^(?:(?:fr|es|ar|zh|ru|nl|de|sw)\/index\.html|[a-z-]+\.(?:js|css|html)|assets\/[a-zA-Z0-9/.-]+\.png)$/.test(file))
       return route.fulfill({status: 404});
     try {
-      const body = await readFile('_site/' + file);
+      let body = await readFile('_site/' + file);
+      if (options.fallback && file.endsWith('index.html')) {
+        const data = JSON.stringify(options.fallback).replaceAll('<', '\\u003c');
+        body = Buffer.from(body.toString().replace('</body>', () => `<script id="atomstr-headlines" type="application/json">${data}</script></body>`));
+      }
       return route.fulfill({body, contentType: file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.png') ? 'image/png' : 'text/html'});
     } catch { return route.fulfill({status: 404}); }
   });
@@ -201,6 +209,31 @@ test('localized editions preserve original headlines, direction, layout, loading
       assert.deepEqual(errors, [], `${edition.lang} produced browser errors`);
       await page.close();
     }
+  } finally { await browser.close(); }
+});
+
+test('same-origin headlines work without the relay, skip expired items and preserve newer browser cache', async () => {
+  const sources = catalogues.zh!;
+  const browser = await launchBrowser();
+  try {
+    const buildTime = new Date(Date.now() - 10 * 60_000).toISOString();
+    const recent = (title: string, path: string, publishedAt = buildTime) =>
+      ({title, url: 'https://news.example.org/' + path, publishedAt, atomstr: true, image: null, summary: ''});
+    const {page, errors} = await openEdition(browser, '/pr-preview/61/', 'zh', {
+      unavailable: true,
+      cache: {[sources[0]!.id]: JSON.stringify({checkedAt: collectedAt, events: [notes.zh]})},
+      fallback: {
+        [sources[0]!.id]: {lastSuccessAt: buildTime, stories: [recent('Older than browser cache', 'older')]},
+        [sources[1]!.id]: {lastSuccessAt: buildTime, stories: [recent('來自同一網站的新聞', 'offline')]},
+        [sources[2]!.id]: {lastSuccessAt: buildTime, stories: [recent('Expired', 'expired', '2000-01-01T00:00:00Z'),
+          {...recent('Missing date', 'undated'), publishedAt: null}]},
+      },
+    });
+    await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
+    assert.deepEqual(await page.locator('#world-news h3').allTextContents(), [publisherHeadline, '來自同一網站的新聞']);
+    assert.equal(await page.getByRole('link', {name: '來自同一網站的新聞'}).getAttribute('href'), 'https://news.example.org/offline');
+    assert.match(await page.locator('#world-status').textContent() ?? '', /\S/);
+    assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 });
 

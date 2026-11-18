@@ -4,10 +4,9 @@ import type { AtomstrSource, SourceState } from './types.ts';
 import { verifyEvent } from 'nostr-tools';
 import { AbstractSimplePool } from 'nostr-tools/pool';
 import { safeUrl, newestFirst, uniqueStories, NEWSWIRE_LIMIT } from '../news-model.ts';
-import { ATOMSTR_RELAY } from '../atomstr-config.ts';
+import { ATOMSTR_RELAY, ATOMSTR_MAX_AGE_MS } from '../atomstr-config.ts';
 
 const cachePrefix = 'stringer-atomstr-v1:';
-const maxAge = 7 * 24 * 60 * 60 * 1000;
 
 function queryRelay(relay: AbstractRelay, filters: Filter[], timeout: number) {
   type Reply = {events: Event[]; complete: boolean; timedOut: boolean};
@@ -145,7 +144,7 @@ export async function readAtomstrSources({sources, onUpdate = () => {}, query,
         const attemptedAt = new Date(now()).toISOString();
         let entry: SourceState;
         try {
-          const since = Math.floor((now() - maxAge) / 1000);
+          const since = Math.floor((now() - ATOMSTR_MAX_AGE_MS) / 1000);
           // Give publisher RSS its own result limit so newer social posts
           // cannot crowd out the publisher's headlines.
           const filters = [source.feeds.filter(feed => !feed.social), source.feeds.filter(feed => feed.social)]

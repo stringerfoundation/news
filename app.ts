@@ -6,6 +6,7 @@ import { localeForLanguage, translator } from './reader-locales.ts';
 import { sourcesForLocale } from './edition-sources.ts';
 import { refreshSwahiliSource, swahiliPublisher } from './sources/sw.ts';
 import { collectedSwahiliPublishers } from './swahili-publishers.ts';
+import { ATOMSTR_MAX_AGE_MS } from './atomstr-config.ts';
 import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from './news-model.js';
 import relayConfig from './relay-config.js';
 import { STRINGER_MEDIA } from './stringer-media.js';
@@ -406,6 +407,16 @@ async function loadLocalized() {
         const collected = JSON.parse(data?.textContent || '{}') as Record<string, SourceState>;
         for (const source of collectedSwahiliPublishers) {
           sources[source.id] = collected[source.id] ?? {...initialSource, status: 'failure', error: 'Publisher feed unavailable'};
+        }
+      } else {
+        const data = document.querySelector<HTMLScriptElement>('#atomstr-headlines');
+        const collected = JSON.parse(data?.textContent || '{}') as Record<string, Pick<SourceState, 'stories' | 'lastSuccessAt'>>;
+        const cutoff = Date.now() - ATOMSTR_MAX_AGE_MS;
+        for (const [id, cached] of Object.entries(sources)) {
+          const entry = collected[id];
+          if (!entry?.lastSuccessAt || entry.lastSuccessAt <= (cached.lastSuccessAt ?? '')) continue;
+          const stories = entry.stories.filter(story => Date.parse(story.publishedAt ?? '') >= cutoff);
+          if (stories.length) sources[id] = {...cached, stories, lastSuccessAt: entry.lastSuccessAt};
         }
       }
       snapshot = {schemaVersion: 2, generatedAt: now, sources: {...sources, stringer: initialSource}};

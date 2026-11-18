@@ -162,7 +162,7 @@ def select_update(run, repo, workflow_id, pulls, main_sha):
             or run.get('repository', {}).get('full_name') != repo
             or (run.get('head_repository') or {}).get('full_name') != repo):
         return None
-    if run['event'] in ('push', 'workflow_dispatch') and run['head_branch'] == 'main' and run['head_sha'] == main_sha:
+    if run['event'] in ('push', 'workflow_dispatch', 'schedule') and run['head_branch'] == 'main' and run['head_sha'] == main_sha:
         return 'production'
     if run['event'] != 'pull_request':
         return None
