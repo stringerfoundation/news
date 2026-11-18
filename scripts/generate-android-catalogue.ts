@@ -42,7 +42,7 @@ export function androidCatalogue() {
     atomstr: { relays: [ATOMSTR_RELAY] },
     englishSources: SOURCES,
     contentPermissions: CONTENT_PERMISSIONS,
-    editions: EDITIONS.map(edition => ({
+    editions: EDITIONS.filter(({locale}) => locale === 'en-US' || EDITION_SOURCES[locale]?.length).map(edition => ({
       id: edition.locale,
       label: edition.label,
       preferenceKey: edition.locale.startsWith('pt-') ? 'pt' : edition.locale,

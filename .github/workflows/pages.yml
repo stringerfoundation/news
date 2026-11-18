@@ -4,6 +4,8 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: '37 4 * * *'
 permissions:
   contents: read
 concurrency:
@@ -143,6 +145,18 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
+      - name: Collect Kiswahili headlines for publication
+        run: >-
+          node --input-type=module -e
+          "import { embedSwahiliHeadlines } from './scripts/collect-swahili.ts';
+          import { fetchText } from './scripts/collect.ts';
+          await embedSwahiliHeadlines('_site/sw/index.html', fetchText);"
+      - name: Collect Atomstr headlines for same-origin fallback
+        run: >-
+          node --input-type=module -e
+          "import { embedAtomstrHeadlines } from './scripts/collect-atomstr.ts';
+          import { readAtomstrSources } from './relay/atomstr-reader.ts';
+          await embedAtomstrHeadlines('_site', sources => readAtomstrSources({sources, previous: {}}));"
       - run: pnpm run test:artifact
       - name: Package checked site
         run: tar -cf "$RUNNER_TEMP/public-site.tar" -C _site .
