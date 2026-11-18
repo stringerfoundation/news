@@ -1124,6 +1124,9 @@ function translator(language) {
   };
 }
 
+// atomstr-config.ts
+var ATOMSTR_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
+
 // portuguese-sources.ts
 var PORTUGUESE_SOURCES = Object.freeze([
   { "id": "pt-actualidadereligiosa", "country": "PT", "name": "Actualidade Religiosa", "homepage": "https://actualidadereligiosa.blogspot.com", "feeds": [{ "url": "https://actualidadereligiosa.blogspot.com/feeds/posts/default?alt=rss", "pubkey": "95cd1be28e3093719d9ea4cb18b9dafcaecb1c6113706cf38d9f99db44122558" }] },
@@ -1641,9 +1644,9 @@ var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
 ));
 
 // app.ts
-import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=722fe982d5144205";
-import relayConfig from "./relay-config.js?v=722fe982d5144205";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=722fe982d5144205";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=694167a2322d4364";
+import relayConfig from "./relay-config.js?v=694167a2322d4364";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=694167a2322d4364";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1987,7 +1990,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=722fe982d5144205");
+      const reader = await import("./relay-reader.js?v=694167a2322d4364");
       if (!snapshot) {
         snapshot = reader.cachedRelaySnapshot(relayConfig);
         if (snapshot) render();
@@ -2058,7 +2061,7 @@ async function loadLocalized() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=722fe982d5144205");
+    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=694167a2322d4364");
     if (!snapshot) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
@@ -2069,6 +2072,16 @@ async function loadLocalized() {
         const collected = JSON.parse(data?.textContent || "{}");
         for (const source of collectedSwahiliPublishers) {
           sources[source.id] = collected[source.id] ?? { ...initialSource, status: "failure", error: "Publisher feed unavailable" };
+        }
+      } else {
+        const data = document.querySelector("#atomstr-headlines");
+        const collected = JSON.parse(data?.textContent || "{}");
+        const cutoff = Date.now() - ATOMSTR_MAX_AGE_MS;
+        for (const [id, cached] of Object.entries(sources)) {
+          const entry = collected[id];
+          if (!entry?.lastSuccessAt || entry.lastSuccessAt <= (cached.lastSuccessAt ?? "")) continue;
+          const stories = entry.stories.filter((story) => Date.parse(story.publishedAt ?? "") >= cutoff);
+          if (stories.length) sources[id] = { ...cached, stories, lastSuccessAt: entry.lastSuccessAt };
         }
       }
       snapshot = { schemaVersion: 2, generatedAt: now, sources: { ...sources, stringer: initialSource } };
@@ -2093,7 +2106,7 @@ async function loadLocalized() {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=722fe982d5144205");
+            const relay = await import("./relay-reader.js?v=694167a2322d4364");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;

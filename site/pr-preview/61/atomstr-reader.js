@@ -7731,10 +7731,10 @@ function uniqueStories(stories) {
 
 // atomstr-config.ts
 var ATOMSTR_RELAY = "wss://nostr.data.haus";
+var ATOMSTR_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
 
 // relay/atomstr-reader.ts
 var cachePrefix = "stringer-atomstr-v1:";
-var maxAge = 7 * 24 * 60 * 60 * 1e3;
 function queryRelay(relay, filters, timeout) {
   return new Promise((resolve) => {
     const events = [];
@@ -7885,7 +7885,7 @@ async function readAtomstrSources({
         const attemptedAt = new Date(now2()).toISOString();
         let entry;
         try {
-          const since = Math.floor((now2() - maxAge) / 1e3);
+          const since = Math.floor((now2() - ATOMSTR_MAX_AGE_MS) / 1e3);
           const filters = [source.feeds.filter((feed) => !feed.social), source.feeds.filter((feed) => feed.social)].filter((feeds) => feeds.length).map((feeds) => ({ kinds: [1], authors: [...new Set(feeds.map((feed) => feed.pubkey))], since, limit: NEWSWIRE_LIMIT }));
           const { events, complete } = await read(filters);
           const checked = verifiedSource(events.slice(0, 200).filter((event) => event?.created_at >= since), source, now2());
