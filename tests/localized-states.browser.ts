@@ -19,6 +19,7 @@ interface LocalizedFixtureOptions {
   omitOptions?: boolean;
   cacheThrows?: boolean;
   mirrorCache?: Record<string, SourceState>;
+  fallback?: Record<string, Pick<SourceState, 'stories' | 'lastSuccessAt'>>;
   cachedCollection?: Snapshot;
 }
 
@@ -78,6 +79,10 @@ async function setup(t: TestContext, locale: string, options: LocalizedFixtureOp
     let body = file.endsWith('.js') ? await readerSource(file) : await readFile(`_site/${file}`, 'utf8');
     if (file.endsWith('index.html') && options.proxy) body = body.replace('<head>', '<head><base href="/news-assets/">');
     if (file.endsWith('index.html') && options.omitOptions) body = body.replace('id="source-options"', 'id="unavailable-options"');
+    if (file.endsWith('index.html') && options.fallback) {
+      const data = JSON.stringify(options.fallback).replaceAll('<', '\\u003c');
+      body = body.replace('</body>', () => `<script id="atomstr-headlines" type="application/json">${data}</script></body>`);
+    }
     return route.fulfill({contentType: file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : 'text/html', body});
   });
   const path = locale === 'pt-BR' ? 'br' : locale === 'pt-PT' ? 'pt' : locale;
@@ -92,6 +97,39 @@ async function finish(page: Page, locale: string, states: Record<string, SourceS
   await page.waitForFunction(() => window.finishMirrors);
   await page.evaluate(entries => window.finishMirrors!(entries), values);
 }
+
+test('same-origin fallback works during a relay failure and prefers fresh verified headlines', async t => {
+  const locale = 'zh';
+  const [first, second, third, fourth] = EDITION_SOURCES[locale]!;
+  const now = Date.now();
+  const builtAt = new Date(now - 60_000).toISOString();
+  const cachedAt = new Date(now - 30_000).toISOString();
+  const olderAt = new Date(now - 120_000).toISOString();
+  const expiredAt = new Date(now - 8 * 24 * 60 * 60_000).toISOString();
+  const item = (title: string, publishedAt: string | null = builtAt) =>
+    ({...story(title), publishedAt, url: `https://publisher.example/${encodeURIComponent(title)}`});
+  const {page, errors} = await setup(t, locale, {
+    failStatic: true,
+    mirrorCache: {
+      [first!.id]: {...entry([item('Newer browser headline', cachedAt)], 'failure'), lastSuccessAt: cachedAt},
+      [fourth!.id]: {...entry([item('Older browser headline', olderAt)], 'failure'), lastSuccessAt: olderAt},
+    },
+    fallback: {
+      [first!.id]: {lastSuccessAt: builtAt, stories: [item('Older build headline')]},
+      [second!.id]: {lastSuccessAt: builtAt, stories: [item('來自同一網站的新聞')]},
+      [third!.id]: {lastSuccessAt: builtAt, stories: [item('Expired', expiredAt), item('Undated', null)]},
+      [fourth!.id]: {lastSuccessAt: builtAt, stories: [item('Newer build headline')]},
+    },
+  });
+  await page.waitForFunction(() => window.rejectMirrors);
+  await page.evaluate(() => window.rejectMirrors!());
+  await ready(page);
+  const headlines = await page.locator('#world-news h3').allTextContents();
+  assert.deepEqual(headlines.sort(), ['Newer browser headline', 'Newer build headline', '來自同一網站的新聞'].sort());
+  assert.equal(await page.getByRole('link', {name: '來自同一網站的新聞'}).getAttribute('href'),
+    item('來自同一網站的新聞').url);
+  assert.deepEqual(errors, []);
+});
 
 test('Portuguese source search, persistence and enable-all remain usable with cached headlines', async t => {
   const locale = 'pt-BR', first = EDITION_SOURCES[locale]![0]!, second = EDITION_SOURCES[locale]![1]!, tr = translator(locale);
