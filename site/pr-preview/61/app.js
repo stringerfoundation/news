@@ -1641,9 +1641,9 @@ var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
 ));
 
 // app.ts
-import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=128ef227921fc9fa";
-import relayConfig from "./relay-config.js?v=128ef227921fc9fa";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=128ef227921fc9fa";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=722fe982d5144205";
+import relayConfig from "./relay-config.js?v=722fe982d5144205";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=722fe982d5144205";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1938,12 +1938,13 @@ function renderWorld() {
   const current = snapshot;
   const selected = selectedSources();
   const worldPaused = selected.length > 0 && selected.every((id) => current.sources[id].status === "paused");
+  const allFailed = localizedEdition && selected.length > 0 && selected.every((id) => current.sources[id].status === "failure");
   const list = requiredElement("#world-news");
   const stories = worldStories(displayedSnapshot(), selected, publisherSources);
   renderStories(
     list,
     localizedEdition ? stories.slice(0, 300) : stories,
-    !selected.length ? t("No sources selected.") : loading ? "" : worldPaused ? t("Global headlines are currently unavailable.") : t("No headlines available in this collection.")
+    !selected.length ? t("No sources selected.") : loading ? "" : worldPaused || allFailed ? t("Global headlines are currently unavailable.") : t("No headlines available in this collection.")
   );
   if (!selected.length) {
     const button = element("button", t("Enable all"), "enable-all-empty");
@@ -1986,7 +1987,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=128ef227921fc9fa");
+      const reader = await import("./relay-reader.js?v=722fe982d5144205");
       if (!snapshot) {
         snapshot = reader.cachedRelaySnapshot(relayConfig);
         if (snapshot) render();
@@ -2057,7 +2058,7 @@ async function loadLocalized() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=128ef227921fc9fa");
+    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=722fe982d5144205");
     if (!snapshot) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
@@ -2092,7 +2093,7 @@ async function loadLocalized() {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=128ef227921fc9fa");
+            const relay = await import("./relay-reader.js?v=722fe982d5144205");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
