@@ -286,10 +286,11 @@ function renderWorld() {
   const current = snapshot!;
   const selected = selectedSources();
   const worldPaused = selected.length > 0 && selected.every(id => current.sources[id]!.status === 'paused');
+  const allFailed = localizedEdition && selected.length > 0 && selected.every(id => current.sources[id]!.status === 'failure');
   const list = requiredElement('#world-news');
   const stories = worldStories(displayedSnapshot(), selected, publisherSources);
   renderStories(list, localizedEdition ? stories.slice(0, 300) : stories,
-    !selected.length ? t('No sources selected.') : loading ? '' : worldPaused ? t('Global headlines are currently unavailable.') : t('No headlines available in this collection.'));
+    !selected.length ? t('No sources selected.') : loading ? '' : worldPaused || allFailed ? t('Global headlines are currently unavailable.') : t('No headlines available in this collection.'));
   if (!selected.length) {
     const button = element('button', t('Enable all'), 'enable-all-empty');
     button.type = 'button'; button.addEventListener('click', enableAllSources); list.append(button);

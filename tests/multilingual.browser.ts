@@ -78,12 +78,15 @@ const fixtureApp = await build({entryPoints: ['app.ts'], bundle: true, write: fa
 });
 
 async function openEdition(browser: Awaited<ReturnType<typeof launchBrowser>>, prefix: string, editionPath: string,
-  options: {holdData?: boolean; unavailable?: boolean; builtApp?: boolean} = {}) {
+  options: {holdData?: boolean; unavailable?: boolean; builtApp?: boolean; firstConnectionFailure?: 'drop' | 'silent'} = {}) {
   const page = await browser.newPage({viewport: {width: 375, height: 900}});
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.clock.install();
   let mirrorUnavailable = options.unavailable ?? false;
+  let mirrorConnections = 0;
+  let onFirstQuery!: () => void;
+  const firstQuery = new Promise<void>(resolve => { onFirstQuery = resolve; });
   let releaseData!: () => void;
   const dataGate = new Promise<void>(resolve => { releaseData = resolve; });
   await page.route('**/*', async route => {
@@ -106,24 +109,40 @@ async function openEdition(browser: Awaited<ReturnType<typeof launchBrowser>>, p
       return route.fulfill({body, contentType: file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.png') ? 'image/png' : 'text/html'});
     } catch { return route.fulfill({status: 404}); }
   });
-  await page.routeWebSocket('wss://nostr.data.haus/', socket => socket.onMessage(async raw => {
-    const [type, id, filter] = JSON.parse(String(raw));
-    if (type !== 'REQ') return;
-    if (options.holdData) await dataGate;
-    if (!mirrorUnavailable) for (const note of Object.values(notes)) {
-      if (filter.authors.includes(note.pubkey)) socket.send(JSON.stringify(['EVENT', id, note]));
-    }
-    socket.send(JSON.stringify(['EOSE', id]));
-  }));
+  await page.routeWebSocket('wss://nostr.data.haus/', socket => {
+    const connection = ++mirrorConnections;
+    let dropping = false;
+    socket.onMessage(async raw => {
+      const [type, id, filter] = JSON.parse(String(raw));
+      if (type !== 'REQ') return;
+      if (options.firstConnectionFailure && connection === 1) {
+        onFirstQuery();
+        if (options.firstConnectionFailure === 'drop' && !dropping) { dropping = true; await socket.close({code: 1011}); }
+        return;
+      }
+      if (options.holdData) await dataGate;
+      if (mirrorUnavailable) return socket.send(JSON.stringify(['CLOSED', id, 'error: mirror unavailable']));
+      for (const note of Object.values(notes)) {
+        if (filter.authors.includes(note.pubkey)) socket.send(JSON.stringify(['EVENT', id, note]));
+      }
+      socket.send(JSON.stringify(['EOSE', id]));
+    });
+  });
   await page.goto(`https://edition.test${prefix}${editionPath}/`);
-  return {page, errors, releaseData, stopMirrors() { mirrorUnavailable = true; }};
+  if (options.firstConnectionFailure === 'silent') {
+    await firstQuery;
+    await page.clock.runFor(8100);
+  }
+  return {page, errors, releaseData, get mirrorConnections() { return mirrorConnections; }, stopMirrors() { mirrorUnavailable = true; }};
 }
 
-test('localized editions preserve original headlines, direction, layout, loading, refresh, and language navigation', async () => {
+test('localized editions preserve original headlines, direction, layout, loading, refresh, and language navigation', {timeout: 60_000}, async () => {
   const browser = await launchBrowser();
   try {
     for (const edition of editions) {
-      const {page, errors} = await openEdition(browser, '/', edition.path);
+      const firstConnectionFailure = edition.lang === 'nl' ? 'drop' : edition.lang === 'es' ? 'silent' : undefined;
+      const view = await openEdition(browser, '/', edition.path, firstConnectionFailure ? {firstConnectionFailure} : {});
+      const {page, errors} = view;
       await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
       assert.equal(await page.locator('html').getAttribute('lang'), edition.lang);
       assert.equal(await page.locator('html').getAttribute('dir'), edition.dir);
@@ -132,6 +151,8 @@ test('localized editions preserve original headlines, direction, layout, loading
       assert.equal(await page.locator('#source-options input').first().getAttribute('value'), catalogues[edition.lang]![0]!.id);
       assert.equal(await page.locator('#global-newswire .source').first().textContent(), catalogues[edition.lang]![0]!.name);
       assert.equal(await page.locator('#global-newswire h3').first().textContent(), publisherHeadline);
+      assert.equal(view.mirrorConnections, firstConnectionFailure ? 2 : 1);
+      assert.equal(await page.locator('#world-status details').count(), 0, `${edition.lang} has an unexpected source outage`);
       assert.equal(await page.locator('#global-newswire img').count(), 0, 'Publisher images are not rendered');
       assert.equal(await page.locator('#global-newswire .summary').count(), 0, 'Publisher summaries are not rendered');
       assert.equal(await page.evaluate(() => (window as Window & {pwned?: boolean}).pwned), undefined, 'Headline markup stays text');
@@ -209,6 +230,7 @@ test('localized reader shows loading and first-load failure, then retains a coll
     const failed = await openEdition(browser, '/stringer-news/', 'ar', {unavailable: true});
     await failed.page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
     assert.equal(await failed.page.locator('#global-newswire article').count(), 0);
+    assert.equal(await failed.page.locator('#world-news .empty').textContent(), arabic['Global headlines are currently unavailable.']);
     assert.equal(await failed.page.locator('#stringer-news article').count(), 0);
     assert.equal(await failed.page.locator('#refresh-status').textContent(), arabic['The news collection is unavailable. We’ll retry automatically.']!);
     assert.equal(await failed.page.locator('html').getAttribute('dir'), 'rtl');
@@ -282,6 +304,7 @@ test('Kiswahili displays DW headlines and keeps its stories through publisher re
     await request;
     await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
     assert.equal(await page.locator('#world-news article').count(), 0, 'A verified empty feed replaces the previously loaded headlines');
+    assert.equal(await page.locator('#world-news .empty').textContent(), swahili['No headlines available in this collection.']);
     assert.doesNotMatch(await page.locator('#world-status').textContent() ?? '', /DW Kiswahili: imeshindwa/);
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }

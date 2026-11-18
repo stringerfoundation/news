@@ -67,8 +67,8 @@ test('mirror queries are bounded, recover verified cache on outages, and never i
   Object.defineProperty(globalThis, 'localStorage', {configurable: true, value: memoryStorage});
   try {
     let reads = 0, updates = 0;
-    const fresh = await readAtomstrSources({sources: [source], now: () => now, query: async filter => {
-      reads++; assert.deepEqual(filter.authors, [pubkey]); assert.equal(filter.limit, 30); return [event()];
+    const fresh = await readAtomstrSources({sources: [source], now: () => now, query: async ([filter]) => {
+      reads++; assert.deepEqual(filter?.authors, [pubkey]); assert.equal(filter.limit, 30); return [event()];
     }, onUpdate() {updates++;}});
     assert.equal(reads, 1); assert.equal(updates, 1);
     assert.equal(fresh[source.id]!.status, 'success');
@@ -79,9 +79,12 @@ test('mirror queries are bounded, recover verified cache on outages, and never i
     assert.equal(failed[source.id]!.lastSuccessAt, fresh[source.id]!.lastSuccessAt);
     assert.equal(failed[source.id]!.stories.length, 1);
     storage.clear();
-    const empty = await readAtomstrSources({sources: [source], now: () => now, query: async () => []});
-    assert.equal(empty[source.id]!.status, 'failure');
-    assert.equal(empty[source.id]!.lastSuccessAt, null);
+    const empty = await readAtomstrSources({sources: [source], now: () => now, query: async () => [
+      event({created_at: now / 1000 - 8 * 24 * 60 * 60}),
+      event({content: '\n\nSocial post without a headline'}),
+    ]});
+    assert.equal(empty[source.id]!.status, 'success');
+    assert.deepEqual(empty[source.id]!.stories, []);
     storage.set('stringer-atomstr-v1:' + source.id, JSON.stringify({checkedAt: new Date(now).toISOString(), events: [{...event(), content: 'forged'}]}));
     assert.equal(cachedAtomstrSources([source], now)[source.id]!.stories.length, 0);
   } finally { if (originalStorage) Object.defineProperty(globalThis, 'localStorage', originalStorage); else Reflect.deleteProperty(globalThis, 'localStorage'); }
