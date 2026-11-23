@@ -1644,9 +1644,9 @@ var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
 ));
 
 // app.ts
-import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=1194197a3b54d06a";
-import relayConfig from "./relay-config.js?v=1194197a3b54d06a";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=1194197a3b54d06a";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=d68caa7bbd4825ca";
+import relayConfig from "./relay-config.js?v=d68caa7bbd4825ca";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=d68caa7bbd4825ca";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1990,7 +1990,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=1194197a3b54d06a");
+      const reader = await import("./relay-reader.js?v=d68caa7bbd4825ca");
       if (!snapshot) {
         snapshot = reader.cachedRelaySnapshot(relayConfig);
         if (snapshot) render();
@@ -2061,7 +2061,7 @@ async function loadLocalized() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=1194197a3b54d06a");
+    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=d68caa7bbd4825ca");
     if (!snapshot) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
@@ -2106,7 +2106,7 @@ async function loadLocalized() {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=1194197a3b54d06a");
+            const relay = await import("./relay-reader.js?v=d68caa7bbd4825ca");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
