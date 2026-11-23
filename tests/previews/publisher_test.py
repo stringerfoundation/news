@@ -179,7 +179,7 @@ class PublisherTests(unittest.TestCase):
         <meta name='bingbot' content='noindex'/><script>const example = '<head>';</script>
         </HEAD><BODY>News</BODY></HTML>"""
         production = publisher.robots(html, False)
-        self.assertNotIn('noindex', production)
+        self.assertIn('content="noindex, nofollow, noarchive, noimageindex"', production)
         self.assertEqual(production.count('name="robots"'), 1)
         preview = publisher.robots(html, True, SHA)
         self.assertIn('noindex, nofollow', preview)
