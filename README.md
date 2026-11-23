@@ -33,7 +33,7 @@ pnpm run test:relay-browser
 
 All maintained JavaScript source is now TypeScript: the reader, relay implementation, collector, build tooling, Workers, tests, and ESLint configuration share strict compiler checks. `pnpm run build` compiles browser source to the existing relative JavaScript asset paths in `_site`; TypeScript sources, declarations, and source maps are excluded from the published allowlist. Tests load source modules through `tsx`; browser fixtures compile their source with esbuild. Node 24+ runs build scripts with native type stripping and ESLint with its native TypeScript config loader.
 
-The reader loads verified news from the configured Nostr relays. CI uses synthetic fixtures; it does not publish or collect news. Global publishers supply headlines, attribution, dates and original links; Stringer reporting and photos remain separate. See `LEGAL.md` for the publication policy. Source availability does not grant reuse rights to publisher material or photographs.
+The reader loads verified news from the configured Nostr relays. CI tests use synthetic fixtures. The publication build separately collects Kiswahili headlines for the static edition. Global publishers supply headlines, attribution, dates and original links; Stringer reporting and photos remain separate. See `LEGAL.md` for the publication policy. Source availability does not grant reuse rights to publisher material or photographs.
 
 Relay lookups, story downloads and retries share a 15-second network loading budget. Partial refreshes retain displayed stories while keeping unavailable-note counts and source failures visible. Browser storage is optional: malformed or oversized caches are ignored, and only a verified cached collection can supply fallback stories or prevent an older collection from replacing newer reporting.
 
@@ -41,9 +41,19 @@ Relay lookups, story downloads and retries share a 15-second network loading bud
 
 Keep Wrangler configuration and Cloudflare account/zone details outside tracked source. Set `PAGES_ORIGIN=https://stringerfoundation.github.io/news/`, `PUBLIC_HOST=stringerjournalism.org`, and `PUBLIC_INDEXING=true`. Deploy as a Worker Route over the existing Hostinger DNS origin. Hostinger passthrough preserves methods, headers, bodies and queries. Pages requests omit visitor cookies and credentials. The Worker preserves the repository path in the Pages origin.
 
-The Worker serves the apex Nostr identity endpoint directly. The existing news-subdomain redirect and identity handling remain independent. Worker deployment is a separate operator action; frontend updates deploy automatically through GitHub Actions without a Cloudflare token in GitHub.
+The Worker serves the apex Nostr identity endpoint directly. The existing news-subdomain redirect and identity handling remain independent. The GitHub Pages publisher uses its GitHub credentials.
+
+### Homepage Worker CI
+
+The homepage Worker workflow runs its routing tests and publishes a new `stringer-homepage` version when a push to `main` changes `deploy/homepage-worker/worker.ts`, `public-assets.ts`, or `relay-config.ts`. Update its trigger and diff checks when the Worker gains another local runtime import. The version upload uses the existing Worker variables and the release uses the existing route.
+
+Allow `main` in the GitHub `cloudflare-homepage-worker` environment. Set `CLOUDFLARE_ACCOUNT_ID` to the account that owns the Worker and `CLOUDFLARE_API_TOKEN` to a token with Editor access to `stringer-homepage`. Keep production bindings and routing in private operator configuration.
 
 To roll back the Pages origin, restore the previous `PAGES_ORIGIN` in private operator configuration and redeploy the Worker. Disabling the homepage route restores Hostinger's original homepage.
+
+### Cloudflare Pages Direct Upload
+
+The Cloudflare Pages workflow uploads the checked public artifact after the website CI workflow succeeds on `main`. Set `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_PAGES_PROJECT` as secrets in the GitHub `cloudflare-pages` environment. Allow the `main` branch in that environment and grant the token Cloudflare Pages Edit access to the account that owns the Direct Upload project. A push or a manual run of the website workflow on `main` can deploy the checked build.
 
 ## License
 
@@ -131,7 +141,9 @@ The Pages build includes `/fr/` (French), `/es/` (Spanish), `/ar/` (Arabic), `/z
 
 It also includes `/br/` (Brazilian Portuguese) and `/pt/` (European Portuguese), sharing the pinned catalogue in `portuguese-sources.ts`. On the project site these resolve beneath `/stringer-news/`. The edition links and shared assets remain relative. The locale pages preserve the same UTC build stamp as the English reader.
 
-These editions translate the interface only; headlines and Stringer reporting remain in their original languages. Localized headlines are read directly from the configured Atomstr relay and require both a pinned mirror signature and matching RSS provenance. Publisher summaries and photos are discarded. Mirror timestamps and social-feed fallbacks are labeled, and unavailable mirrors retain previously verified stories without claiming a successful refresh. BR and PT share source choices in browser storage; other language choices remain independent. The English reader continues to enable every configured global publisher.
+These editions translate the interface only; headlines and Stringer reporting remain in their original languages. Localized headlines are read directly from the configured Atomstr relay and require both a pinned mirror signature and matching RSS provenance. Publisher summaries and photos are discarded. Mirror timestamps and social-feed fallbacks are labeled, and unavailable mirrors retain previously verified stories without claiming a successful refresh. BR and PT share source choices in browser storage; other language choices remain independent. The English reader continues to enable every configured global publisher. The `/sw/` edition loads DW’s Kiswahili feed directly. The checked publication build collects Kiswahili headlines from RFI, HabariLeo, BBC and VOA. Those four sources update with each published build, and their collection times appear in the feed status. The reader displays publisher headlines, publication timestamps and original links.
+
+Each published Atomstr edition also includes up to eight verified headlines per source in its own HTML. Readers can display these headlines before the live relay responds, and keep them if the connection fails. The reader gives newer browser collections priority and ignores build headlines older than seven days. A daily Pages build on `main` refreshes the production fallback.
 
 The catalogues use active feeds listed by [Atomstr](https://atomstr.data.haus/), checked on 19 October 2026. They do not claim exhaustive coverage. Arabic currently has two direct publisher mirrors; Chinese includes both simplified and traditional reporting and a clearly named Cantonese source. Dutch includes explicitly named football feeds alongside general news; Spanish currently includes EL PAÍS and the sports publisher Olé. All editions preserve the publisher’s original wording and script. A catalogue listing is not a guarantee of continued relay availability.
 

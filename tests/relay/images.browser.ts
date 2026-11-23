@@ -259,7 +259,7 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     await ownerPage.getByRole('button', { name: 'Search images', exact: true }).click();
     await ownerPage.locator('.image-review .warning').filter({ hasText: 'Commons search is unavailable.' }).waitFor();
     // External sources use the same signed-candidate and approval flow.
-    for (const [query, source, title, credit] of [['External sample', 'flickr', 'External example', 'Flickr photographer'], ['EU sample', 'eu', 'EU example', 'EU photographer']]) {
+    for (const [query, source, alt, credit] of [['External sample', 'flickr', 'External example', 'Flickr photographer'], ['EU sample', 'eu', 'EU illustration', 'EU photographer']]) {
       await ownerPage.getByRole('searchbox').fill(query!);
       await ownerPage.getByRole('combobox', { name: 'Image source' }).selectOption(source!);
       const publish = ownerPage.locator('.image-review').getByRole('button', { name: 'Publish and upvote image', exact: true });
@@ -268,7 +268,8 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
       await ownerPage.waitForFunction(at => Math.floor(Date.now() / 1000) > at, priorTime);
       await publish.click();
       await ownerPage.getByText('Image and approval published.', { exact: true }).waitFor();
-      await reader.waitForFunction(title => document.querySelector('#world-news .wire-thumbnail > a')?.getAttribute('aria-label')?.includes(title), title!);
+      await reader.waitForFunction(expected => document.querySelector('#world-news .wire-thumbnail > a > img')?.getAttribute('alt')?.includes(expected), alt!);
+      assert.equal(await reader.locator('#world-news .wire-thumbnail > a').getAttribute('href'), 'https://example.org/story');
       await checkCredits(reader, new RegExp(credit!));
     }
     const late = await browser.newPage();
@@ -330,12 +331,13 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     await multi.locator('#world-news').screenshot({ path: '.test-output/image-voting-mobile.png' });
     const firstCard = multi.locator('#world-news article').first();
     await firstCard.evaluate(node => node.scrollIntoView());
-    const originalImage = await firstCard.locator('.wire-thumbnail > a').getAttribute('href');
+    const originalImage = await firstCard.locator('.wire-thumbnail > a > img').getAttribute('src');
+    assert.equal(await firstCard.locator('.wire-thumbnail > a').getAttribute('href'), 'https://example.org/story');
     const publishedCount = events.length;
     await firstCard.getByRole('button', { name: 'Skip image for me', exact: true }).click();
-    assert.notEqual(await firstCard.locator('.wire-thumbnail > a').getAttribute('href'), originalImage);
+    assert.notEqual(await firstCard.locator('.wire-thumbnail > a > img').getAttribute('src'), originalImage);
     await firstCard.getByRole('button', { name: 'Undo image choice', exact: true }).click();
-    assert.equal(await firstCard.locator('.wire-thumbnail > a').getAttribute('href'), originalImage);
+    assert.equal(await firstCard.locator('.wire-thumbnail > a > img').getAttribute('src'), originalImage);
     assert.equal(events.length, publishedCount, 'Local skips and their undo must never publish Nostr events');
     let releaseSlow!: () => void;
     const slowProviders = new Promise<void>(resolve => { releaseSlow = resolve; });
@@ -354,9 +356,10 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     releaseSlow();
     assert.equal(await firstCard.getByRole('dialog').isVisible(), false);
     assert.ok(Date.now() - choiceStart < 1500, 'Choosing an already loaded image must not wait for network or signatures');
-    assert.notEqual(await firstCard.locator('.wire-thumbnail > a').getAttribute('href'), originalImage);
+    assert.notEqual(await firstCard.locator('.wire-thumbnail > a > img').getAttribute('src'), originalImage);
+    assert.equal(await firstCard.locator('.wire-thumbnail > a').getAttribute('href'), 'https://example.org/story');
     await firstCard.getByRole('button', { name: 'Undo image choice', exact: true }).click();
-    assert.equal(await firstCard.locator('.wire-thumbnail > a').getAttribute('href'), originalImage);
+    assert.equal(await firstCard.locator('.wire-thumbnail > a > img').getAttribute('src'), originalImage);
     assert.equal(events.length, publishedCount, 'Choosing and undoing an image must not publish Nostr events');
     await firstCard.getByRole('button', { name: 'Review illustrative images', exact: true }).click();
     await multi.keyboard.press('Escape');

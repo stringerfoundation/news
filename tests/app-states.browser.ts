@@ -1,11 +1,31 @@
+
 import { readerSource } from './reader-source.ts';
 import test from 'node:test';
+import type { TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import type { Page } from '@playwright/test';
 import { launchBrowser } from '../scripts/browser.ts';
 import { SOURCES } from '../news-model.ts';
+import type { Snapshot, Story } from '../relay/types.ts';
+import type { FeedLoadTiming } from '../relay/reader.ts';
+
+declare global {
+  interface Window {
+    cached: Snapshot | null;
+    finish: (value: Snapshot) => void;
+    fail: () => void;
+    readerCalls: number;
+    readerCallbacks: {
+      report: (message: string) => void;
+      partial: (value: Snapshot) => void;
+      timing: (value: Record<string, FeedLoadTiming>) => void;
+    };
+  }
+}
+
 const time = '2026-01-01T00:00:00.000Z';
-const snapshot = () => ({
+const snapshot = (): Snapshot => ({
   schemaVersion: 2,
   generatedAt: time,
   sources: Object.fromEntries(
@@ -13,9 +33,9 @@ const snapshot = () => ({
       id,
       { stories: [], attemptedAt: time, lastSuccessAt: null, status: 'paused', error: null },
     ]),
-  ),
+  ) as Snapshot['sources'],
 });
-const story = (url = 'https://example.org/story') => ({
+const story = (url = 'https://example.org/story'): Story => ({
   title: 'Synthetic reporting',
   url,
   summary: 'Reporting',
@@ -23,9 +43,14 @@ const story = (url = 'https://example.org/story') => ({
   publishedAt: null,
   image: null,
 });
+function sourceState(snapshot: Snapshot, id: string) {
+  const state = snapshot.sources[id];
+  assert.ok(state, `Missing test source state: ${id}`);
+  return state;
+}
 const reader = `export const cachedRelaySnapshot=()=>window.cached;
 export async function readRelaySnapshot(config,report,partial,timing){window.readerCalls=(window.readerCalls||0)+1;window.readerCallbacks={report,partial,timing};return new Promise((resolve,reject)=>{window.finish=resolve;window.fail=()=>reject(new Error('Offline'));});}`;
-async function setup(t, cached = null, images = true, {withoutLabels = false, missingMenu = false} = {}) {
+async function setup(t: TestContext, cached: Snapshot | null = null, images = true, {withoutLabels = false, missingMenu = false}: {withoutLabels?: boolean; missingMenu?: boolean} = {}): Promise<Page> {
   const browser = await launchBrowser();
   t.after(() => browser.close());
   const page = await browser.newPage();
@@ -70,10 +95,10 @@ test('paused collections provide publisher links and honest empty reporting stat
   const page = await setup(t);
   await page.evaluate((value) => window.finish(value), snapshot());
   await page.waitForFunction(
-    () => document.querySelector('#world-news').getAttribute('aria-busy') === 'false',
+    () => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false',
   );
   assert.match(
-    await page.locator('#world-news').textContent(),
+    (await page.locator('#world-news').textContent()) ?? '',
     /Global headlines are currently unavailable/,
   );
   assert.equal(await page.locator('.publisher-links a').count(), 5);
@@ -81,12 +106,12 @@ test('paused collections provide publisher links and honest empty reporting stat
     await page.locator('.publisher-links a').nth(3).getAttribute('href'),
     'https://www.dw.com/',
   );
-  assert.match(await page.locator('#stringer-news').textContent(), /currently unavailable/);
+  assert.match((await page.locator('#stringer-news').textContent()) ?? '', /currently unavailable/);
 });
 test('progress timings, partial updates and failures retain displayed stories', async (t) => {
   const cached = snapshot();
   cached.sources.stringer = {
-    ...cached.sources.stringer,
+    ...sourceState(cached, 'stringer'),
     status: 'success',
     lastSuccessAt: time,
     stories: [story(), story('https://example.org/second')],
@@ -94,7 +119,7 @@ test('progress timings, partial updates and failures retain displayed stories', 
   const page = await setup(t, cached);
   await page.evaluate(() => window.readerCallbacks.report('Loading test stories…'));
   await page.evaluate(() => window.readerCallbacks.report('Received 2 published notes. Retrying 1 missing notes…'));
-  assert.match(await page.locator('#relay-status-details').textContent(), /Retrying 1 missing notes/);
+  assert.match((await page.locator('#relay-status-details').textContent()) ?? '', /Retrying 1 missing notes/);
   await page.evaluate(() => {
     const now = performance.now();
     window.readerCallbacks.timing({
@@ -104,12 +129,12 @@ test('progress timings, partial updates and failures retain displayed stories', 
       cna: { startedAt: now, durationMs: 100, state: 'partial', received: 1, total: 3 },
     });
   });
-  assert.match(await page.locator('#relay-status-details').textContent(), /1\/2 stories/);
-  assert.match(await page.locator('#relay-status-details').textContent(), /no published stories/);
+  assert.match((await page.locator('#relay-status-details').textContent()) ?? '', /1\/2 stories/);
+  assert.match((await page.locator('#relay-status-details').textContent()) ?? '', /no published stories/);
   const partial = structuredClone(cached);
-  partial.sources.stringer.stories = [];
+  partial.sources.stringer!.stories = [];
   partial.sources.bbc = {
-    ...partial.sources.bbc,
+    ...sourceState(partial, 'bbc'),
     stories: [story('https://example.org/headline')],
     status: 'failure',
     error: 'Offline',
@@ -125,18 +150,18 @@ test('progress timings, partial updates and failures retain displayed stories', 
   assert.equal(await page.locator('#stringer-news article').count(), 2);
   await page.evaluate(() => window.fail());
   await page.waitForFunction(
-    () => document.querySelector('#world-news').getAttribute('aria-busy') === 'false',
+    () => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false',
   );
-  assert.match(await page.locator('#refresh-status').textContent(), /previously loaded/);
-  assert.match(await page.locator('#relay-status-details').textContent(), /1 unavailable/);
-  assert.match(await page.locator('#relay-status-details').textContent(), /2 queued/);
-  assert.match(await page.locator('#relay-status-details').textContent(), /stories received after/);
+  assert.match((await page.locator('#refresh-status').textContent()) ?? '', /previously loaded/);
+  assert.match((await page.locator('#relay-status-details').textContent()) ?? '', /1 unavailable/);
+  assert.match((await page.locator('#relay-status-details').textContent()) ?? '', /2 queued/);
+  assert.match((await page.locator('#relay-status-details').textContent()) ?? '', /stories received after/);
 });
 test('relay UI ignores unsafe links and retains image attribution', async (t) => {
   const page = await setup(t, null, false);
   const value = snapshot();
   value.sources.stringer = {
-    ...value.sources.stringer,
+    ...sourceState(value, 'stringer'),
     status: 'success',
     lastSuccessAt: time,
     stories: [
@@ -160,9 +185,9 @@ test('older final snapshots are rejected and do not erase cached stories', async
     generatedAt: '2025-01-01T00:00:00.000Z',
   });
   await page.waitForFunction(
-    () => document.querySelector('#world-news').getAttribute('aria-busy') === 'false',
+    () => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false',
   );
-  assert.match(await page.locator('#refresh-status').textContent(), /previously loaded/);
+  assert.match((await page.locator('#refresh-status').textContent()) ?? '', /previously loaded/);
 });
 test('polling cannot start a second relay request while the current load is pending', async t => {
   const page = await setup(t);
@@ -170,11 +195,11 @@ test('polling cannot start a second relay request while the current load is pend
   assert.equal(await page.evaluate(() => window.readerCalls), 1);
   assert.equal(await page.locator('#world-news').getAttribute('aria-busy'), 'true');
   await page.evaluate(value => window.finish(value), snapshot());
-  await page.waitForFunction(() => document.querySelector('#world-news').getAttribute('aria-busy') === 'false');
+  await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
   await page.clock.fastForward(300_000);
   await page.waitForFunction(() => window.readerCalls === 2);
   await page.evaluate(value => window.finish(value), snapshot());
-  await page.waitForFunction(() => document.querySelector('#world-news').getAttribute('aria-busy') === 'false');
+  await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
 });
 test('missing required navigation markup fails visibly', async t => {
   await setup(t, null, true, {missingMenu: true});
@@ -182,13 +207,13 @@ test('missing required navigation markup fails visibly', async t => {
 test('publisher links use source names when no separate link label is configured', async t => {
   const page = await setup(t, null, true, {withoutLabels: true});
   await page.evaluate(value => window.finish(value), snapshot());
-  await page.waitForFunction(() => document.querySelector('#world-news').getAttribute('aria-busy') === 'false');
+  await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
   assert.equal(await page.locator('.publisher-links a').first().textContent(), 'BBC World');
 });
 test('retained stories without a collection time do not invent a timestamp', async t => {
-  const cached=snapshot();cached.sources.stringer={...cached.sources.stringer,status:'failure',error:'Unavailable',stories:[story()]};
-  const page=await setup(t,cached);const partial=snapshot();partial.sources.stringer={...partial.sources.stringer,status:'failure',error:'Unavailable'};
+  const cached=snapshot();cached.sources.stringer={...sourceState(cached, 'stringer'),status:'failure',error:'Unavailable',stories:[story()]};
+  const page=await setup(t,cached);const partial=snapshot();partial.sources.stringer={...sourceState(partial, 'stringer'),status:'failure',error:'Unavailable'};
   await page.evaluate(value=>window.readerCallbacks.partial(value),partial);
-  assert.match(await page.locator('#relay-status-details').textContent(),/Showing 1 previously collected stories\./);
+  assert.match((await page.locator('#relay-status-details').textContent()) ?? '',/Showing 1 previously collected stories\./);
   await page.evaluate(value=>window.finish(value),partial);
 });

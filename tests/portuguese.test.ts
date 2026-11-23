@@ -5,7 +5,12 @@ import { readFileSync } from 'node:fs';
 import { finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools';
 import { PORTUGUESE_SOURCES, ATOMSTR_RELAY } from '../portuguese-sources.ts';
 import { parseAtomstrEvent, readAtomstrSources, cachedAtomstrSources } from '../relay/atomstr-reader.ts';
-import { translator, localeForLanguage } from '../reader-locales.ts';
+import { EDITIONS, translator, localeForLanguage } from '../reader-locales.ts';
+import { EDITION_SOURCES } from '../edition-sources.ts';
+import { embedAtomstrHeadlines } from '../scripts/collect-atomstr.ts';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { localizedReaderHtml } from '../scripts/reader-html.ts';
 import { worldGroups, safeUrl, formatLocalDateTime, formatPublicationDate } from '../news-model.ts';
 import { load } from 'cheerio';
@@ -16,6 +21,45 @@ const source = {id: 'pt-synthetic', name: 'Fonte de teste', feeds: [{url: 'https
 const event = (options: Partial<EventTemplate> = {}, key = secret) => finalizeEvent({kind: 1, created_at: now / 1000 - 30,
   tags: [['proxy', source.feeds[0]!.url + '#' + encodeURIComponent('https://example.org/report?q=1#section'), 'rss']],
   content: 'Manchete original — ação e ciência\n\nResumo que nunca deve aparecer.\n\nhttps://images.example.org/photo.jpg\n\nhttps://example.org/report', ...options}, key);
+
+test('fallback embeds headline-only data for each Atomstr edition and collects Portuguese once', async () => {
+  const site = await mkdtemp(join(tmpdir(), 'atomstr-editions-'));
+  const title = 'Manchete </script><script>inert';
+  const story = {title, url: 'https://example.org/story', publishedAt: new Date(now).toISOString(),
+    summary: 'Do not publish this summary', image: {url: 'https://example.org/photo.jpg', alt: '', credit: ''}};
+  const stamp = new Date(now).toISOString();
+  const successful = {stories: [story], attemptedAt: stamp, lastSuccessAt: stamp, status: 'success' as const, error: null};
+  try {
+    for (const {path} of EDITIONS) {
+      const directory = join(site, path);
+      await mkdir(directory, {recursive: true});
+      await writeFile(join(directory, 'index.html'), '<html><body></body></html>');
+    }
+    const queries = [];
+    await embedAtomstrHeadlines(site, async sources => {
+      queries.push(sources);
+      return {
+        [sources[0]!.id]: successful,
+        [sources[1]!.id]: {...successful, status: 'failure'},
+        ...(sources[2] ? {[sources[2].id]: {...successful, stories: []}} : {}),
+      };
+    });
+    assert.equal(queries.length, 8);
+    for (const {path, locale} of EDITIONS) {
+      const html = await readFile(join(site, path, 'index.html'), 'utf8');
+      const data = load(html)('#atomstr-headlines').text();
+      if (!EDITION_SOURCES[locale]) { assert.equal(data, ''); continue; }
+      assert.equal(html.includes(title), false);
+      assert.equal(html.includes('Do not publish this summary'), false);
+      assert.equal(html.includes('photo.jpg'), false);
+      assert.deepEqual(JSON.parse(data), {[EDITION_SOURCES[locale][0]!.id]: {
+        lastSuccessAt: stamp, stories: [{title, url: story.url, publishedAt: stamp, atomstr: true, image: null, summary: ''}],
+      }});
+    }
+  } finally {
+    await rm(site, {recursive: true, force: true});
+  }
+});
 
 test('Portuguese editions share the complete pinned source catalogue, including specialized and institutional feeds', () => {
   assert.equal(PORTUGUESE_SOURCES.length, 98);
@@ -67,8 +111,8 @@ test('mirror queries are bounded, recover verified cache on outages, and never i
   Object.defineProperty(globalThis, 'localStorage', {configurable: true, value: memoryStorage});
   try {
     let reads = 0, updates = 0;
-    const fresh = await readAtomstrSources({sources: [source], now: () => now, query: async filter => {
-      reads++; assert.deepEqual(filter.authors, [pubkey]); assert.equal(filter.limit, 30); return [event()];
+    const fresh = await readAtomstrSources({sources: [source], now: () => now, query: async ([filter]) => {
+      reads++; assert.deepEqual(filter?.authors, [pubkey]); assert.equal(filter.limit, 30); return [event()];
     }, onUpdate() {updates++;}});
     assert.equal(reads, 1); assert.equal(updates, 1);
     assert.equal(fresh[source.id]!.status, 'success');
@@ -79,9 +123,12 @@ test('mirror queries are bounded, recover verified cache on outages, and never i
     assert.equal(failed[source.id]!.lastSuccessAt, fresh[source.id]!.lastSuccessAt);
     assert.equal(failed[source.id]!.stories.length, 1);
     storage.clear();
-    const empty = await readAtomstrSources({sources: [source], now: () => now, query: async () => []});
-    assert.equal(empty[source.id]!.status, 'failure');
-    assert.equal(empty[source.id]!.lastSuccessAt, null);
+    const empty = await readAtomstrSources({sources: [source], now: () => now, query: async () => [
+      event({created_at: now / 1000 - 8 * 24 * 60 * 60}),
+      event({content: '\n\nSocial post without a headline'}),
+    ]});
+    assert.equal(empty[source.id]!.status, 'success');
+    assert.deepEqual(empty[source.id]!.stories, []);
     storage.set('stringer-atomstr-v1:' + source.id, JSON.stringify({checkedAt: new Date(now).toISOString(), events: [{...event(), content: 'forged'}]}));
     assert.equal(cachedAtomstrSources([source], now)[source.id]!.stories.length, 0);
   } finally { if (originalStorage) Object.defineProperty(globalThis, 'localStorage', originalStorage); else Reflect.deleteProperty(globalThis, 'localStorage'); }

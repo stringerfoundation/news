@@ -41,5 +41,5 @@ version; never roll back to a reader incompatible with the current collection.
 Run the synthetic checker regressions with:
 
 ```sh
-node --import tsx --test tests/smoke.browser.mjs tests/smoke.test.mjs
+node --import tsx --test tests/smoke.browser.ts tests/smoke.test.ts
 ```

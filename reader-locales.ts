@@ -5,6 +5,7 @@ import zh from './locales/zh.ts';
 import ru from './locales/ru.ts';
 import nl from './locales/nl.ts';
 import de from './locales/de.ts';
+import sw from './locales/sw.ts';
 // Interface translations only. Reporting is always displayed in its original language.
 const portuguese: Readonly<Record<string, string>> = {
   'Show more headlines': 'Mostrar mais manchetes',
@@ -114,9 +115,10 @@ export const EDITIONS = [
   {path: 'ru', locale: 'ru', label: 'Русский', direction: 'ltr'},
   {path: 'nl', locale: 'nl', label: 'Nederlands', direction: 'ltr'},
   {path: 'de', locale: 'de', label: 'Deutsch', direction: 'ltr'},
+  {path: 'sw', locale: 'sw', label: 'Kiswahili', direction: 'ltr'},
 ] as const;
 export type Locale = typeof EDITIONS[number]['locale'];
-const dictionaries: Readonly<Record<string, Readonly<Record<string, string>>>> = {fr, es, ar, zh, ru, nl, de};
+const dictionaries: Readonly<Record<string, Readonly<Record<string, string>>>> = {fr, es, ar, zh, ru, nl, de, sw};
 export function localeForLanguage(language: string): Locale {
   const normalized = language.toLowerCase();
   if (normalized === 'pt-pt') return 'pt-PT';
