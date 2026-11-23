@@ -504,7 +504,7 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
       article.prepend(placeholder);
     };
     // Publisher photos stay hidden, regardless of URL parameters or stored metadata.
-    const imageStoryId = wire && !atomstrEdition ? story.noteId : undefined;
+    const imageStoryId = wire && !localizedEdition ? story.noteId : undefined;
     const selection = imageStoryId ? imageSession?.selection(imageStoryId) : null;
     const trusted = hasSigner() && voter && imageSession?.canVote(voter);
     if (imageStoryId) prepareImageSearch(imageStoryId, story.title);
@@ -514,7 +514,7 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
     const imageData = wire ? commons : story.image;
     const imageUrl = wire ? commons?.url : safeImageUrl(imageData?.url) || localImage;
     let wireFigure: HTMLElement | null = null;
-    if (wire && !atomstrEdition) {
+    if (wire && !localizedEdition) {
       article.classList.add('with-image');
       wireFigure = element('figure', '', 'story-media wire-thumbnail');
       if (imageStoryId && !commonsSearches.get(imageStoryId)?.searched) {
