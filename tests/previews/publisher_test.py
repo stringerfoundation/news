@@ -100,7 +100,7 @@ class PublisherTests(unittest.TestCase):
             incoming, site = root / 'incoming', root / 'site'
             publisher.unpack(archive(files=publisher.REQUIRED_FILES), incoming)
             publisher.apply_site(site, incoming)
-            self.assertIn('content="index, follow"', (site / 'index.html').read_text())
+            self.assertIn('content="noindex, nofollow, noarchive, noimageindex"', (site / 'index.html').read_text())
             self.assertFalse((site / 'fr/index.html').exists())
 
     def test_accepts_current_main_shared_modules_without_editions(self):
@@ -147,24 +147,24 @@ class PublisherTests(unittest.TestCase):
             publisher.unpack(archive(), incoming)
             publisher.apply_site(site, incoming)
             for edition in publisher.EDITION_PATHS:
-                self.assertIn('content="index, follow"', (site / edition / 'index.html').read_text())
-                self.assertNotIn('noindex', (site / edition / 'index.html').read_text())
+                self.assertIn('content="noindex, nofollow, noarchive, noimageindex"', (site / edition / 'index.html').read_text())
+                self.assertNotIn('preview-commit', (site / edition / 'index.html').read_text())
             publisher.apply_site(site, incoming, '18', SHA)
             publisher.apply_site(site, incoming, '19', NEW_SHA)
             before = (site / 'pr-preview/19/index.html').read_text()
             publisher.apply_site(site, incoming)
             publisher.apply_site(site, incoming, '18', NEW_SHA)
             self.assertEqual((site / 'pr-preview/19/index.html').read_text(), before)
-            self.assertIn('content="index, follow"', (site / 'index.html').read_text())
-            self.assertNotIn('noindex', (site / 'index.html').read_text())
+            self.assertIn('content="noindex, nofollow, noarchive, noimageindex"', (site / 'index.html').read_text())
+            self.assertNotIn('preview-commit', (site / 'index.html').read_text())
             self.assertIn('noindex, nofollow', (site / 'pr-preview/18/index.html').read_text())
             for edition in publisher.EDITION_PATHS:
                 preview_page = (site / 'pr-preview/18' / edition / 'index.html').read_text()
                 self.assertIn('noindex, nofollow', preview_page)
                 self.assertIn(NEW_SHA, preview_page)
             self.assertIn(NEW_SHA, (site / 'pr-preview/18/index.html').read_text())
-            self.assertNotIn('Disallow: /', (site / 'robots.txt').read_text())
-            self.assertNotIn('Disallow: /', (site / 'pr-preview/18/robots.txt').read_text())
+            self.assertIn('Disallow: /', (site / 'robots.txt').read_text())
+            self.assertIn('Disallow: /', (site / 'pr-preview/18/robots.txt').read_text())
             metadata = {'previews': {'18': {}, '19': {}}}
             self.assertEqual(publisher.prune(site, metadata, [pull(19)]), ['18'])
             self.assertFalse((site / 'pr-preview/18').exists())
@@ -329,7 +329,7 @@ class PublisherTests(unittest.TestCase):
                 second = root / 'second'
                 self.assertTrue(publisher.prepare(api, second, root / 'incoming2', root / 'plan2'))
                 self.assertEqual(publisher.load_state(second / 'state.json')['previews']['18']['sha'], SHA)
-                self.assertIn('index, follow', (second / 'site/index.html').read_text())
+                self.assertIn('noindex, nofollow', (second / 'site/index.html').read_text())
                 api.pulls = []
                 third = root / 'third'
                 self.assertTrue(publisher.prepare(api, third, root / 'incoming3', root / 'plan3'))

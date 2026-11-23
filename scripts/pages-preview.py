@@ -97,11 +97,9 @@ def unpack_screenshots(data, destination):
 
 
 def robots(html, preview, sha=''):
-    # noindex must be crawlable: do not hide previews behind a robots.txt Disallow.
     if preview and not re.fullmatch(r'[0-9a-f]{40}', sha):
         raise ValueError('Invalid preview commit')
-    content = 'noindex, nofollow, noarchive, noimageindex' if preview else 'index, follow'
-    tags = f'<meta name="robots" content="{content}">'
+    tags = '<meta name="robots" content="noindex, nofollow, noarchive, noimageindex">'
     if preview:
         tags += f'\n<meta name="preview-commit" content="{sha}">'
     lines, offset = [], 0
@@ -154,7 +152,7 @@ def apply_site(site, incoming, preview=None, sha=''):
             continue
         html = page.read_text()
         page.write_text(robots(html, preview is not None, sha))
-    (target / 'robots.txt').write_text('User-agent: *\nDisallow:\n')
+    (target / 'robots.txt').write_text('User-agent: *\nDisallow: /\n')
 
 
 def select_update(run, repo, workflow_id, pulls, main_sha):
