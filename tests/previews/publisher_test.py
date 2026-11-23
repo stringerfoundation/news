@@ -192,6 +192,7 @@ class PublisherTests(unittest.TestCase):
         self.assertEqual(publisher.select_update(valid, REPO, 7, [pull()], NEW_SHA), '18')
         production = run('push', NEW_SHA)
         self.assertEqual(publisher.select_update(production, REPO, 7, [], NEW_SHA), 'production')
+        self.assertEqual(publisher.select_update({**production, 'event': 'schedule'}, REPO, 7, [], NEW_SHA), 'production')
         for mutation in [dict(conclusion='failure'), dict(conclusion=None), dict(workflow_id=8),
                          dict(head_sha=NEW_SHA), dict(head_repository={'full_name': 'fork/news'}),
                          dict(repository={'full_name': 'other/news'}), dict(event='pull_request_target'),

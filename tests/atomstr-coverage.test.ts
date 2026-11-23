@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { finalizeEvent, generateSecretKey, getPublicKey, type Event, type EventTemplate } from 'nostr-tools';
-import { SimplePool } from 'nostr-tools/pool';
+import { AbstractSimplePool } from 'nostr-tools/pool';
 import { ATOMSTR_RELAY } from '../atomstr-config.ts';
 import { cachedAtomstrSources, parseAtomstrEvent, readAtomstrSources } from '../relay/atomstr-reader.ts';
 
@@ -18,6 +18,20 @@ const event = (options: Partial<EventTemplate> = {}, key = secret, article = 'ht
   content: 'Headline\n\nPrivate summary text',
   ...options,
 }, key);
+
+type Relay = Awaited<ReturnType<typeof AbstractSimplePool.prototype.ensureRelay>>;
+type RelayHandlers = Parameters<Relay['subscribe']>[1];
+
+function mockRelay(reply: (handlers: RelayHandlers) => void) {
+  const relay = {
+    connected: true,
+    subscribe(_filters: unknown, handlers: RelayHandlers) {
+      queueMicrotask(() => reply(handlers));
+      return { close() { handlers.onclose?.('closed by caller'); } };
+    },
+  };
+  return relay as unknown as Relay & {connected: boolean};
+}
 
 function withStorage(storage: Map<string, string>, callback: () => Promise<void>) {
   const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
@@ -130,7 +144,7 @@ test('cache accepts verified past entries and rejects missing, malformed, future
   finally { if (previous) Object.defineProperty(globalThis, 'localStorage', previous); }
 });
 
-test('query failures and empty or malformed results retain prior verified stories and still report each source', async () => {
+test('query failures and malformed results retain prior verified stories and still report each source', async () => {
   const storage = new Map<string, string>();
   await withStorage(storage, async () => {
     const lastSuccessAt = '2026-10-15T10:00:00.000Z';
@@ -138,7 +152,7 @@ test('query failures and empty or malformed results retain prior verified storie
       stories: [{ title: 'Old', url: 'https://publisher.example/old', summary: '', image: null, publishedAt: null }],
       lastSuccessAt, attemptedAt: lastSuccessAt, status: 'success' as const, error: null,
     } };
-    for (const query of [async () => { throw new Error('offline'); }, async () => [], async () => null as unknown as Event[]]) {
+    for (const query of [async () => { throw new Error('offline'); }, async () => null as unknown as Event[]]) {
       const updates: [string, unknown][] = [];
       const result = await readAtomstrSources({ sources: [source], previous, now: () => now, query, onUpdate: (id, state) => updates.push([id, state]) });
       assert.equal(result[source.id]!.status, 'failure');
@@ -147,50 +161,194 @@ test('query failures and empty or malformed results retain prior verified storie
       assert.equal(updates.length, 1);
       assert.equal(updates[0]![0], source.id);
     }
+    const empty = await readAtomstrSources({ sources: [source], previous, now: () => now, query: async () => [] });
+    assert.equal(empty[source.id]!.status, 'success');
+    assert.deepEqual(empty[source.id]!.stories, []);
   });
 });
 
-test('injected query deduplicates author keys and applies the seven-day bounded filter', async () => {
+test('query separates publisher and social limits, deduplicates keys, and keeps the seven-day window', async () => {
   const storage = new Map<string, string>();
   await withStorage(storage, async () => {
-    const duplicateSource = { ...source, feeds: [feed, feed] };
+    const social = { url: 'https://social.example/feed', pubkey: getPublicKey(generateSecretKey()), social: 'Bluesky' };
+    const duplicateSource = { ...source, feeds: [feed, feed, social] };
     let seenFilter;
     const result = await readAtomstrSources({
       sources: [duplicateSource], previous: {}, now: () => now,
       query: async filter => { seenFilter = filter; return [event()]; },
     });
-    assert.deepEqual(seenFilter, {
-      kinds: [1], authors: [pubkey], since: Math.floor((now - 7 * 24 * 60 * 60 * 1000) / 1000), limit: 30,
-    });
+    const since = Math.floor((now - 7 * 24 * 60 * 60 * 1000) / 1000);
+    assert.deepEqual(seenFilter, [
+      { kinds: [1], authors: [pubkey], since, limit: 30 },
+      { kinds: [1], authors: [social.pubkey], since, limit: 30 },
+    ]);
     assert.equal(result[source.id]!.status, 'success');
   });
 });
 
-test('default pool query uses the configured relay and always destroys the pool', async () => {
-  const originalQuery = SimplePool.prototype.querySync;
-  const originalDestroy = SimplePool.prototype.destroy;
-  const calls: { relays?: string[]; maxWait?: number | undefined; destroyed?: boolean }[] = [];
-  SimplePool.prototype.querySync = async function(relays, filter, options) {
-    calls.push({ relays, maxWait: options?.maxWait });
-    return [event()];
+test('empty relay replies succeed, partial replies keep verified headlines, and silent connections time out', async context => {
+  const originalConnect = AbstractSimplePool.prototype.ensureRelay;
+  const originalDestroy = AbstractSimplePool.prototype.destroy;
+  const calls: string[] = [];
+  let reply = 'empty';
+  let otherSubscriptionsClosed = 0;
+  AbstractSimplePool.prototype.ensureRelay = async function(url) {
+    calls.push(url);
+    return {
+      connected: true,
+      openSubs: new Map([['other', {close() { otherSubscriptionsClosed++; }}]]),
+      subscribe(_filters: unknown, handlers: {oneose(): void; onclose(reason: string): void; onevent(note: Event): void}) {
+        if (reply === 'empty') queueMicrotask(() => handlers.oneose());
+        if (reply === 'partial') queueMicrotask(() => {
+          handlers.onevent(event());
+          handlers.onclose('connection dropped');
+        });
+        return {
+          close() {
+            handlers.onclose('closed by caller');
+            // nostr-tools can emit a synthetic EOSE after a subscription closes.
+            if (reply === 'silent') handlers.oneose();
+          },
+        };
+      },
+    } as Awaited<ReturnType<typeof originalConnect>>;
   };
-  SimplePool.prototype.destroy = function() { calls.push({ destroyed: true }); };
+  AbstractSimplePool.prototype.destroy = function() { calls.push('destroyed'); };
   try {
     const result = await readAtomstrSources({ sources: [source], previous: {}, now: () => now });
     assert.equal(result[source.id]!.status, 'success');
-    assert.deepEqual(calls[0]!.relays, [ATOMSTR_RELAY]);
-    assert.equal(calls[0]!.maxWait, 8000);
-    assert.equal(calls.at(-1)!.destroyed, true);
+    assert.deepEqual(result[source.id]!.stories, []);
+    assert.deepEqual(calls, [ATOMSTR_RELAY, 'destroyed']);
+
+    reply = 'partial';
+    const partial = await readAtomstrSources({ sources: [source], previous: {}, now: () => now });
+    assert.equal(partial[source.id]!.status, 'failure');
+    assert.equal(partial[source.id]!.lastSuccessAt, null);
+    assert.equal(partial[source.id]!.stories[0]!.title, 'Headline');
+
+    reply = 'silent';
+    calls.length = 0;
+    context.mock.timers.enable({apis: ['setTimeout']});
+    const pending = readAtomstrSources({ sources: [source], previous: {}, now: () => now });
+    await new Promise<void>(resolve => setImmediate(resolve));
+    context.mock.timers.tick(8000);
+    await new Promise<void>(resolve => setImmediate(resolve));
+    context.mock.timers.tick(8000);
+    assert.equal((await pending)[source.id]!.status, 'failure');
+    assert.deepEqual(calls, [ATOMSTR_RELAY, ATOMSTR_RELAY, 'destroyed']);
+    assert.equal(otherSubscriptionsClosed, 1);
+    context.mock.timers.reset();
 
     calls.length = 0;
-    SimplePool.prototype.querySync = async function() { throw new Error('relay unavailable'); };
+    AbstractSimplePool.prototype.ensureRelay = async function(url) {
+      calls.push(url);
+      throw new Error('relay unavailable');
+    };
     const failed = await readAtomstrSources({ sources: [source], previous: {}, now: () => now });
     assert.equal(failed[source.id]!.status, 'failure');
-    assert.equal(calls.at(-1)!.destroyed, true);
+    assert.deepEqual(calls, [ATOMSTR_RELAY, ATOMSTR_RELAY, 'destroyed']);
   } finally {
-    SimplePool.prototype.querySync = originalQuery;
-    SimplePool.prototype.destroy = originalDestroy;
+    AbstractSimplePool.prototype.ensureRelay = originalConnect;
+    AbstractSimplePool.prototype.destroy = originalDestroy;
   }
+});
+
+test('workers share one replacement socket after a disconnect', async context => {
+  let calls = 0;
+  let requests = 0;
+  const note = event();
+  const dropped = mockRelay(handlers => {
+    dropped.connected = false;
+    handlers.onclose?.('connection dropped');
+  });
+  const replacement = mockRelay(handlers => {
+    requests++;
+    handlers.onevent?.(note);
+    handlers.oneose?.();
+  });
+  context.mock.method(AbstractSimplePool.prototype, 'ensureRelay', async () => ++calls === 1 ? dropped : replacement);
+  const sources = Array.from({length: 9}, (_, index) => ({...source, id: `reconnect-${index}`}));
+  const storage = new Map<string, string>();
+  await withStorage(storage, async () => {
+    const result = await readAtomstrSources({sources, previous: {}, now: () => now});
+    assert.equal(calls, 2);
+    assert.equal(requests, sources.length);
+    for (const {id} of sources) {
+      assert.equal(result[id]!.status, 'success');
+      assert.equal(result[id]!.stories[0]!.noteId, note.id);
+      assert.ok(storage.has(`stringer-atomstr-v1:${id}`));
+    }
+  });
+});
+
+test('an unsuccessful replacement keeps verified partial headlines and the previous cache', async context => {
+  let calls = 0;
+  let failure = 'connection';
+  const newNote = event({content: 'New headline'}, secret, 'https://publisher.example/new');
+  const additionalNote = event({content: 'Additional headline', created_at: now / 1000 - 5}, secret, 'https://publisher.example/additional');
+  const oldNote = event({content: 'Old headline', created_at: now / 1000 - 60}, secret, 'https://publisher.example/old');
+  const dropped = mockRelay(handlers => {
+    handlers.onevent?.(newNote);
+    dropped.connected = false;
+    handlers.onclose?.('first connection dropped');
+  });
+  const replacement = mockRelay(handlers => {
+    handlers.onevent?.(additionalNote);
+    handlers.onevent?.(newNote);
+    handlers.onclose?.('replacement reply was incomplete');
+  });
+  context.mock.method(AbstractSimplePool.prototype, 'ensureRelay', async () => {
+    calls++;
+    if (calls === 1) {
+      dropped.connected = true;
+      return dropped;
+    }
+    if (failure === 'connection') throw new Error('replacement did not connect');
+    return replacement;
+  });
+  const key = `stringer-atomstr-v1:${source.id}`;
+  const lastSuccessAt = new Date(now - 30_000).toISOString();
+  const cached = JSON.stringify({checkedAt: lastSuccessAt, events: [oldNote]});
+  const storage = new Map([[key, cached]]);
+  await withStorage(storage, async () => {
+    for (const expected of [['New headline', 'Old headline'], ['Additional headline', 'New headline', 'Old headline']]) {
+      calls = 0;
+      const previous = cachedAtomstrSources([source], now);
+      const result = await readAtomstrSources({sources: [source], previous, now: () => now});
+      const entry = result[source.id]!;
+      assert.equal(calls, 2);
+      assert.equal(entry.status, 'failure');
+      assert.equal(entry.lastSuccessAt, lastSuccessAt);
+      assert.deepEqual(entry.stories.map(story => story.title), expected);
+      assert.equal(storage.get(key), cached);
+      failure = 'subscription';
+    }
+  });
+});
+
+test('an empty catalogue makes no connection and an expired load starts no more requests', async context => {
+  let elapsed = 0;
+  let calls = 0;
+  let requests = 0;
+  context.mock.method(performance, 'now', () => elapsed);
+  const expired = mockRelay(handlers => {
+    requests++;
+    elapsed = 60_000;
+    expired.connected = false;
+    handlers.onclose?.('connection dropped at the deadline');
+  });
+  context.mock.method(AbstractSimplePool.prototype, 'ensureRelay', async () => {
+    calls++;
+    return expired;
+  });
+  assert.deepEqual(await readAtomstrSources({sources: [], previous: {}, now: () => now}), {});
+  assert.equal(calls, 0);
+
+  const sources = Array.from({length: 9}, (_, index) => ({...source, id: `deadline-${index}`}));
+  const result = await readAtomstrSources({sources, previous: {}, now: () => now});
+  assert.equal(calls, 1);
+  assert.equal(requests, 8);
+  assert.deepEqual(Object.values(result).map(entry => entry.status), Array(9).fill('failure'));
 });
 
 test('source reads run concurrently with an eight-worker ceiling and complete each source once', async () => {
@@ -220,11 +378,11 @@ test('source reads run concurrently with an eight-worker ceiling and complete ea
 });
 
 test('pool cleanup runs if an update callback throws', async () => {
-  const originalQuery = SimplePool.prototype.querySync;
-  const originalDestroy = SimplePool.prototype.destroy;
+  const originalConnect = AbstractSimplePool.prototype.ensureRelay;
+  const originalDestroy = AbstractSimplePool.prototype.destroy;
   let destroyed = false;
-  SimplePool.prototype.querySync = async () => [event()];
-  SimplePool.prototype.destroy = () => { destroyed = true; };
+  AbstractSimplePool.prototype.ensureRelay = async () => { throw new Error('relay unavailable'); };
+  AbstractSimplePool.prototype.destroy = () => { destroyed = true; };
   try {
     await assert.rejects(readAtomstrSources({
       sources: [source], previous: {}, now: () => now,
@@ -232,7 +390,7 @@ test('pool cleanup runs if an update callback throws', async () => {
     }), /callback failed/);
     assert.equal(destroyed, true);
   } finally {
-    SimplePool.prototype.querySync = originalQuery;
-    SimplePool.prototype.destroy = originalDestroy;
+    AbstractSimplePool.prototype.ensureRelay = originalConnect;
+    AbstractSimplePool.prototype.destroy = originalDestroy;
   }
 });

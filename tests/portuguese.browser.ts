@@ -106,7 +106,8 @@ test('Portuguese editions share all sources and preferences, localize only UI, r
         if (type !== 'REQ') return;
         subscriptions++;
         assert.ok(filter.authors.length > 0 && filter.limit === 30);
-        if (!unavailable) for (const event of events.filter(event => filter.authors.includes(event.pubkey)))
+        if (unavailable) return socket.send(JSON.stringify(['CLOSED', id, 'error: mirror unavailable']));
+        for (const event of events.filter(event => filter.authors.includes(event.pubkey)))
           socket.send(JSON.stringify(['EVENT', id, event]));
         socket.send(JSON.stringify(['EOSE', id]));
       }));
@@ -115,6 +116,7 @@ test('Portuguese editions share all sources and preferences, localize only UI, r
       assert.equal(await page.locator('html').getAttribute('lang'), 'pt-BR');
       assert.equal(await page.locator('#world-title').textContent(), 'Notícias em português');
       assert.equal(await page.locator('#global-newswire article').count(), 3);
+      assert.equal(await page.locator('#world-status details').count(), 0, 'An empty relay response does not show an outage');
       assert.equal(await page.locator('#world-news .source-flag[aria-label="Brasil"]').count(), 2);
       assert.equal(await page.locator('#world-news .source-flag[aria-label="Portugal"]').textContent(), '🇵🇹');
       assert.equal(await page.locator('.site-footer #source-picker').count(), 1);
