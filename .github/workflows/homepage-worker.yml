@@ -5,6 +5,7 @@ on:
     paths:
       - deploy/homepage-worker/worker.ts
       - public-assets.ts
+      - reader-locales.ts
       - relay-config.ts
 permissions:
   contents: read
@@ -28,7 +29,7 @@ jobs:
         run: |
           git cat-file -e "${BEFORE_SHA}^{commit}"
           git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- \
-            deploy/homepage-worker/worker.ts public-assets.ts relay-config.ts > "$RUNNER_TEMP/worker-changes"
+            deploy/homepage-worker/worker.ts public-assets.ts reader-locales.ts relay-config.ts > "$RUNNER_TEMP/worker-changes"
           if test -s "$RUNNER_TEMP/worker-changes"; then
             echo 'deploy=true' >> "$GITHUB_OUTPUT"
           fi
@@ -50,7 +51,7 @@ jobs:
         run: |
           git fetch --no-tags origin main
           git diff --name-only "$GITHUB_SHA" FETCH_HEAD -- \
-            deploy/homepage-worker/worker.ts public-assets.ts relay-config.ts > "$RUNNER_TEMP/worker-staleness"
+            deploy/homepage-worker/worker.ts public-assets.ts reader-locales.ts relay-config.ts > "$RUNNER_TEMP/worker-staleness"
           if test -s "$RUNNER_TEMP/worker-staleness"; then
             echo 'Newer Worker inputs are on main. Skipping this deployment.'
           else
