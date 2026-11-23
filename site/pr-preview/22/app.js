@@ -834,6 +834,130 @@ var german = {
 };
 var de_default = german;
 
+// locales/sw.ts
+var swahili = {
+  "Headlines from publishers in this language.": "Vichwa vya habari kutoka kwa vyombo vya habari vya Kiswahili.",
+  "Close menu": "Funga menyu",
+  "Open menu": "Fungua menyu",
+  "Sources": "Vyanzo",
+  "Choose news sources": "Chagua vyanzo vya habari",
+  "Enable all": "Washa vyote",
+  "Your choices are saved in this browser.": "Chaguo zako zinahifadhiwa katika kivinjari hiki.",
+  "{enabled} of {total} enabled": "Vyanzo vilivyowashwa: {enabled} kati ya {total}",
+  "Search sources": "Tafuta vyanzo",
+  "No sources selected.": "Hakuna chanzo kilichochaguliwa.",
+  "No matching sources.": "Hakuna chanzo kinacholingana na utafutaji wako.",
+  "May require subscription": "Huenda ukahitaji kujisajili",
+  "{count} articles": "Makala {count}",
+  "View {count} articles": "Tazama makala {count}",
+  "Show fewer headlines": "Onyesha vichwa vichache vya habari",
+  "More headlines ({count})": "Vichwa zaidi vya habari ({count})",
+  "Show more headlines": "Onyesha vichwa zaidi vya habari",
+  "Show more courageous stories": "Onyesha ripoti zaidi za ujasiri",
+  "Show fewer courageous stories": "Onyesha ripoti chache za ujasiri",
+  "View source for this build": "Tazama msimbo wa toleo hili",
+  "Global headlines are currently unavailable.": "Vichwa vya habari vya kimataifa havipatikani kwa sasa.",
+  "No headlines available in this collection.": "Hakuna vichwa vya habari katika mkusanyo huu.",
+  "Loading headlines\u2026": "Inapakia vichwa vya habari\u2026",
+  "Loading news\u2026": "Inapakia habari\u2026",
+  "Loading courageous stories\u2026": "Inapakia ripoti za ujasiri\u2026",
+  "Loading the latest published collection\u2026": "Inapakia mkusanyo uliochapishwa karibuni zaidi\u2026",
+  "Headlines unavailable.": "Vichwa vya habari havipatikani.",
+  "Courageous stories unavailable. You can still visit the Stringer collection below.": "Ripoti za ujasiri hazipatikani. Bado unaweza kutazama mkusanyo wa Stringer hapa chini.",
+  "Courageous stories are currently unavailable. Visit the Stringer collection below.": "Ripoti za ujasiri hazipatikani kwa sasa. Tazama mkusanyo wa Stringer hapa chini.",
+  "Could not check for updates. Keeping the previously loaded collection.": "Imeshindwa kukagua masasisho. Mkusanyo uliopakiwa awali unaendelea kuonyeshwa.",
+  "The news collection is unavailable. We\u2019ll retry automatically.": "Mkusanyo wa habari haupatikani. Mfumo utajaribu tena kiotomatiki.",
+  "Local time ({zone})": "Saa za eneo lako ({zone})",
+  "Publication date; source does not provide a confirmed time zone and time": "Tarehe ya kuchapishwa. Chanzo hakijathibitisha saa wala ukanda wa saa.",
+  "Publication date unavailable": "Tarehe ya kuchapishwa haipatikani",
+  "Date unavailable": "Tarehe haipatikani",
+  "{source}: refresh unavailable.{retained}": "{source}: imeshindwa kusasisha.{retained}",
+  " Showing previously collected stories.": " Inaonyesha habari zilizokusanywa awali.",
+  " No stories available.": " Hakuna habari zinazopatikana.",
+  "{count} unavailable": "{count} hazipatikani",
+  "{count} queued": "{count} zinasubiri",
+  "Read {title} at the original source": "Soma {title} katika chanzo cha awali",
+  "Atomstr mirror timestamp ({zone})": "Muhuri wa muda wa nakala ya Atomstr ({zone})",
+  "via {network} / Atomstr": "kupitia {network} / Atomstr",
+  "Atomstr mirrors; these are not official publisher Nostr accounts.": "Nakala za Atomstr kutoka nje ya akaunti rasmi za wachapishaji kwenye Nostr.",
+  "Feed status": "Hali ya vyanzo",
+  "Unavailable sources ({count})": "Vyanzo visivyopatikana ({count})",
+  "Language": "Lugha",
+  "Skip to news": "Nenda moja kwa moja kwenye habari",
+  "The Stringer Foundation home": "Ukurasa wa mwanzo wa The Stringer Foundation",
+  "About": "Kutuhusu",
+  "Contact": "Mawasiliano",
+  "Get involved": "Shiriki",
+  "Main navigation": "Menyu kuu",
+  "Donate": "Toa mchango",
+  "Donate now": "Toa mchango sasa",
+  "Home": "Mwanzo",
+  "Mission": "Dhamira",
+  "Who we are": "Sisi ni nani",
+  "Awards": "Tuzo",
+  "Contact us": "Wasiliana nasi",
+  "World news": "Habari za dunia",
+  "Stringer social media": "Mitandao ya kijamii ya Stringer",
+  "Stringer on Nostr via Primal": "Stringer kwenye Nostr kupitia Primal",
+  "Stringer on Instagram": "Stringer kwenye Instagram",
+  "Stringer on Facebook": "Stringer kwenye Facebook",
+  "Stringer on LinkedIn": "Stringer kwenye LinkedIn",
+  "Stringer on YouTube": "Stringer kwenye YouTube",
+  "Stringer World News": "Habari za dunia za Stringer",
+  "Around the world": "Duniani kote",
+  "Global Newswire": "Habari kwa Kiswahili",
+  "Courageous Stories": "Ripoti za ujasiri",
+  "Headlines from global publishers.": "Vichwa vya habari kutoka kwa vyombo vya habari vya Kiswahili.",
+  "Beyond the headlines": "Zaidi ya vichwa vya habari",
+  "Stringer's Courageous Stories": "Ripoti za ujasiri za Stringer",
+  "Reporting selected by The Stringer Foundation.": "Ripoti zilizochaguliwa na The Stringer Foundation.",
+  "Explore the Stringer collection": "Tazama mkusanyo wa Stringer",
+  "Enable JavaScript to load the news collection, or": "Washa JavaScript ili kupakia mkusanyo wa habari, au",
+  "read Courageous Stories on Stringer\u2019s website": "soma ripoti za ujasiri kwenye tovuti ya Stringer",
+  "The Stringer Foundation (EIN: 33-4278131) is a 501(c)(3) non-profit organization.": "The Stringer Foundation (EIN: 33-4278131) ni shirika lisilo la faida la aina ya 501(c)(3).",
+  "Support courageous journalism": "Unga mkono uandishi wa habari wa ujasiri",
+  "Contribute to scaling up courageous journalism and nurturing the next generation of brave reporters.": "Saidia kukuza uandishi wa habari wa ujasiri na kuandaa kizazi kijacho cha wanahabari jasiri.",
+  "Footer navigation": "Menyu ya chini ya ukurasa",
+  "Explore Stringer": "Ifahamu Stringer",
+  "Our mission": "Dhamira yetu",
+  "Stringer Awards": "Tuzo za Stringer",
+  "Courageous stories": "Ripoti za ujasiri",
+  "Stories belong to their original publishers. Follow each headline to read or watch the original reporting.": "Habari ni mali ya wachapishaji wake wa awali. Fuata kiungo cha kila kichwa cha habari ili kusoma au kutazama ripoti ya awali.",
+  "Preview images, including social media cards, belong to their rights holders. No endorsement or reuse rights implied. Rights or removal:": "Picha za hakikisho, zikiwemo kadi za mitandao ya kijamii, ni mali ya wenye haki. Kuzionyesha hakumaanishi kuwa zimeidhinishwa au kwamba zinaruhusiwa kutumiwa tena. Kuhusu haki au kuondoa picha:",
+  "English": "Kiswahili",
+  "Global headlines": "Vichwa vya habari vya kimataifa",
+  "Build": "Toleo",
+  "Global publisher headlines and Stringer reporting in their original languages.": "Vichwa vya habari vya kimataifa na ripoti za Stringer katika lugha zake za awali.",
+  "Stringer on X": "Stringer kwenye X",
+  "Loading \xB7 {seconds} s elapsed": "Inapakia \xB7 sekunde {seconds} zimepita",
+  "{outcome} in {seconds} s": "{outcome} baada ya sekunde {seconds}",
+  "{stage} Total elapsed: {seconds} s.": "{stage} Jumla ya muda uliopita ni sekunde {seconds}.",
+  "Latest feed load: {timing}.": "Upakiaji wa mwisho wa vyanzo: {timing}.",
+  "Story retrieval from news relays:": "Upataji wa habari kutoka kwenye seva za Nostr:",
+  "no published stories": "hakuna habari zilizochapishwa",
+  "loaded in {seconds} s": "zimepakiwa baada ya sekunde {seconds}",
+  "loading \xB7 {seconds} s elapsed \xB7 {received}/{total} stories": "inapakia \xB7 sekunde {seconds} zimepita \xB7 habari {received}/{total}",
+  "{received}/{total} stories received after {seconds} s": "Habari {received}/{total} zimepokelewa baada ya sekunde {seconds}",
+  "Feed status \xB7 {timing}": "Hali ya vyanzo \xB7 {timing}",
+  "Loaded": "Imepakiwa",
+  "Failed": "Imeshindikana",
+  "Partial": "Sehemu imepakiwa",
+  "Checking for updates\u2026": "Inakagua masasisho\u2026",
+  "Connecting to news relays\u2026": "Inaunganisha kwenye seva za habari za Nostr\u2026",
+  "Verified collection. Loading published stories\u2026": "Mkusanyo umethibitishwa. Inapakia habari zilizochapishwa\u2026",
+  "Received {received} published notes. Retrying {missing} missing notes\u2026": "Machapisho {received} yamepokelewa. Inajaribu tena kupata machapisho {missing} yaliyokosekana\u2026",
+  "Your support matters": "Msaada wako ni muhimu",
+  "The Stringer Foundation supports courageous journalism and nurtures the next generation of reporters.": "The Stringer Foundation huunga mkono uandishi wa habari wa ujasiri na huandaa kizazi kijacho cha wanahabari.",
+  "The Stringer Foundation is a 501(c)(3) non-profit organization. EIN: 33-4278131.": "The Stringer Foundation ni shirika lisilo la faida la aina ya 501(c)(3). EIN: 33-4278131.",
+  "Join our mailing list": "Jiunge na orodha yetu ya barua pepe",
+  "Meet us": "Kutana nasi",
+  "Upcoming appearances": "Matukio yajayo",
+  "Media": "Vyombo vya habari",
+  "{source}: fetched for this build at {time}.": "{source}: habari za toleo hili zilikusanywa {time}.",
+  "GitHub repository": "Hazina ya msimbo kwenye GitHub"
+};
+var sw_default = swahili;
+
 // reader-locales.ts
 var portuguese = {
   "Show more headlines": "Mostrar mais manchetes",
@@ -981,9 +1105,10 @@ var EDITIONS = [
   { path: "zh", locale: "zh", label: "\u4E2D\u6587", direction: "ltr" },
   { path: "ru", locale: "ru", label: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439", direction: "ltr" },
   { path: "nl", locale: "nl", label: "Nederlands", direction: "ltr" },
-  { path: "de", locale: "de", label: "Deutsch", direction: "ltr" }
+  { path: "de", locale: "de", label: "Deutsch", direction: "ltr" },
+  { path: "sw", locale: "sw", label: "Kiswahili", direction: "ltr" }
 ];
-var dictionaries = { fr: fr_default, es: es_default, ar: ar_default, zh: zh_default, ru: ru_default, nl: nl_default, de: de_default };
+var dictionaries = { fr: fr_default, es: es_default, ar: ar_default, zh: zh_default, ru: ru_default, nl: nl_default, de: de_default, sw: sw_default };
 function localeForLanguage(language) {
   const normalized = language.toLowerCase();
   if (normalized === "pt-pt") return "pt-PT";
@@ -998,6 +1123,9 @@ function translator(language) {
     return translated.replace(/\{([a-zA-Z]+)\}/g, (whole, key) => values[key] === void 0 ? whole : String(values[key]));
   };
 }
+
+// atomstr-config.ts
+var ATOMSTR_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
 
 // portuguese-sources.ts
 var PORTUGUESE_SOURCES = Object.freeze([
@@ -1426,10 +1554,99 @@ function sourcesForLocale(language) {
   return EDITION_SOURCES[localeForLanguage(language)] ?? [];
 }
 
+// news-model.ts
+var SOURCES = Object.freeze([
+  { id: "bbc", homepage: "https://www.bbc.com/news", linkLabel: "BBC News", name: "BBC World", url: "https://feeds.bbci.co.uk/news/world/rss.xml" },
+  { id: "nyt", homepage: "https://www.nytimes.com/section/world", linkLabel: "The New York Times", name: "NYT World", mayRequireSubscription: true, url: "https://rss.nytimes.com/services/xml/rss/nyt/World.xml" },
+  { id: "aljazeera", homepage: "https://www.aljazeera.com/", linkLabel: "Al Jazeera", name: "Al Jazeera", url: "https://www.aljazeera.com/xml/rss/all.xml" },
+  { id: "dw", homepage: "https://www.dw.com/", linkLabel: "DW", name: "DW", url: "https://rss.dw.com/rdf/rss-en-all" },
+  { id: "cna", homepage: "https://www.channelnewsasia.com/world", linkLabel: "CNA", name: "CNA", url: "https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml&category=6311" },
+  { id: "stringer", homepage: "https://stringerjournalism.org/courageous-stories", linkLabel: "Stringer", name: "Stringer", url: "https://stringerjournalism.org/courageous-stories" }
+]);
+var ARTICLE_IMAGE_HOSTS = Object.freeze({
+  bbc: ["www.bbc.com", "www.bbc.co.uk"],
+  nyt: ["www.nytimes.com"],
+  aljazeera: ["www.aljazeera.com"],
+  dw: ["www.dw.com"]
+});
+var CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(SOURCES.map((source) => [
+  source.id,
+  Object.freeze({ text: true, summaries: source.id === "stringer", images: source.id === "stringer" })
+])));
+function permittedStories(sourceId, stories, permissions = CONTENT_PERMISSIONS) {
+  const permission = permissions[sourceId];
+  if (permission?.text !== true) return [];
+  return stories.map((story) => ({
+    title: story.title,
+    url: story.url,
+    publishedAt: story.publishedAt,
+    summary: permission.summaries === true ? story.summary : "",
+    ...sourceId === "stringer" ? { credits: story.credits, publicationDate: story.publicationDate ?? null, publicationSource: story.publicationSource ?? null } : {},
+    headlineOnly: sourceId !== "stringer" && permission.summaries !== true,
+    image: permission.images === true ? story.image ?? null : null
+  }));
+}
+var STALE_MS = 2 * 60 * 60 * 1e3;
+function safeUrl(value) {
+  if (typeof value !== "string") return null;
+  try {
+    const url = new URL(value);
+    return /^https?:$/.test(url.protocol) && !url.username && !url.password ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+// sources/sw.ts
+var swahiliPublisher = {
+  id: "dw",
+  name: "DW Kiswahili",
+  url: "https://rss.dw.com/atom/rss-kis-all"
+};
+async function refreshSwahiliSource(previous) {
+  const attemptedAt = (/* @__PURE__ */ new Date()).toISOString();
+  try {
+    const response = await fetch(swahiliPublisher.url, {
+      cache: "no-cache",
+      credentials: "omit",
+      redirect: "error",
+      signal: AbortSignal.timeout(15e3)
+    });
+    if (!response.ok) throw new Error("Publisher feed unavailable");
+    const xml = new DOMParser().parseFromString(await readResponseText(response), "application/xml");
+    const feed = xml.documentElement;
+    if (xml.querySelector("parsererror") || feed.namespaceURI !== "http://www.w3.org/2005/Atom" || feed.localName !== "feed" || feed.getAttribute("xml:lang") !== "sw")
+      throw new Error("Expected a Kiswahili Atom feed");
+    const stories = [];
+    for (const entry of feed.querySelectorAll(":scope > entry")) {
+      const title = entry.querySelector(":scope > title")?.textContent?.trim();
+      const url = safeUrl(entry.querySelector(':scope > link[rel="alternate"][hreflang="sw"]')?.getAttribute("href"));
+      if (!title || !url?.startsWith("https://www.dw.com/sw/")) continue;
+      const published = entry.querySelector(":scope > published")?.textContent ?? "";
+      const timestamp = Date.parse(published);
+      stories.push({ title, url, publishedAt: Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null, summary: "", image: null });
+    }
+    return { stories: permittedStories(swahiliPublisher.id, stories), attemptedAt, lastSuccessAt: attemptedAt, status: "success", error: null };
+  } catch {
+    return { ...previous, attemptedAt, status: "failure", error: "Publisher feed unavailable" };
+  }
+}
+
+// swahili-publishers.ts
+var collectedSwahiliPublishers = [
+  { id: "sw-rfi", name: "RFI Kiswahili", url: "https://www.rfi.fr/sw/rss", articleHosts: ["www.rfi.fr"] },
+  { id: "sw-habarileo", name: "HabariLeo", url: "https://habarileo.co.tz/feed/", articleHosts: ["habarileo.co.tz", "www.habarileo.co.tz"] },
+  { id: "sw-bbc", name: "BBC News Swahili", url: "https://feeds.bbci.co.uk/swahili/rss.xml", articleHosts: ["www.bbc.com", "www.bbc.co.uk"] },
+  { id: "sw-voa", name: "VOA Swahili", url: "https://www.voaswahili.com/api/z-_ktl-vomx-tperr-r", articleHosts: ["www.voaswahili.com"] }
+];
+var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
+  collectedSwahiliPublishers.map((source) => [source.id, Object.freeze({ text: true, summaries: false, images: false })])
+));
+
 // app.ts
-import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=e1c6113f933fcdd6";
-import relayConfig from "./relay-config.js?v=e1c6113f933fcdd6";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=e1c6113f933fcdd6";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=9a8d2338953edd64";
+import relayConfig from "./relay-config.js?v=9a8d2338953edd64";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=9a8d2338953edd64";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1437,9 +1654,9 @@ function requiredElement(selector) {
 }
 var locale = localeForLanguage(document.documentElement.lang);
 var mirrorSources = sourcesForLocale(locale);
-var atomstrEdition = mirrorSources.length > 0;
+var swahiliEdition = locale === "sw";
+var localizedEdition = swahiliEdition || mirrorSources.length > 0;
 var t = translator(locale);
-if (document.querySelector('base[href="/news-assets/"]')) requiredElement(".edition-switcher").hidden = true;
 var menuToggle = requiredElement(".header-menu-toggle");
 var headerMenu = requiredElement("#header-menu");
 function setHeaderMenu(open) {
@@ -1456,11 +1673,11 @@ document.addEventListener("keydown", (event) => {
 });
 matchMedia("(max-width: 920px)").addEventListener("change", () => setHeaderMenu(false));
 var feedback = requiredElement("#refresh-status");
-var publisherSources = atomstrEdition ? mirrorSources : SOURCES.filter((source) => source.id !== "stringer");
+var publisherSources = swahiliEdition ? [swahiliPublisher, ...collectedSwahiliPublishers] : localizedEdition ? mirrorSources : SOURCES2.filter((source) => source.id !== "stringer");
 var sourcePreferenceKey = `stringer-disabled-sources-${locale.startsWith("pt-") ? "pt" : locale}-v1`;
 var disabledSources = /* @__PURE__ */ new Set();
 try {
-  const saved = atomstrEdition ? JSON.parse(localStorage.getItem(sourcePreferenceKey) || "[]") : [];
+  const saved = localizedEdition ? JSON.parse(localStorage.getItem(sourcePreferenceKey) || "[]") : [];
   if (Array.isArray(saved) && saved.every((id) => typeof id === "string")) {
     disabledSources = new Set(saved.filter((id) => publisherSources.some((source) => source.id === id)));
   }
@@ -1468,7 +1685,7 @@ try {
 }
 var selectedSources = () => publisherSources.filter((source) => !disabledSources.has(source.id)).map((source) => source.id);
 var sourceOptions = document.querySelector("#source-options");
-for (const source of atomstrEdition ? publisherSources : []) {
+for (const source of localizedEdition ? publisherSources : []) {
   const label = element("label");
   const checkbox = element("input");
   checkbox.type = "checkbox";
@@ -1496,7 +1713,7 @@ function updateSourcePreferences() {
   if (snapshot) renderWorld();
 }
 function updateSourceControls() {
-  if (!atomstrEdition) return;
+  if (!localizedEdition) return;
   requiredElement("#source-count").textContent = t("{enabled} of {total} enabled", { enabled: selectedSources().length, total: publisherSources.length });
   for (const checkbox of sourceOptions?.querySelectorAll("input") || []) checkbox.checked = !disabledSources.has(checkbox.value);
   requiredElement("#enable-all-sources").disabled = disabledSources.size === 0;
@@ -1666,7 +1883,7 @@ async function connectNostr() {
       })
     ]).finally(() => clearTimeout(timer));
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=e1c6113f933fcdd6");
+    const identity = await import("./relay-reader.js?v=9a8d2338953edd64");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -2034,10 +2251,10 @@ function renderStories(target, stories, emptyMessage) {
   const usePlaceholder = target.id === "stringer-news";
   const wire = target.id === "world-news";
   for (const [index, story] of stories.entries()) {
-    const url = safeUrl(story.url);
+    const url = safeUrl2(story.url);
     if (!url) continue;
     const approvedMedia = usePlaceholder ? STRINGER_MEDIA.get(url) : null;
-    const localImage = CONTENT_PERMISSIONS.stringer.images && approvedMedia?.image ? locale !== "en-US" ? new URL(approvedMedia.image, import.meta.url).href : approvedMedia.image : null;
+    const localImage = CONTENT_PERMISSIONS2.stringer.images && approvedMedia?.image ? locale !== "en-US" ? new URL(approvedMedia.image, import.meta.url).href : approvedMedia.image : null;
     const article = element("article", "", "story");
     article.dir = "auto";
     const body = element("div", "", "story-body");
@@ -2047,7 +2264,7 @@ function renderStories(target, stories, emptyMessage) {
       article.classList.add("with-image");
       article.prepend(placeholder);
     };
-    const imageStoryId = wire && !atomstrEdition ? story.noteId : void 0;
+    const imageStoryId = wire && !localizedEdition ? story.noteId : void 0;
     const selection = imageStoryId ? imageSession?.selection(imageStoryId) : null;
     const trusted = hasSigner() && voter && imageSession?.canVote(voter);
     if (imageStoryId) prepareImageSearch(imageStoryId, story.title);
@@ -2055,7 +2272,7 @@ function renderStories(target, stories, emptyMessage) {
     const imageData = wire ? commons : story.image;
     const imageUrl = wire ? commons?.url : safeImageUrl(imageData?.url) || localImage;
     let wireFigure = null;
-    if (wire && !atomstrEdition) {
+    if (wire && !localizedEdition) {
       article.classList.add("with-image");
       wireFigure = element("figure", "", "story-media wire-thumbnail");
       if (imageStoryId && !commonsSearches.get(imageStoryId)?.searched) {
@@ -2093,10 +2310,10 @@ function renderStories(target, stories, emptyMessage) {
       if (wire && commons) {
         figure.classList.add("wire-thumbnail");
         const imageLink = element("a");
-        imageLink.href = commons.filePage;
+        imageLink.href = url;
         imageLink.target = "_blank";
         imageLink.rel = "noopener noreferrer";
-        imageLink.setAttribute("aria-label", `View ${commons.title} at ${commons.sourceName || "Wikimedia Commons"}`);
+        imageLink.setAttribute("aria-label", story.title);
         if (trusted) {
           imageLink.setAttribute("role", "button");
           imageLink.setAttribute("aria-label", `Change image for ${story.title}`);
@@ -2162,13 +2379,15 @@ function renderStories(target, stories, emptyMessage) {
     body.append(meta);
     if (imageStoryId && !commons) {
       const state = commonsSearches.get(imageStoryId);
-      let message = "Finding a suggested image\u2026";
-      if (state?.searched) {
-        if (state.results.length) message = "No more suggestions. Undo a skip or search again.";
-        else if (trusted) message = "No reusable image found. Open image review to refine the search.";
-        else message = "No reusable image found for this headline.";
+      if (state?.error) wireFigure?.append(element("p", state.error, "warning"));
+      else if (state?.searched) {
+        const message = state.results.length ? "No more suggestions. Undo a skip or search again." : trusted ? "No reusable image found. Open image review to refine the search." : "No reusable image found for this headline.";
+        wireFigure?.append(element("p", message, "image-search-status"));
+      } else {
+        const placeholder = element("div", "", "story-placeholder");
+        placeholder.setAttribute("aria-hidden", "true");
+        wireFigure?.append(placeholder);
       }
-      wireFigure?.append(element("p", state?.error || message, state?.error ? "warning" : "image-search-status"));
     }
     if (imageStoryId && trusted) wireFigure?.insertBefore(imageControls(imageStoryId, story.title, commons), wireFigure.querySelector("figcaption"));
     article.append(body);
@@ -2220,7 +2439,7 @@ function renderStatuses() {
   notes.push(loading ? t("{stage} Total elapsed: {seconds} s.", { stage: loadStage, seconds }) : t("Latest feed load: {timing}.", { timing }));
   if (Object.keys(feedTimings).length) {
     notes.push(t("Story retrieval from news relays:"));
-    for (const source of SOURCES) {
+    for (const source of SOURCES2) {
       const feed = feedTimings[source.id];
       if (!feed) continue;
       const elapsed = ((feed.durationMs ?? performance.now() - feed.startedAt) / 1e3).toFixed(1);
@@ -2232,10 +2451,12 @@ function renderStatuses() {
   if (snapshot) for (const group of ["world", "stringer"]) {
     const target = requiredElement(`#${group}-status`);
     target.replaceChildren();
-    const sources = group === "stringer" ? SOURCES.filter((s) => s.id === "stringer") : publisherSources.filter((s) => !disabledSources.has(s.id));
+    const sources = group === "stringer" ? SOURCES2.filter((s) => s.id === "stringer") : publisherSources.filter((s) => !disabledSources.has(s.id));
     for (const source of sources) {
       const entry = snapshot.sources[source.id];
       if (entry.status === "paused") continue;
+      if (collectedSwahiliPublishers.some((publisher) => publisher.id === source.id) && entry.lastSuccessAt)
+        notes.push(t("{source}: fetched for this build at {time}.", { source: source.name, time: formatLocalDateTime(entry.lastSuccessAt, locale) }));
       const retained = retainedSources.get(source.id);
       if (retained) notes.push(`${source.name} \xB7 Showing ${retained.stories.length} previously collected stories${retained.lastSuccessAt ? ` from ${formatLocalDateTime(retained.lastSuccessAt)}` : ""}.`);
       if (relayConfig.enabled) {
@@ -2247,7 +2468,7 @@ function renderStatuses() {
       if (entry.status === "failure" && !(loading && entry.unavailable)) target.append(element("p", t("{source}: refresh unavailable.{retained}", { source: source.name, retained: t(retained?.stories.length || entry.stories.length ? " Showing previously collected stories." : " No stories available.") }), "warning"));
     }
   }
-  if (atomstrEdition) {
+  if (localizedEdition) {
     const target = requiredElement("#world-status");
     const warnings = [...target.children];
     if (warnings.length) {
@@ -2272,12 +2493,13 @@ function renderWorld() {
   syncImages();
   const selected = selectedSources();
   const worldPaused = selected.length > 0 && selected.every((id) => current.sources[id].status === "paused");
+  const allFailed = localizedEdition && selected.length > 0 && selected.every((id) => current.sources[id].status === "failure");
   const list = requiredElement("#world-news");
   const stories = worldStories(displayedSnapshot(), selected, publisherSources);
   renderStories(
     list,
-    atomstrEdition ? stories.slice(0, 300) : stories,
-    !selected.length ? t("No sources selected.") : loading ? "" : worldPaused ? t("Global headlines are currently unavailable.") : t("No headlines available in this collection.")
+    localizedEdition ? stories.slice(0, 300) : stories,
+    !selected.length ? t("No sources selected.") : loading ? "" : worldPaused || allFailed ? t("Global headlines are currently unavailable.") : t("No headlines available in this collection.")
   );
   if (!selected.length) {
     const button = element("button", t("Enable all"), "enable-all-empty");
@@ -2285,9 +2507,9 @@ function renderWorld() {
     button.addEventListener("click", enableAllSources);
     list.append(button);
   }
-  if (worldPaused && !atomstrEdition) {
+  if (worldPaused && !localizedEdition) {
     const links = element("p", "", "publisher-links");
-    for (const { name, homepage, linkLabel } of SOURCES.filter((source) => source.id !== "stringer")) {
+    for (const { name, homepage, linkLabel } of SOURCES2.filter((source) => source.id !== "stringer")) {
       const link = element("a", linkLabel || name);
       link.href = homepage;
       link.target = "_blank";
@@ -2316,7 +2538,7 @@ function render() {
   renderWorld();
 }
 async function load() {
-  if (atomstrEdition) return loadAtomstr();
+  if (localizedEdition) return loadLocalized();
   if (loading) return;
   loading = true;
   lastAttempt = Date.now();
@@ -2331,7 +2553,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=e1c6113f933fcdd6");
+      const reader = await import("./relay-reader.js?v=9a8d2338953edd64");
       ImageSessionClass = reader.ImageSession;
       searchImages = reader.searchImages;
       commonsSubject = reader.commonsSubject;
@@ -2346,7 +2568,7 @@ async function load() {
         console.info("[Stringer reader]", message);
       }, (partial) => {
         if (snapshot && Date.parse(partial.generatedAt) < Date.parse(snapshot.generatedAt)) return;
-        for (const source of SOURCES) {
+        for (const source of SOURCES2) {
           const current = partial.sources[source.id];
           const previous = retainedSources.get(source.id) ?? snapshot?.sources[source.id];
           if (previous && current.status !== "paused" && previous.stories.length > current.stories.length)
@@ -2393,7 +2615,7 @@ async function load() {
     else renderStatuses();
   }
 }
-async function loadAtomstr() {
+async function loadLocalized() {
   if (loading) return;
   loading = true;
   lastAttempt = Date.now();
@@ -2405,14 +2627,30 @@ async function loadAtomstr() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = await import("./atomstr-reader.js?v=e1c6113f933fcdd6");
+    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=9a8d2338953edd64");
     if (!snapshot) {
-      const sources = reader.cachedAtomstrSources(mirrorSources);
+      const now = (/* @__PURE__ */ new Date()).toISOString();
+      const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
+      const sources = reader ? reader.cachedAtomstrSources(mirrorSources) : { [swahiliPublisher.id]: initialSource };
       for (const source of Object.values(sources)) source.status = "loading";
-      snapshot = { schemaVersion: 2, generatedAt: (/* @__PURE__ */ new Date()).toISOString(), sources: {
-        ...sources,
-        stringer: { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: (/* @__PURE__ */ new Date()).toISOString(), error: null }
-      } };
+      if (swahiliEdition) {
+        const data = document.querySelector("#swahili-headlines");
+        const collected = JSON.parse(data?.textContent || "{}");
+        for (const source of collectedSwahiliPublishers) {
+          sources[source.id] = collected[source.id] ?? { ...initialSource, status: "failure", error: "Publisher feed unavailable" };
+        }
+      } else {
+        const data = document.querySelector("#atomstr-headlines");
+        const collected = JSON.parse(data?.textContent || "{}");
+        const cutoff = Date.now() - ATOMSTR_MAX_AGE_MS;
+        for (const [id, cached] of Object.entries(sources)) {
+          const entry = collected[id];
+          if (!entry?.lastSuccessAt || entry.lastSuccessAt <= (cached.lastSuccessAt ?? "")) continue;
+          const stories = entry.stories.filter((story) => Date.parse(story.publishedAt ?? "") >= cutoff);
+          if (stories.length) sources[id] = { ...cached, stories, lastSuccessAt: entry.lastSuccessAt };
+        }
+      }
+      snapshot = { schemaVersion: 2, generatedAt: now, sources: { ...sources, stringer: initialSource } };
       renderWorld();
       render();
     }
@@ -2423,15 +2661,18 @@ async function loadAtomstr() {
       }, 150);
     };
     await Promise.allSettled([
-      reader.readAtomstrSources({ sources: mirrorSources, previous: snapshot.sources, onUpdate(id, entry) {
+      reader ? reader.readAtomstrSources({ sources: mirrorSources, previous: snapshot.sources, onUpdate(id, entry) {
         snapshot.sources[id] = entry;
         queueDraw();
-      } }),
+      } }) : refreshSwahiliSource(snapshot.sources[swahiliPublisher.id]).then((entry) => {
+        snapshot.sources[swahiliPublisher.id] = entry;
+        queueDraw();
+      }),
       (async () => {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=e1c6113f933fcdd6");
+            const relay = await import("./relay-reader.js?v=9a8d2338953edd64");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;

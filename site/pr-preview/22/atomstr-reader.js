@@ -7680,11 +7680,6 @@ try {
   _WebSocket3 = WebSocket;
 } catch {
 }
-var SimplePool = class extends AbstractSimplePool {
-  constructor(options) {
-    super({ verifyEvent: verifyEvent2, websocketImplementation: _WebSocket3, maxWaitForConnection: 3e3, ...options });
-  }
-};
 
 // news-model.ts
 var SOURCES = Object.freeze([
@@ -7736,10 +7731,39 @@ function uniqueStories(stories) {
 
 // atomstr-config.ts
 var ATOMSTR_RELAY = "wss://nostr.data.haus";
+var ATOMSTR_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
 
 // relay/atomstr-reader.ts
 var cachePrefix = "stringer-atomstr-v1:";
-var maxAge = 7 * 24 * 60 * 60 * 1e3;
+function queryRelay(relay, filters, timeout) {
+  return new Promise((resolve) => {
+    const events = [];
+    let closed = false;
+    let timedOut = false;
+    const subscription = relay.subscribe(filters, {
+      // The library also calls oneose on its own timeout. Our earlier deadline
+      // keeps a silent relay distinct from a relay that reports an empty result.
+      eoseTimeout: timeout + 1e3,
+      onevent(event) {
+        if (events.length < 200) events.push(event);
+      },
+      oneose() {
+        if (closed) return;
+        resolve({ events, complete: true, timedOut });
+        subscription.close();
+      },
+      onclose() {
+        closed = true;
+        clearTimeout(timer);
+        resolve({ events, complete: false, timedOut });
+      }
+    });
+    const timer = setTimeout(() => {
+      timedOut = true;
+      subscription.close();
+    }, timeout);
+  });
+}
 function parseAtomstrEvent(event, source, now2 = Date.now()) {
   if (!event || event.kind !== 1 || typeof event.content !== "string" || event.content.length > 5e4 || !Array.isArray(event.tags) || event.tags.length > 256 || !Number.isInteger(event.created_at) || event.created_at <= 0 || event.created_at * 1e3 > now2 + 6e4) return null;
   const feed = source.feeds.find((feed2) => feed2.pubkey === event.pubkey);
@@ -7813,8 +7837,45 @@ async function readAtomstrSources({
   previous = cachedAtomstrSources(sources),
   now: now2 = () => Date.now()
 }) {
-  const pool = query ? null : new SimplePool();
-  const read = query || ((filter) => pool.querySync([ATOMSTR_RELAY], filter, { maxWait: 8e3 }));
+  if (!sources.length) return {};
+  const connectionTimeout = 4e3;
+  const pool = query ? null : new AbstractSimplePool({
+    verifyEvent,
+    websocketImplementation: WebSocket,
+    maxWaitForConnection: connectionTimeout
+  });
+  const deadline = performance.now() + 3e4;
+  const connect = () => pool.ensureRelay(ATOMSTR_RELAY, { connectionTimeout });
+  const relay = pool ? connect().catch(connect) : null;
+  let reconnection;
+  let relayResponded = false;
+  const replaceSilentConnection = async (connection) => {
+    for (const subscription of connection.openSubs.values()) subscription.close();
+    await Promise.resolve();
+    pool.close([ATOMSTR_RELAY]);
+    return connect();
+  };
+  const readFrom = (connection, filters) => {
+    const remaining = deadline - performance.now();
+    return remaining > 0 && connection.connected ? queryRelay(connection, filters, Math.min(remaining, 8e3)) : { events: [], complete: false, timedOut: false };
+  };
+  const read = async (filters) => {
+    if (query) return { events: await query(filters), complete: true };
+    const replacementStarted = reconnection;
+    const connection = await (replacementStarted ?? relay);
+    const reply = await readFrom(connection, filters);
+    if (reply.complete || reply.events.length) relayResponded = true;
+    const silent = reply.timedOut && !relayResponded;
+    if (reply.complete || replacementStarted || performance.now() >= deadline || connection.connected && !silent && !reconnection) return reply;
+    try {
+      const replacement = await (reconnection ??= silent ? replaceSilentConnection(connection) : connect());
+      const retried = await readFrom(replacement, filters);
+      if (retried.complete) return retried;
+      return { events: [...reply.events, ...retried.events], complete: false };
+    } catch {
+      return reply;
+    }
+  };
   const result = {};
   let next = 0;
   try {
@@ -7824,18 +7885,21 @@ async function readAtomstrSources({
         const attemptedAt = new Date(now2()).toISOString();
         let entry;
         try {
-          const events = await read({
-            kinds: [1],
-            authors: [...new Set(source.feeds.map((feed) => feed.pubkey))],
-            since: Math.floor((now2() - maxAge) / 1e3),
-            limit: NEWSWIRE_LIMIT
-          });
-          const checked = verifiedSource(events.slice(0, 200), source, now2());
-          if (!checked.stories.length) throw new Error("No verified publications");
-          entry = { stories: checked.stories, attemptedAt, lastSuccessAt: attemptedAt, status: "success", error: null };
-          try {
-            localStorage.setItem(cachePrefix + source.id, JSON.stringify({ checkedAt: attemptedAt, events: checked.events }));
-          } catch {
+          const since = Math.floor((now2() - ATOMSTR_MAX_AGE_MS) / 1e3);
+          const filters = [source.feeds.filter((feed) => !feed.social), source.feeds.filter((feed) => feed.social)].filter((feeds) => feeds.length).map((feeds) => ({ kinds: [1], authors: [...new Set(feeds.map((feed) => feed.pubkey))], since, limit: NEWSWIRE_LIMIT }));
+          const { events, complete } = await read(filters);
+          const checked = verifiedSource(events.slice(0, 200).filter((event) => event?.created_at >= since), source, now2());
+          if (!complete) {
+            const old = previous[source.id];
+            entry = unavailable(source, attemptedAt, old);
+            entry.stories = uniqueStories([...checked.stories, ...entry.stories]).sort(newestFirst).slice(0, NEWSWIRE_LIMIT);
+          } else {
+            entry = { stories: checked.stories, attemptedAt, lastSuccessAt: attemptedAt, status: "success", error: null };
+            try {
+              if (checked.events.length) localStorage.setItem(cachePrefix + source.id, JSON.stringify({ checkedAt: attemptedAt, events: checked.events }));
+              else localStorage.removeItem(cachePrefix + source.id);
+            } catch {
+            }
           }
         } catch {
           entry = unavailable(source, attemptedAt, previous[source.id]);
