@@ -231,6 +231,9 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     const dot = reader.locator('#world-news .wire-thumbnail > .story-placeholder');
     assert.equal(await dot.isVisible(), true);
     assert.equal(await pendingImage.isVisible(), false);
+    await footerCredits.click();
+    await credits.getByText('No image credits to show yet.').waitFor();
+    await credits.getByRole('button', { name: 'Close' }).click();
     releaseThumbnail();
     await pendingImage.waitFor();
     assert.equal(await dot.isVisible(), false);
