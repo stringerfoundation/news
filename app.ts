@@ -368,7 +368,7 @@ footerCredits.type = 'button';
 footerCredits.setAttribute('aria-haspopup', 'dialog');
 footerCredits.addEventListener('click', () => {
   const credits = new Map<string, ImageCredit>();
-  for (const caption of document.querySelectorAll<HTMLElement>('.story-media > .image-credit-caption')) {
+  for (const caption of document.querySelectorAll<HTMLElement>('.story-media:not(.image-loading) > .image-credit-caption')) {
     const { key, credit } = thumbnailCredits.get(caption)!;
     credits.set(key, credit);
   }

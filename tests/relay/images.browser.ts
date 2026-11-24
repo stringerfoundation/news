@@ -67,7 +67,7 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     await dialog.getByRole('button', { name: 'Close' }).click();
     assert.equal(await trigger.evaluate(button => document.activeElement === button), true);
   }
-  async function setup(page: Page, signer: boolean | 'owner', editor = Boolean(signer)) {
+  async function setup(page: Page, signer: boolean | 'owner', editor = Boolean(signer), directSearchGate?: Promise<void>) {
     // tsx emits this helper for nested callbacks serialized into the browser.
     await page.addInitScript('window.__name = (fn) => fn;');
     page.on('pageerror', error => errors.push(error.message));
@@ -113,6 +113,7 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
         assert.ok(url.searchParams.get('gsrsearch')?.endsWith(' filetype:bitmap'));
         const query = url.searchParams.get('gsrsearch')?.replace(/ filetype:bitmap$/, '');
         searchedSubjects.add(query || '');
+        await directSearchGate;
         if (query === 'Unavailable') { await route.fulfill({ status: 503 }); return; }
         await route.fulfill({ json: { query: { pages: !['Lisbon', 'Emmanuel Macron', 'Saudi Arabia', 'Kenya', 'Trump'].includes(query || '') ? [] : [{ title: `File:${query} alternative.png`, imageinfo: [{ mime: 'image/png', thumburl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ab/Found.png/320px-Found.png?utm_source=commons', descriptionurl: `https://commons.wikimedia.org/wiki/File:${query?.replaceAll(' ', '_')}_alternative.png`, extmetadata: { Artist: { value: '<a href="https://example.org/">Found photographer</a>' }, Credit: { value: '<b>Own work</b>' }, LicenseUrl: { value: 'https://creativecommons.org/licenses/by-sa/4.0' }, ImageDescription: { value: `Alternative ${query}` } } }] }] } } }); return;
       }
@@ -230,6 +231,9 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     const dot = reader.locator('#world-news .wire-thumbnail > .story-placeholder');
     assert.equal(await dot.isVisible(), true);
     assert.equal(await pendingImage.isVisible(), false);
+    await footerCredits.click();
+    await credits.getByText('No image credits to show yet.').waitFor();
+    await credits.getByRole('button', { name: 'Close' }).click();
     releaseThumbnail();
     await pendingImage.waitFor();
     assert.equal(await dot.isVisible(), false);
@@ -269,7 +273,16 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     assert.equal(await reader.locator('.image-toolbar').isVisible(), false);
     // Reproduce the live preview: no manifest candidates and no self-follow.
     const ownerPage = await browser.newPage({ viewport: { width: 375, height: 1000 } });
-    await setup(ownerPage, 'owner');
+    let finishDirectSearch!: () => void;
+    const directSearch = new Promise<void>(resolve => { finishDirectSearch = resolve; });
+    try {
+      await setup(ownerPage, 'owner', true, directSearch);
+      const thumbnail = ownerPage.locator(suggestedImage);
+      await thumbnail.waitFor({ timeout: 8000 });
+      assert.match(await thumbnail.getAttribute('alt') || '', /^Representative/);
+    } finally {
+      finishDirectSearch();
+    }
     // Suggestions appear without expanding a review or manually submitting search.
     await ownerPage.getByRole('button', { name: 'Publish and upvote image', exact: true }).waitFor();
     assert.equal(await ownerPage.locator('#world-news .wire-thumbnail > a > img').isVisible(), true);

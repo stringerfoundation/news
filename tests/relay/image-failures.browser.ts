@@ -52,6 +52,12 @@ test('reusable image searches fail closed for malformed responses and recover fr
       const empty = await searchCommons('Subject', async () => new Response('{}'));
       const noRepresentative = await searchCommons('Subject', async input => new Response(JSON.stringify(new URL(String(input)).hostname === 'en.wikipedia.org'
         ? { query: { pages: [{ pageimage: 'Subject.png' }] } } : new URL(String(input)).searchParams.has('titles') ? { error: 'Unavailable' } : { query: {} }), { status: 200 }), true);
+      const representativeAfterFailure = await searchCommons('Subject', async input => {
+        const url = new URL(String(input));
+        if (url.hostname === 'en.wikipedia.org') return Response.json({ query: { pages: [{ pageimage: 'Subject.png' }] } });
+        if (url.searchParams.has('titles')) return Response.json({ query: { pages: [entry] } });
+        return new Response(null, { status: 503 });
+      }, true);
       const openverseBase = { id: '12345678-1234-1234-1234-123456789abc', title: 'Subject', creator: 'Photographer', attribution: 'Credit',
         url: 'https://images.example.org/photo.jpg', foreign_landing_url: 'https://example.org/photo', source: 'europeana', license: 'cc0', license_url: 'https://creativecommons.org/publicdomain/zero/1.0/' };
       const diverse = await searchOpenverse('Subject', async () => new Response(JSON.stringify({ results: [{}, { ...openverseBase, license: '' },
@@ -64,7 +70,7 @@ test('reusable image searches fail closed for malformed responses and recover fr
       await searchImages('Last cache entry', 'openverse');
       await searchImages('Last cache entry', 'openverse');
       const nonError = await searchImages('Subject', 'commons', false, async () => { throw 'Offline'; });
-      return { rejected, degraded, malformed, missingTitle, many, empty, noRepresentative, diverse, publicDomain, europe, nonError };
+      return { rejected, degraded, malformed, missingTitle, many, empty, noRepresentative, representativeAfterFailure, diverse, publicDomain, europe, nonError };
     });
     assert.equal(catalogRequests, 211, 'A repeated recent query must use the bounded cache');
     assert.deepEqual(result.missingTitle, []);
@@ -77,6 +83,7 @@ test('reusable image searches fail closed for malformed responses and recover fr
     assert.deepEqual(result.malformed, []);
     assert.deepEqual(result.empty, []);
     assert.deepEqual(result.noRepresentative, []);
+    assert.equal(result.representativeAfterFailure[0]?.title, 'Subject');
     assert.equal(result.diverse.length, 5);
     assert.match(result.nonError.issues[0] || '', /unavailable/);
   } finally { await browser.close(); }
