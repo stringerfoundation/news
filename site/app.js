@@ -1680,9 +1680,9 @@ var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
 ));
 
 // app.ts
-import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=e23c8c24ac3201ad";
-import relayConfig from "./relay-config.js?v=e23c8c24ac3201ad";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=e23c8c24ac3201ad";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=fc73a48d173ff362";
+import relayConfig from "./relay-config.js?v=fc73a48d173ff362";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=fc73a48d173ff362";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1922,7 +1922,7 @@ async function connectNostr() {
       })
     ]).finally(() => clearTimeout(timer));
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=e23c8c24ac3201ad");
+    const identity = await import("./relay-reader.js?v=fc73a48d173ff362");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -2737,7 +2737,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=e23c8c24ac3201ad");
+      const reader = await import("./relay-reader.js?v=fc73a48d173ff362");
       ImageSessionClass = reader.ImageSession;
       searchImages = reader.searchImages;
       commonsSubject = reader.commonsSubject;
@@ -2811,7 +2811,7 @@ async function loadLocalized() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=e23c8c24ac3201ad");
+    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=fc73a48d173ff362");
     if (!snapshot) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
@@ -2856,7 +2856,7 @@ async function loadLocalized() {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=e23c8c24ac3201ad");
+            const relay = await import("./relay-reader.js?v=fc73a48d173ff362");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
@@ -2902,7 +2902,7 @@ setInterval(() => {
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && Date.now() - lastAttempt >= interval) load();
 });
-if (localizedEdition) void import("./relay-reader.js?v=e23c8c24ac3201ad").then((reader) => {
+if (localizedEdition) void import("./relay-reader.js?v=fc73a48d173ff362").then((reader) => {
   searchImages = reader.searchImages;
   loadSuggestions();
 }, () => suggestionQueue.clear());
