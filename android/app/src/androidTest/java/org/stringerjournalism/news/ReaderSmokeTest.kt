@@ -2,6 +2,8 @@ package org.stringerjournalism.news
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -15,9 +17,9 @@ import androidx.test.espresso.intent.matcher.IntentMatchers.hasAction
 import androidx.test.espresso.intent.matcher.IntentMatchers.hasData
 import org.junit.Rule
 import org.junit.Before
-import org.junit.AfterClass
-import org.junit.BeforeClass
 import org.junit.Test
+import org.junit.rules.TestWatcher
+import org.junit.runner.Description
 import org.junit.runner.RunWith
 import org.hamcrest.Matchers.allOf
 import org.junit.Assert.assertEquals
@@ -25,13 +27,40 @@ import org.stringerjournalism.news.core.AtomstrSource
 import org.stringerjournalism.news.core.InMemorySnapshotCache
 import org.stringerjournalism.news.core.NewsCore
 import org.stringerjournalism.news.core.Snapshot
-import org.stringerjournalism.news.core.SnapshotCache
 import org.stringerjournalism.news.core.SourceState
 import org.stringerjournalism.news.core.Story
+import java.util.concurrent.atomic.AtomicBoolean
 
 @RunWith(AndroidJUnit4::class)
 class ReaderSmokeTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    private val relayAvailable = AtomicBoolean(true)
+
+    @get:Rule(order = 0)
+    val offlineReader = object : TestWatcher() {
+        override fun starting(description: Description) {
+            val startsOffline = description.methodName == ::refreshErrorClearsAfterRetry.name
+            relayAvailable.set(!startsOffline)
+            MainActivity.readerDataSourceFactory = { _, _ ->
+                object : ReaderDataSource {
+                    override suspend fun loadRelaySnapshot(onUpdate: (Snapshot) -> Unit): Snapshot {
+                        check(relayAvailable.get()) { "Offline reader fixture" }
+                        onUpdate(snapshot)
+                        return snapshot
+                    }
+
+                    override fun cachedRelaySnapshot(): Snapshot? = if (startsOffline) null else snapshot
+                    override suspend fun loadAtomstrSources(sources: List<AtomstrSource>, onUpdate: (String, SourceState) -> Unit): Map<String, SourceState> = emptyMap()
+                    override fun cachedAtomstrSources(sources: List<AtomstrSource>): Map<String, SourceState> = emptyMap()
+                }
+            }
+        }
+
+        override fun finished(description: Description) {
+            MainActivity.readerDataSourceFactory = null
+        }
+    }
+
+    @get:Rule(order = 1) val compose = createAndroidComposeRule<MainActivity>()
 
     @Before
     fun selectEnglishBeforeEachTest() {
@@ -42,24 +71,30 @@ class ReaderSmokeTest {
 
     companion object {
         private const val STORY_URL = "https://example.org/story/42"
+        private const val WORLD_HEADLINE = "A test world headline"
+        private val snapshot = Snapshot(
+            stories = listOf(
+                Story("fixture-world", WORLD_HEADLINE, STORY_URL, "BBC World", "2026-11-05T12:00:00Z", sourceId = "bbc"),
+                Story("fixture-stringer", "A courageous test story", "https://stringerjournalism.org/courageous-stories/test", "Stringer", "2026-11-05T11:00:00Z", "Reporter summary", "Reporter credit", sourceId = "stringer"),
+            ),
+            status = "success",
+        )
+    }
 
-        @JvmStatic @BeforeClass fun installOfflineReader() {
-            MainActivity.readerDataSourceFactory = { _, _ -> object : ReaderDataSource {
-                private val snapshot = Snapshot(
-                    stories = listOf(
-                        Story("fixture-world", "A test world headline", STORY_URL, "BBC World", "2026-11-05T12:00:00Z", sourceId = "bbc"),
-                        Story("fixture-stringer", "A courageous test story", "https://stringerjournalism.org/courageous-stories/test", "Stringer", "2026-11-05T11:00:00Z", "Reporter summary", "Reporter credit", sourceId = "stringer"),
-                    ),
-                    status = "success",
-                )
-                override suspend fun loadRelaySnapshot(onUpdate: (Snapshot) -> Unit): Snapshot { onUpdate(snapshot); return snapshot }
-                override fun cachedRelaySnapshot(): Snapshot? = snapshot
-                override suspend fun loadAtomstrSources(sources: List<AtomstrSource>, onUpdate: (String, SourceState) -> Unit): Map<String, SourceState> = emptyMap()
-                override fun cachedAtomstrSources(sources: List<AtomstrSource>): Map<String, SourceState> = emptyMap()
-            } }
-        }
+    @Test
+    fun refreshErrorClearsAfterRetry() {
+        val unavailable = "The news collection is unavailable. We’ll retry automatically."
+        compose.waitUntil(10_000) { compose.onAllNodesWithText(unavailable).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(unavailable).assertIsDisplayed()
 
-        @JvmStatic @AfterClass fun clearOfflineReader() { MainActivity.readerDataSourceFactory = null }
+        val retry = compose.onNodeWithText("Try again")
+        retry.assertIsDisplayed()
+        relayAvailable.set(true)
+        retry.performClick()
+
+        compose.waitUntil(10_000) { compose.onAllNodesWithText(WORLD_HEADLINE).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(WORLD_HEADLINE).assertIsDisplayed()
+        compose.onNodeWithText(unavailable).assertDoesNotExist()
     }
 
     @Test
