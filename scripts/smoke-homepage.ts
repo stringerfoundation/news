@@ -65,7 +65,8 @@ export async function checkHomepage(browser: Pick<Browser, 'newContext'>, url: s
           .waitFor({ state: 'visible', timeout: remaining(completionMs) });
       const completed = performance.now() - start;
       assert.ok(completed <= completionMs, `Loading exceeded ${completionMs} ms`);
-      assert.match(await page.locator('#relay-status summary').innerText(), /loaded in/i,
+      const feedStatus = await page.locator('#relay-status-details').textContent();
+      assert.match(feedStatus ?? '', /^Latest feed load: (?:Partially loaded|Loaded) in /i,
         'Displayed stories must not hide a failed refresh');
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Horizontal overflow');
       assert.deepEqual(errors, [], 'Reader errors');
@@ -77,7 +78,7 @@ export async function checkHomepage(browser: Pick<Browser, 'newContext'>, url: s
         completedMs: Math.round(completed),
         headlines: await page.locator('#world-news article').count(),
         stories: await page.locator('#stringer-news article').count(),
-        feedStatus: await page.locator('#relay-status-details').textContent() });
+        feedStatus });
     } finally {
       await context.close();
     }

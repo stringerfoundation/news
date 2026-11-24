@@ -174,7 +174,7 @@ test('localized polling retains stories on failures, serializes loads and report
   await finish(page, locale, {[first.id]: entry([story()]), [second.id]: entry([], 'failure')});
   await page.evaluate(value => window.finishStringer!(value), cached);
   await ready(page);
-  assert.ok((await page.locator('#relay-status summary').textContent() ?? '').includes(tr('Partial')));
+  assert.ok((await page.locator('#relay-status-details').textContent() ?? '').includes(tr('Partial')));
   await page.clock.fastForward(300_000);
   await page.waitForFunction(() => window.mirrorCalls === 2);
   await page.evaluate(() => {window.failStringer!();window.rejectMirrors!();});
@@ -210,7 +210,7 @@ test('localized fully successful relay collections and fallback preferences keep
   const reporting = collection(); reporting.sources.stringer = entry([{...story('Approved reporting'), url: approved[0], publishedAt: null, atomstr: false}]);
   await page.evaluate(value => window.finishStringer!(value), reporting);
   await ready(page);
-  assert.ok((await page.locator('#relay-status summary').textContent() ?? '').includes(translator(locale)('Loaded')));
+  assert.ok((await page.locator('#relay-status-details').textContent() ?? '').includes(translator(locale)('Loaded')));
   assert.equal(await page.locator('#source-search').isVisible(), false);
   await page.waitForFunction(() => document.querySelector('#stringer-news .story-placeholder'));
   assert.ok(assets.includes(approved[1].image!.replace('./', '')));
