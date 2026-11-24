@@ -157,6 +157,12 @@ jobs:
           "import { embedAtomstrHeadlines } from './scripts/collect-atomstr.ts';
           import { readAtomstrSources } from './relay/atomstr-reader.ts';
           await embedAtomstrHeadlines('_site', sources => readAtomstrSources({sources, previous: {}}));"
+      - name: Embed Courageous Stories in the reader pages
+        run: >-
+          node --input-type=module -e
+          "import { embedStringerStories } from './scripts/collect-stringer.ts';
+          import { fetchText } from './scripts/collect.ts';
+          await embedStringerStories('_site', fetchText);"
       - run: pnpm run test:artifact
       - name: Package checked site
         run: tar -cf "$RUNNER_TEMP/public-site.tar" -C _site .

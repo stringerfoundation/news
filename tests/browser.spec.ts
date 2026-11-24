@@ -7,10 +7,12 @@ import type { AddressInfo } from 'node:net';
 import type { Snapshot, SourceState } from '../relay/types.ts';
 import type { SourceId } from '../news-model.ts';
 import { createServer } from 'node:http';
-import { readFile, mkdir } from 'node:fs/promises';
+import { readFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { launchBrowser } from '../scripts/browser.ts';
 import { SOURCES, worldStories } from '../news-model.ts';
 import { collect, snapshotUrl } from '../scripts/collect.ts';
+import { embedStringerStories } from '../scripts/collect-stringer.ts';
+import { EDITIONS } from '../reader-locales.ts';
 type FixtureSnapshot = Snapshot & { sources: Record<SourceId, SourceState> };
 let server: Server, browser: Browser, base: string, snapshot: FixtureSnapshot;
 const thumbnail = await readFile(new URL('../assets/favicon-192.png', import.meta.url));
@@ -58,6 +60,71 @@ async function poll(page: Page) {
   await response;
   await page.waitForFunction(()=>document.querySelector<HTMLElement>('#world-news')!.getAttribute('aria-busy')==='false');
 }
+test('embedded Courageous Stories render before the feed and survive a failed refresh', async () => {
+  const site = await mkdtemp('.test-output/embedded-stringer-');
+  const page = await browser.newPage({viewport: {width: 375, height: 844}});
+  try {
+    const template = await readFile('index.html', 'utf8');
+    for (const {path} of EDITIONS) {
+      const directory = path ? `${site}/${path}` : site;
+      await mkdir(directory, {recursive: true});
+      await writeFile(`${directory}/index.html`, template);
+    }
+    await embedStringerStories(site, async () => { throw new Error('Offline'); });
+    assert.equal(await readFile(`${site}/index.html`, 'utf8'), template);
+    const title = 'An embedded report';
+    const approvedUrl = snapshot.sources.stringer.stories[0]!.url;
+    await embedStringerStories(site, async (url, options) => {
+      assert.equal(url, 'https://stringerjournalism.org/courageous-stories');
+      assert.deepEqual(options?.allowedHosts, ['stringerjournalism.org']);
+      return `<section><div class="text-box"><h1>Courageous Stories</h1></div>
+        <div class="text-box"><p>Example Reporter</p><p><a href="${approvedUrl}">${title}</a> A summary containing &lt;/script&gt; as text.</p></div>
+        <div class="text-box"><p>Example Reporter</p><p><a href="${approvedUrl}">Duplicate report</a> Another summary.</p></div>
+        </section>`;
+    });
+    const html = await readFile(`${site}/index.html`, 'utf8');
+    assert.match(html, /summary containing \\u003c\/script>/);
+    assert.match(await readFile(`${site}/fr/index.html`, 'utf8'), /id="stringer-stories"/);
+    await mockStoryImages(page);
+    await page.clock.install();
+    await page.route(base + '/', route => route.fulfill({contentType: 'text/html', body: html}));
+    let releaseFeed!: () => void;
+    const pendingFeed = new Promise<void>(resolve => { releaseFeed = resolve; });
+    const failed = structuredClone(snapshot);
+    failed.sources.stringer = {...failed.sources.stringer, status: 'failure', stories: [], lastSuccessAt: null, error: 'Unavailable'};
+    let calls = 0;
+    await page.route('**/data/news.json', async route => {
+      if (++calls === 1) {
+        await pendingFeed;
+        await route.fulfill({status: 503});
+      } else {
+        await route.fulfill({json: calls === 2 ? failed : snapshot});
+      }
+    });
+    await page.goto(base);
+    const story = page.getByRole('heading', {name: title});
+    try {
+      await story.waitFor();
+      assert.equal(await page.locator('#stringer-news article').count(), 1);
+      assert.equal(await page.locator('#stringer-news .credits').textContent(), 'Example Reporter');
+      await page.locator('#stringer-news img').waitFor({state: 'attached'});
+      assert.equal(await page.locator('#world-news article').count(), 0);
+    } finally {
+      releaseFeed();
+    }
+    await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
+    assert.equal(await story.isVisible(), true);
+    await poll(page);
+    assert.match(await page.locator('#stringer-status').innerText(), /Showing previously collected stories/);
+    assert.equal(await story.isVisible(), true);
+    await poll(page);
+    assert.equal(await story.count(), 0);
+    assert.equal(await page.locator('#stringer-news article').count(), snapshot.sources.stringer.stories.length);
+  } finally {
+    await page.close();
+    await rm(site, {recursive: true, force: true});
+  }
+});
 async function assertDesktopBalance(page: Page) {
   await page.waitForFunction(() => {
     const cards = [...document.querySelectorAll<HTMLElement>('#world-news article')];
