@@ -51,9 +51,22 @@ async function representativeImages(query: string, request: typeof fetch, langua
     return readImages(result);
   } catch { return []; /* Optional subject lookup can fall back to Commons search. */ }
 }
-export async function searchCommons(query: string, request: typeof fetch = fetch, suggest = false, language = 'en'): Promise<CommonsImage[]> {
+export async function searchCommons(query: string, request: typeof fetch = fetch, suggest = false, language = 'en', onRepresentative?: (images: CommonsImage[]) => void): Promise<CommonsImage[]> {
   if (!query.trim()) throw new Error('Enter a person, place or subject to search for.');
-  const preferred = suggest ? representativeImages(query.trim().slice(0, 200), request, language) : Promise.resolve([]);
+  const preferred = suggest ? representativeImages(query.trim().slice(0, 200), request, language).then(images => {
+    if (images.length) onRepresentative?.(images);
+    return images;
+  }) : Promise.resolve([]);
+  const alternatives = searchCommonsFiles(query, request, suggest).catch(async error => {
+    if (!(await preferred).length) throw error;
+    return [];
+  });
+  const [representatives, matches] = await Promise.all([preferred, alternatives]);
+  const images = [...representatives, ...matches];
+  return images.filter((image, index) => images.findIndex(other => other.filePage === image.filePage) === index).slice(0, 5);
+}
+
+async function searchCommonsFiles(query: string, request: typeof fetch, suggest: boolean): Promise<CommonsImage[]> {
   const url = new URL('https://commons.wikimedia.org/w/api.php');
   url.search = new URLSearchParams({ action: 'query', format: 'json', formatversion: '2', origin: '*',
     generator: 'search', gsrnamespace: '6', gsrlimit: '10', gsrsearch: `${query.trim().slice(0, 200)} filetype:bitmap`,
@@ -64,10 +77,8 @@ export async function searchCommons(query: string, request: typeof fetch = fetch
   if (data.error) throw new Error('Commons search is unavailable. Please retry.');
   const normalize = (value: string) => value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   const words = normalize(query).split(' ');
-  const alternatives = readImages(data).filter(image => !suggest || words.every(word =>
+  return readImages(data).filter(image => !suggest || words.every(word =>
     normalize(`${image.title} ${decodeURIComponent(new URL(image.filePage).pathname)}`).split(' ').includes(word)));
-  const images = [...await preferred, ...alternatives];
-  return images.filter((image, index) => images.findIndex(other => other.filePage === image.filePage) === index).slice(0, 5);
 }
 function readImages(data: CommonsResponse): CommonsImage[] {
   if (data.error) return [];

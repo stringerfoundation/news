@@ -102,7 +102,8 @@ export async function searchImages(query: string, source: ImageSource = 'all', s
     const key = JSON.stringify([id, query.trim(), suggest, language]), cached = cache.get(key);
     if (request === fetch && cached && cached.until > Date.now()) return cached.images;
     try {
-      const images = id === 'commons' ? await searchCommons(query, request, suggest, language) : id === 'eu' ? await searchEuPhotos(query, request)
+      const images = id === 'commons' ? await searchCommons(query, request, suggest, language, images => onProgress?.({ images, issues: [...issues] }))
+        : id === 'eu' ? await searchEuPhotos(query, request)
         : await searchOpenverse(query, request, id === 'flickr' ? true : ['wellcome', 'smithsonian', 'europeana'].includes(id) ? id as 'wellcome' | 'smithsonian' | 'europeana' : false);
       if (request === fetch) {
         if (cache.size >= 200) cache.delete(cache.keys().next().value!);
