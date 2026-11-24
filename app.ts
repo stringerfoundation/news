@@ -545,17 +545,68 @@ function element<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, c
   if (className) node.className = className;
   return node;
 }
+function imageCreditKey(image: CommonsImage) {
+  const { url, filePage, title, alt, creator, attribution, license, licenseUrl, sourceName } = image;
+  return [url, filePage, title, alt, creator, attribution, license, licenseUrl, sourceName];
+}
+function describeSuggestedImage(image: HTMLImageElement, suggested: boolean) {
+  if (suggested) image.setAttribute('aria-description', 'Automatically suggested image');
+  else image.removeAttribute('aria-description');
+}
+const storyCards = new WeakMap<Element, { key: string; controls: string | null; suggested: boolean }>();
 function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessage: string) {
-  for (const media of target.querySelectorAll('.wire-thumbnail')) suggestionObserver.unobserve(media);
-  target.replaceChildren();
+  const oldChildren = [...target.children];
+  const available = new Map<string, HTMLElement[]>();
+  for (const child of oldChildren) {
+    const card = storyCards.get(child);
+    if (!card) continue;
+    const matches = available.get(card.key) ?? [];
+    matches.push(child as HTMLElement);
+    available.set(card.key, matches);
+  }
+  const cards: HTMLElement[] = [];
   const usePlaceholder = target.id === 'stringer-news';
   const wire = target.id === 'world-news';
+  const trusted = hasSigner() && voter && imageSession?.canVote(voter) ? voter : null;
   for (const [index, story] of stories.entries()) {
     const url = safeUrl(story.url); if (!url) continue;
     const approvedMedia = usePlaceholder ? STRINGER_MEDIA.get(url) : null;
     const localImage = CONTENT_PERMISSIONS.stringer.images && approvedMedia?.image
       ? (locale !== 'en-US' ? new URL(approvedMedia.image, import.meta.url).href : approvedMedia.image)
       : null;
+    // Publisher photos stay hidden, regardless of URL parameters or stored metadata.
+    const imageStoryId = wire && !localizedEdition ? story.noteId : undefined;
+    const selection = imageStoryId ? imageSession?.selection(imageStoryId) : null;
+    if (imageStoryId) prepareImageSearch(imageStoryId, story.title);
+    const search = imageStoryId ? commonsSearches.get(imageStoryId) : undefined;
+    const commons = imageStoryId
+      ? imageOptions(imageStoryId).find(image => !skippedImages.get(choiceKey(imageStoryId))?.includes(image.filePage))
+      : null;
+    const imageData = wire ? commons : story.image;
+    const imageUrl = wire ? commons?.url : safeImageUrl(imageData?.url) || localImage;
+    const suggested = !!commons && commons.filePage !== selection?.winner?.filePage;
+    const key = JSON.stringify([story, commons && imageCreditKey(commons), !!(imageStoryId && trusted),
+      commons ? null : [search?.error, search?.searched, !!search?.results.length]]);
+    const controls = imageStoryId && trusted ? JSON.stringify([
+      trusted, voteBusy, search, selection?.scores, selection?.latest.get(trusted)?.vote.candidateId,
+      chosenImages.get(choiceKey(imageStoryId)), !!imageHistory.get(choiceKey(imageStoryId))?.length,
+    ]) : null;
+    const existing = available.get(key)?.shift();
+    if (existing) {
+      const card = storyCards.get(existing)!;
+      if (imageStoryId && trusted && card.controls !== controls) {
+        existing.querySelector('.image-controls')!.replaceWith(imageControls(imageStoryId, story.title, commons));
+        card.controls = controls;
+      }
+      if (card.suggested !== suggested) {
+        describeSuggestedImage(existing.querySelector<HTMLImageElement>('.story-media img')!, suggested);
+        card.suggested = suggested;
+      }
+      if (imageStoryId && !search?.loading && !search?.searched)
+        suggestionObserver.observe(existing.querySelector('.wire-thumbnail')!);
+      cards.push(existing);
+      continue;
+    }
     const article = element('article', '', 'story');
     article.dir = 'auto';
     const body = element('div', '', 'story-body');
@@ -565,22 +616,13 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
       article.classList.add('with-image');
       article.prepend(placeholder);
     };
-    // Publisher photos stay hidden, regardless of URL parameters or stored metadata.
-    const imageStoryId = wire && !localizedEdition ? story.noteId : undefined;
-    const selection = imageStoryId ? imageSession?.selection(imageStoryId) : null;
-    const trusted = hasSigner() && voter && imageSession?.canVote(voter);
-    if (imageStoryId) prepareImageSearch(imageStoryId, story.title);
-    const commons = imageStoryId
-      ? imageOptions(imageStoryId).find(image => !skippedImages.get(choiceKey(imageStoryId))?.includes(image.filePage))
-      : null;
-    const imageData = wire ? commons : story.image;
-    const imageUrl = wire ? commons?.url : safeImageUrl(imageData?.url) || localImage;
     let wireFigure: HTMLElement | null = null;
     if (wire && !localizedEdition) {
       article.classList.add('with-image');
       wireFigure = element('figure', '', 'story-media wire-thumbnail');
-      if (imageStoryId && !commonsSearches.get(imageStoryId)?.searched) {
-        wireFigure.dataset.storyId = imageStoryId; suggestionObserver.observe(wireFigure);
+      if (imageStoryId) {
+        wireFigure.dataset.storyId = imageStoryId;
+        if (!search?.loading && !search?.searched) suggestionObserver.observe(wireFigure);
       }
       article.append(wireFigure);
     }
@@ -596,7 +638,7 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
       let caption: HTMLElement | undefined;
       if (commons) {
         caption = thumbnailCredit(commons);
-        if (commons.filePage !== selection?.winner?.filePage) image.setAttribute('aria-description', 'Automatically suggested image');
+        describeSuggestedImage(image, suggested);
       } else if (photoCredit) {
         caption = element('figcaption', photoCredit, 'image-credit-caption');
         thumbnailCredits.set(caption, { key: url, credit: { title: story.title, credit: photoCredit } });
@@ -608,6 +650,8 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
           image.src = localImage;
           return;
         }
+        // A later refresh can retry a broken thumbnail without moving other stories.
+        storyCards.delete(article);
         if (wire) {
           const failed = image.closest('a') || image;
           failed.replaceWith(element('span', 'Image unavailable', 'image-search-status'));
@@ -672,10 +716,9 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
     }
     body.append(meta);
     if (imageStoryId && !commons) {
-      const state = commonsSearches.get(imageStoryId);
-      if (state?.error) wireFigure?.append(element('p', state.error, 'warning'));
-      else if (state?.searched) {
-        const message = state.results.length
+      if (search?.error) wireFigure?.append(element('p', search.error, 'warning'));
+      else if (search?.searched) {
+        const message = search.results.length
           ? 'No more suggestions. Undo a skip or search again.'
           : trusted
             ? 'No reusable image found. Open image review to refine the search.'
@@ -688,9 +731,22 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
       }
     }
     if (imageStoryId && trusted) wireFigure?.insertBefore(imageControls(imageStoryId, story.title, commons), wireFigure.querySelector('figcaption'));
-    article.append(body); target.append(article);
+    article.append(body);
+    storyCards.set(article, { key, controls, suggested });
+    cards.push(article);
   }
-  if (!target.children.length && emptyMessage) target.append(element('p', emptyMessage, 'empty'));
+  const keep = new Set<Element>(cards);
+  for (const child of oldChildren) {
+    if (keep.has(child)) continue;
+    for (const media of child.querySelectorAll('.wire-thumbnail')) suggestionObserver.unobserve(media);
+    child.remove();
+  }
+  let next = target.firstElementChild;
+  for (const card of cards) {
+    if (card !== next) target.insertBefore(card, next);
+    next = card.nextElementSibling;
+  }
+  if (!cards.length && emptyMessage) target.append(element('p', emptyMessage, 'empty'));
 }
 const mobileLayout = matchMedia('(max-width: 767px)');
 const sections = [

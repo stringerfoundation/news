@@ -197,11 +197,13 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     await editor.getByRole('button', { name: 'Upvote image (0)', exact: true }).click();
     await editor.getByText('Could not publish your vote. Please retry.', { exact: true }).waitFor();
     await reader.locator(`#world-news ${suggestedImage}`).waitFor();
+    const suggestedThumbnail = await reader.locator(`#world-news ${suggestedImage}`).elementHandle();
     rejectPublish = false;
     await editor.getByRole('button', { name: 'Upvote image (0)', exact: true }).click();
     await editor.getByText('Vote published.', { exact: true }).waitFor();
     await reader.locator(`#world-news ${suggestedImage}`).waitFor({state: 'detached'});
     await reader.locator('#world-news .wire-thumbnail > a > img').waitFor();
+    assert.equal(await suggestedThumbnail.evaluate(node => node.isConnected), true, 'approving the displayed image keeps that thumbnail in place');
     await checkCredits(reader, /Illustrative image.*Example creator.*CC0-1.0/);
     const footerCredits = reader.locator('footer').getByRole('button', { name: 'Credits', exact: true });
     await footerCredits.click();
@@ -363,11 +365,13 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     await multi.locator('#world-news').screenshot({ path: '.test-output/image-voting-mobile.png' });
     const firstCard = multi.locator('#world-news article').first();
     await firstCard.evaluate(node => node.scrollIntoView());
+    const otherImage = await multi.locator('#world-news article').nth(1).locator('.wire-thumbnail > a > img').elementHandle();
     const originalImage = await firstCard.locator('.wire-thumbnail > a > img').getAttribute('src');
     assert.equal(await firstCard.locator('.wire-thumbnail > a').getAttribute('href'), 'https://example.org/story');
     const publishedCount = events.length;
     await firstCard.getByRole('button', { name: 'Skip image for me', exact: true }).click();
     assert.notEqual(await firstCard.locator('.wire-thumbnail > a > img').getAttribute('src'), originalImage);
+    assert.equal(await otherImage.evaluate(node => node.isConnected), true, 'skipping an illustration leaves other loaded images in place');
     await firstCard.getByRole('button', { name: 'Undo image choice', exact: true }).click();
     assert.equal(await firstCard.locator('.wire-thumbnail > a > img').getAttribute('src'), originalImage);
     assert.equal(events.length, publishedCount, 'Local skips and their undo must never publish Nostr events');

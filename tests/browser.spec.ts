@@ -160,6 +160,7 @@ test('Stringer lead image has the same thumbnail size as other stories', async (
     const maisStory = page.locator('#stringer-news article').filter({hasText:'Mais Katt'});
     assert.equal(await maisStory.locator('.story-placeholder').count(), 0);
     assert.match((await maisStory.locator('img').getAttribute('src'))!, /syria-3talawjYJe7gOOcj\.png$/);
+    assert.equal(await cssValue(maisStory.locator('img'), 'backgroundColor'), 'rgba(0, 0, 0, 0)');
     const images = page.locator('#stringer-news .story-media img');
     const first = await images.first().boundingBox();
     assert.ok(first);
@@ -294,7 +295,10 @@ test('each page load shuffles the full Stringer list and polling preserves its o
   await page.close();
 });
 test('automatic refresh of the same snapshot stays quiet and preserves publication timestamps',async()=>{
-  const page=await pageAt();const status=await page.locator('#world-news time').allTextContents();await poll(page);assert.equal(await page.locator('#refresh-status').textContent(),'');
+  const page=await pageAt();
+  const image = await page.locator('#stringer-news .story-media img').first().elementHandle();
+  const status=await page.locator('#world-news time').allTextContents();await poll(page);assert.equal(await page.locator('#refresh-status').textContent(),'');
+  assert.equal(await image.evaluate(node => node.isConnected), true, 'refresh preserves the existing Courageous Stories image');
   assert.deepEqual(await page.locator('#world-news time').allTextContents(),status);assert.equal(await page.locator('#world-status').textContent(),'');await page.close();
 });
 test('failed browser refresh retains displayed stories; first-load failure is visible',async()=>{
