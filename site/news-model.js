@@ -51,6 +51,13 @@ function safeImageUrl(value) {
   const url = safeUrl(value);
   return url && new URL(url).protocol === "https:" ? url : null;
 }
+function articleLink(value) {
+  const url = new URL(value);
+  if (url.hostname === "www.aljazeera.com" && url.searchParams.has("traffic_source", "rss")) {
+    url.searchParams.delete("traffic_source", "rss");
+  }
+  return url.href;
+}
 function urlIdentity(value) {
   const url = new URL(value);
   url.hash = "";
@@ -163,6 +170,7 @@ export {
   SOURCES,
   STALE_MS,
   applyContentPermissions,
+  articleLink,
   formatLocalDateTime,
   formatPublicationDate,
   newestFirst,
