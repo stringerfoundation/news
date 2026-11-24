@@ -74,12 +74,14 @@ test('Courageous Stories are visible before JavaScript and survive a failed refr
     assert.equal(await readFile(`${site}/index.html`, 'utf8'), template);
     const title = 'An embedded report';
     const approvedUrl = snapshot.sources.stringer.stories[0]!.url;
+    const dateOnlyUrl = snapshot.sources.stringer.stories[1]!.url;
     await embedStringerStories(site, async (url, options) => {
       assert.equal(url, 'https://stringerjournalism.org/courageous-stories');
       assert.deepEqual(options?.allowedHosts, ['stringerjournalism.org']);
       return `<section><div class="text-box"><h1>Courageous Stories</h1></div>
         <div class="text-box"><p>Example Reporter</p><p><a href="${approvedUrl}">${title}</a> A summary containing &lt;/script&gt; as text.</p></div>
         <div class="text-box"><p>Example Reporter</p><p><a href="${approvedUrl}">Duplicate report</a> Another summary.</p></div>
+        <div class="text-box"><p>Example Reporter</p><p><a href="${dateOnlyUrl}">A report with a publication date</a> A summary.</p></div>
         <div class="text-box"><p>Example Reporter</p><p><a href="https://example.org/report">Another report</a> A summary.</p></div>
         </section>`;
     });
@@ -112,9 +114,10 @@ test('Courageous Stories are visible before JavaScript and survive a failed refr
     const story = page.getByRole('heading', {name: title});
     try {
       await story.waitFor();
-      assert.equal(await page.locator('#stringer-news article').count(), 2);
+      assert.equal(await page.locator('#stringer-news article').count(), 3);
       assert.equal(await page.locator('#stringer-news .credits').first().textContent(), 'Example Reporter');
-      await page.locator('#stringer-news img').waitFor({state: 'attached'});
+      assert.equal(await page.locator('#stringer-news img[loading="eager"]').count(), 1);
+      assert.equal(await page.locator('#stringer-news img[loading="lazy"]').count(), 1);
       assert.ok(await page.locator('.site-footer').evaluate(footer => footer.getBoundingClientRect().top >= innerHeight));
       assert.equal(await page.locator('#world-news article').count(), 0);
       releaseScript();

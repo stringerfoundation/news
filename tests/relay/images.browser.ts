@@ -268,6 +268,8 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     const noImages = finalizeEvent({ ...batch.manifest, content: JSON.stringify({ ...manifest, imageCandidates: {} }), created_at: batch.manifest.created_at + 1 }, owner);
     broadcast(noImages);
     await reader.reload();
+    // A reload can restore the scroll position from the footer credits.
+    await reader.evaluate(() => window.scrollTo(0, 0));
     await reader.getByRole('heading', { name: 'The Failures of Emmanuel Macron' }).waitFor();
     await reader.locator(`#world-news ${suggestedImage}`).waitFor();
     assert.equal(await reader.locator('.image-toolbar').isVisible(), false);
