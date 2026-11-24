@@ -544,11 +544,14 @@ async function findCommons(storyId: string, query: string, suggest = false) {
 }
 window.addEventListener('pagehide', () => imageSession?.close());
 window.addEventListener('pageshow', event => { if (event.persisted && snapshot) { imageRefsKey = ''; renderWorld(); } });
-// Per-page random ranks keep the complete collection stable during polling.
-const stringerOrder = new Map<string, number>();
+const stringerList = requiredElement('#stringer-news');
+// Keep the order already painted in the HTML when live results arrive.
+const stringerOrder = new Map(Array.from(stringerList.querySelectorAll<HTMLAnchorElement>('article .story-body > a'),
+  (link, index) => [link.href, index] as const));
+const initialStringerCount = stringerOrder.size;
 function shuffledStringerStories(stories: DisplayStory[]) {
   for (const story of stories) {
-    if (!stringerOrder.has(story.url)) stringerOrder.set(story.url, Math.random());
+    if (!stringerOrder.has(story.url)) stringerOrder.set(story.url, initialStringerCount + Math.random());
   }
   return [...stories].sort((a, b) => stringerOrder.get(a.url)! - stringerOrder.get(b.url)!);
 }
@@ -1080,11 +1083,10 @@ if (localizedEdition) void import('./relay-reader.js').then(reader => {
   searchImages = reader.searchImages;
   loadSuggestions();
 }, () => suggestionQueue.clear());
-const embeddedStringer = JSON.parse(document.getElementById('stringer-stories')?.textContent || '[]') as DisplayStory[];
-if (embeddedStringer.length) {
+if (initialStringerCount) {
   showingEmbeddedStringer = true;
-  renderStories(requiredElement('#stringer-news'), shuffledStringerStories(embeddedStringer), '');
   updateStoryVisibility();
+  stringerList.removeAttribute('data-prerendered');
 }
 load();
 

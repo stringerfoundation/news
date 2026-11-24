@@ -60,7 +60,7 @@ async function poll(page: Page) {
   await response;
   await page.waitForFunction(()=>document.querySelector<HTMLElement>('#world-news')!.getAttribute('aria-busy')==='false');
 }
-test('embedded Courageous Stories render before the feed and survive a failed refresh', async () => {
+test('Courageous Stories are visible before JavaScript and survive a failed refresh', async () => {
   const site = await mkdtemp('.test-output/embedded-stringer-');
   const page = await browser.newPage({viewport: {width: 375, height: 844}});
   try {
@@ -80,14 +80,21 @@ test('embedded Courageous Stories render before the feed and survive a failed re
       return `<section><div class="text-box"><h1>Courageous Stories</h1></div>
         <div class="text-box"><p>Example Reporter</p><p><a href="${approvedUrl}">${title}</a> A summary containing &lt;/script&gt; as text.</p></div>
         <div class="text-box"><p>Example Reporter</p><p><a href="${approvedUrl}">Duplicate report</a> Another summary.</p></div>
+        <div class="text-box"><p>Example Reporter</p><p><a href="https://example.org/report">Another report</a> A summary.</p></div>
         </section>`;
     });
     const html = await readFile(`${site}/index.html`, 'utf8');
-    assert.match(html, /summary containing \\u003c\/script>/);
-    assert.match(await readFile(`${site}/fr/index.html`, 'utf8'), /id="stringer-stories"/);
+    assert.match(html, /summary containing &lt;\/script&gt;/);
+    assert.match(await readFile(`${site}/fr/index.html`, 'utf8'), /src="\.\.\/assets\/stringer-thumbnails\//);
     await mockStoryImages(page);
     await page.clock.install();
     await page.route(base + '/', route => route.fulfill({contentType: 'text/html', body: html}));
+    let releaseScript!: () => void;
+    const pendingScript = new Promise<void>(resolve => { releaseScript = resolve; });
+    await page.route('**/app.js', async route => {
+      await pendingScript;
+      await route.continue();
+    });
     let releaseFeed!: () => void;
     const pendingFeed = new Promise<void>(resolve => { releaseFeed = resolve; });
     const failed = structuredClone(snapshot);
@@ -101,15 +108,20 @@ test('embedded Courageous Stories render before the feed and survive a failed re
         await route.fulfill({json: calls === 2 ? failed : snapshot});
       }
     });
-    await page.goto(base);
+    await page.goto(base, {waitUntil: 'commit'});
     const story = page.getByRole('heading', {name: title});
     try {
       await story.waitFor();
-      assert.equal(await page.locator('#stringer-news article').count(), 1);
-      assert.equal(await page.locator('#stringer-news .credits').textContent(), 'Example Reporter');
+      assert.equal(await page.locator('#stringer-news article').count(), 2);
+      assert.equal(await page.locator('#stringer-news .credits').first().textContent(), 'Example Reporter');
       await page.locator('#stringer-news img').waitFor({state: 'attached'});
+      assert.ok(await page.locator('.site-footer').evaluate(footer => footer.getBoundingClientRect().top >= innerHeight));
       assert.equal(await page.locator('#world-news article').count(), 0);
+      releaseScript();
+      await page.waitForFunction(() => !document.querySelector('#stringer-news')?.hasAttribute('data-prerendered'));
+      assert.equal(await story.isVisible(), true);
     } finally {
+      releaseScript();
       releaseFeed();
     }
     await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
@@ -120,6 +132,7 @@ test('embedded Courageous Stories render before the feed and survive a failed re
     await poll(page);
     assert.equal(await story.count(), 0);
     assert.equal(await page.locator('#stringer-news article').count(), snapshot.sources.stringer.stories.length);
+    assert.equal(await page.locator('#stringer-news article a').first().getAttribute('href'), approvedUrl);
   } finally {
     await page.close();
     await rm(site, {recursive: true, force: true});
