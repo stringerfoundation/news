@@ -24,7 +24,7 @@
   "dependencies": {
     "cheerio": "1.2.0",
     "fast-xml-parser": "5.12.1",
-    "nostr-tools": "2.26.0"
+    "nostr-tools": "2.26.1"
   },
   "devDependencies": {
     "@babel/eslint-parser": "8.1.2",
