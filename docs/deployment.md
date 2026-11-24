@@ -30,6 +30,8 @@ Every pull request and push to `main` runs syntax and lint checks, strict TypeSc
 
 The browser job uploads its checked public assets as a `checked-site` artifact. A separate publisher (`previews.yml`) runs only trusted `main` code, verifies successful CI provenance and current commit heads, and treats PR archives as data. It rejects unknown files, traversal, links, oversized archives, and incomplete builds. PR builds have no deployment permissions; fork PRs are tested but are not automatically published on the production origin. Actions use immutable commit pins and checkout does not persist credentials. Worker deployment remains a separate operator action.
 
+The publication build embeds the current Courageous Stories collection in each edition’s HTML. The reader uses the embedded entries with approved local thumbnails while the live feed loads. If the editorial page is unavailable at publication time, the build can proceed and the reader loads the collection through the live feed.
+
 Dependabot opens weekly pnpm and GitHub Action update pull requests. A weekly audit checks for newly disclosed dependency vulnerabilities even without source changes. Repository admins can require the CI jobs in a branch protection rule; workflows alone do not prevent direct pushes.
 
 ## PR previews

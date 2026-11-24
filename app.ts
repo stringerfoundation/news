@@ -94,6 +94,7 @@ function displayedSnapshot(): Snapshot {
     [id, retainedSources.get(id) ?? source])) };
 }
 let loading = false;
+let showingEmbeddedStringer = false;
 let lastAttempt = 0;
 let loadStarted = 0;
 let loadDuration = 0;
@@ -847,7 +848,10 @@ function renderStatuses() {
         if ((entry.pending ?? 0) > 0) counts.push(t('{count} queued', {count: entry.pending!}));
         if (counts.length) notes.push(`${source.name} · ${counts.join(' · ')}`);
       }
-      if (entry.status === 'failure' && !(loading && entry.unavailable)) target.append(element('p', t('{source}: refresh unavailable.{retained}', {source: source.name, retained: t((retained?.stories.length || entry.stories.length) ? ' Showing previously collected stories.' : ' No stories available.')}), 'warning'));
+      if (entry.status === 'failure' && !(loading && entry.unavailable)) {
+        const hasStories = retained?.stories.length || entry.stories.length || (source.id === 'stringer' && showingEmbeddedStringer);
+        target.append(element('p', t('{source}: refresh unavailable.{retained}', {source: source.name, retained: t(hasStories ? ' Showing previously collected stories.' : ' No stories available.')}), 'warning'));
+      }
     }
   }
   if (localizedEdition) {
@@ -900,7 +904,9 @@ function renderWorld() {
   });
 }
 function render() {
-  renderStories(requiredElement('#stringer-news'), shuffledStringerStories(displayedSnapshot().sources.stringer!.stories), loading ? '' : t('Courageous stories are currently unavailable. Visit the Stringer collection below.'));
+  const source = displayedSnapshot().sources.stringer!;
+  if (!loading && (source.status === 'success' || source.status === 'paused')) showingEmbeddedStringer = false;
+  if (!showingEmbeddedStringer) renderStories(requiredElement('#stringer-news'), shuffledStringerStories(source.stories), loading ? '' : t('Courageous stories are currently unavailable. Visit the Stringer collection below.'));
   renderWorld();
 }
 async function load() {
@@ -963,7 +969,7 @@ async function load() {
     feedback.textContent = t(snapshot ? 'Could not check for updates. Keeping the previously loaded collection.' : 'The news collection is unavailable. We’ll retry automatically.');
     if (!snapshot) {
       requiredElement('#world-status').textContent = t('Headlines unavailable.');
-      requiredElement('#stringer-status').textContent = t('Courageous stories unavailable. You can still visit the Stringer collection below.');
+      if (!showingEmbeddedStringer) requiredElement('#stringer-status').textContent = t('Courageous stories unavailable. You can still visit the Stringer collection below.');
     }
   } finally {
     loadDuration = performance.now() - loadStarted;
@@ -1074,6 +1080,12 @@ if (localizedEdition) void import('./relay-reader.js').then(reader => {
   searchImages = reader.searchImages;
   loadSuggestions();
 }, () => suggestionQueue.clear());
+const embeddedStringer = JSON.parse(document.getElementById('stringer-stories')?.textContent || '[]') as DisplayStory[];
+if (embeddedStringer.length) {
+  showingEmbeddedStringer = true;
+  renderStories(requiredElement('#stringer-news'), shuffledStringerStories(embeddedStringer), '');
+  updateStoryVisibility();
+}
 load();
 
 // Image commands share the same eligibility and signer checks as their UI controls.
