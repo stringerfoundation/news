@@ -189,6 +189,7 @@ async function castImageVote(storyId: string, candidateId: string | null, rememb
   return published;
 }
 const imageToolbar = element('div', '', 'image-toolbar');
+const imageEditor = new URLSearchParams(location.search).get('edit-images') === '1';
 imageToolbar.hidden = true;
 requiredElement('.footer-notes').append(imageToolbar);
 function syncImages() {
@@ -241,7 +242,7 @@ async function connectNostr() {
 function renderNostrAccount() {
   const buttonFocused = imageToolbar.contains(document.activeElement);
   imageToolbar.replaceChildren();
-  imageToolbar.hidden = !hasSigner();
+  imageToolbar.hidden = !imageEditor || !hasSigner();
   if (imageToolbar.hidden) return;
   if (voter) {
     const identity = element('div', '', 'nostr-identity');
@@ -319,20 +320,29 @@ function creditEntry(credit: ImageCredit) {
 }
 
 const thumbnailCredits = new WeakMap<HTMLElement, { key: string; credit: ImageCredit }>();
-const creditDialog = element('dialog', '', 'image-credit-dialog');
+const creditDialog = element('dialog', '', 'reader-dialog');
 creditDialog.setAttribute('aria-labelledby', 'image-credit-title');
 const creditTitle = element('h2');
 creditTitle.id = 'image-credit-title';
-const closeCredit = element('button', t('Close'), 'image-credit-close');
+const closeCredit = element('button', t('Close'), 'reader-dialog-close');
 closeCredit.type = 'button';
 closeCredit.autofocus = true;
 closeCredit.addEventListener('click', () => creditDialog.close());
-const creditHeader = element('div', '', 'image-credit-header');
+const creditHeader = element('div', '', 'reader-dialog-header');
 creditHeader.append(creditTitle, closeCredit);
-const creditBody = element('div', '', 'image-credit-body');
+const creditBody = element('div', '', 'reader-dialog-body');
 const creditEmpty = element('p', t('No image credits to show yet.'));
 creditDialog.append(creditHeader, creditBody);
 document.body.append(creditDialog);
+
+const relayStatus = requiredElement<HTMLButtonElement>('#relay-status');
+const feedStatusDialog = requiredElement<HTMLDialogElement>('#feed-status-dialog');
+const closeFeedStatus = requiredElement('#feed-status-dialog .reader-dialog-close');
+relayStatus.textContent = t('Feed status');
+requiredElement('#feed-status-title').textContent = relayStatus.textContent;
+closeFeedStatus.textContent = t('Close');
+relayStatus.addEventListener('click', () => feedStatusDialog.showModal());
+closeFeedStatus.addEventListener('click', () => feedStatusDialog.close());
 
 function openCredits(credits: ImageCredit[], includeSources = false) {
   creditTitle.textContent = t(includeSources ? 'Credits' : 'Image credits');
@@ -782,7 +792,6 @@ for (const section of sections) {
 }
 mobileLayout.addEventListener('change', updateStoryVisibility);
 function renderStatuses() {
-  const relayStatus = requiredElement('#relay-status');
   const relayDetails = requiredElement('#relay-status-details');
   relayDetails.replaceChildren();
   const notes = [];
@@ -834,7 +843,6 @@ function renderStatuses() {
   }
   for (const note of notes) relayDetails.append(element('p', note));
   relayStatus.hidden = notes.length === 0;
-  relayStatus.querySelector('summary')!.textContent = t('Feed status');
 }
 function renderWorld() {
   if (!snapshot) return;

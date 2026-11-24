@@ -46,7 +46,7 @@ test('image commands reject stale actions, recover from signer/search failures, 
       await route.fulfill({contentType: file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : 'text/html', body: await readFile(file.endsWith('.js') ? `_site/${file}` : file)});
     });
     await page.route('https://upload.wikimedia.org/**', route => route.abort());
-    await page.goto('https://reader.test/', { waitUntil: 'domcontentloaded' });
+    await page.goto('https://reader.test/?edit-images=1', { waitUntil: 'domcontentloaded' });
     const initial = await page.evaluate(async ({storyId, image}) => {
       const path = '/app.js';
       const commands = await import(path) as typeof import('../../app.js');
