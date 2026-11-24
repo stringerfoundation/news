@@ -46,7 +46,8 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     if (licensed) {
       const image = (await page.locator('#world-news .wire-thumbnail > a > img').boundingBox())!;
       const button = (await credit.boundingBox())!;
-      assert.ok(button.y >= image.y + image.height - 1);
+      assert.ok(Math.abs(button.x + button.width - image.x - image.width) <= 1);
+      assert.ok(Math.abs(button.y + button.height - image.y - image.height) <= 1);
       assert.deepEqual([button.width, button.height], [24, 24]);
       assert.equal(await credit.innerText(), '');
     } else {
@@ -321,6 +322,11 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
         await image.decode();
       });
       await checkCredits(reader, new RegExp(credit!), true);
+      if (source === 'flickr') {
+        await reader.setViewportSize({ width: 375, height: 1000 });
+        await checkCredits(reader, new RegExp(credit!), true);
+        await reader.setViewportSize({ width: 1280, height: 1000 });
+      }
     }
     const late = await browser.newPage();
     await setup(late, false, true);
