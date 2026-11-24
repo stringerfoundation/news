@@ -226,10 +226,13 @@ test('the homepage proxy keeps locale navigation visible and a missing optional 
   const switcher = page.locator('footer').getByRole('navigation', {name: translator('fr')('Language')});
   assert.equal(await switcher.isVisible(), true);
   const navigation = await switcher.boundingBox();
-  const lastLink = await switcher.getByRole('link').last().boundingBox();
-  assert.ok(navigation && lastLink);
-  assert.ok(Math.abs((navigation.x + navigation.width) - (lastLink.x + lastLink.width)) <= 1,
-    'Language links reach the right edge of the navigation');
+  const utilities = await page.locator('.footer-notes').boundingBox();
+  const firstLink = await switcher.getByRole('link').first().boundingBox();
+  assert.ok(navigation && utilities && firstLink);
+  assert.ok(Math.abs(firstLink.x - utilities.x) <= 1,
+    'Language links align with the footer utilities on mobile');
+  assert.ok(navigation.y >= utilities.y + utilities.height,
+    'Language links wrap onto a separate row on mobile');
   assert.ok(await switcher.evaluate(nav => nav.scrollWidth <= nav.clientWidth));
   assert.equal(await page.locator('#source-options').count(), 0);
   assert.equal(await page.locator('#refresh-status').textContent(), '');

@@ -78,7 +78,7 @@ const fixtureApp = await build({entryPoints: ['app.ts'], bundle: true, write: fa
 });
 
 async function openEdition(browser: Awaited<ReturnType<typeof launchBrowser>>, prefix: string, editionPath: string,
-  options: {holdData?: boolean; unavailable?: boolean; builtApp?: boolean; firstConnectionFailure?: 'drop' | 'silent'} = {}) {
+  options: {holdData?: boolean; unavailable?: boolean; builtApp?: boolean; illustrations?: boolean; firstConnectionFailure?: 'drop' | 'silent'} = {}) {
   const page = await browser.newPage({viewport: {width: 375, height: 900}});
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -91,6 +91,21 @@ async function openEdition(browser: Awaited<ReturnType<typeof launchBrowser>>, p
   const dataGate = new Promise<void>(resolve => { releaseData = resolve; });
   await page.route('**/*', async route => {
     const url = new URL(route.request().url());
+    if (options.illustrations && url.hostname === 'fr.wikipedia.org') {
+      assert.equal(url.searchParams.get('gsrsearch'), publisherHeadline);
+      return route.fulfill({json: {query: {pages: [{title: 'Illustration', pageimage: 'Illustration.png'}]}}});
+    }
+    if (options.illustrations && url.hostname === 'commons.wikimedia.org') {
+      const pages = url.searchParams.has('titles') ? [{
+        title: 'File:Illustration.png',
+        imageinfo: [{mime: 'image/png', thumburl: 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Illustration.png',
+          descriptionurl: 'https://commons.wikimedia.org/wiki/File:Illustration.png',
+          extmetadata: {Artist: {value: 'Example creator'}, LicenseUrl: {value: 'https://creativecommons.org/licenses/by/4.0/'}}}],
+      }] : [];
+      return route.fulfill({json: {query: {pages}}});
+    }
+    if (options.illustrations && url.hostname === 'upload.wikimedia.org')
+      return route.fulfill({contentType: 'image/png', body: await readFile('assets/favicon-16.png')});
     if (url.hostname !== 'edition.test') return route.abort();
     if (!url.pathname.startsWith(prefix)) return route.fulfill({status: 404});
     let file = url.pathname.slice(prefix.length) || 'index.html';
@@ -201,6 +216,22 @@ test('localized editions preserve original headlines, direction, layout, loading
       assert.deepEqual(errors, [], `${edition.lang} produced browser errors`);
       await page.close();
     }
+  } finally { await browser.close(); }
+});
+
+test('a localized edition uses its Wikipedia and displays credited Commons illustrations', async () => {
+  const browser = await launchBrowser();
+  try {
+    const {page} = await openEdition(browser, '/', 'fr', {illustrations: true});
+    const image = page.locator('#world-news .wire-thumbnail > a > img');
+    await image.waitFor();
+    assert.equal(await image.getAttribute('alt'), 'Illustration.png');
+    const label = french['Image credits'];
+    assert.ok(label);
+    await page.locator('#world-news').getByRole('button', {name: label}).click();
+    const dialog = page.getByRole('dialog', {name: label});
+    assert.equal(await dialog.getByRole('link', {name: 'CC BY 4.0'}).getAttribute('href'), 'https://creativecommons.org/licenses/by/4.0/');
+    assert.equal(await dialog.getByRole('link', {name: 'Wikimedia Commons'}).getAttribute('href'), 'https://commons.wikimedia.org/wiki/File:Illustration.png');
   } finally { await browser.close(); }
 });
 

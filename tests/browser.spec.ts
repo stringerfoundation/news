@@ -158,7 +158,11 @@ test('Courageous Stories images have matching circular thumbnails', async () => 
     const page = await pageAt('/', width);
     assert.equal(await page.locator('.feed-status:visible').count(), 0);
     const maisStory = page.locator('#stringer-news article').filter({hasText:'Mais Katt'});
-    assert.equal(await maisStory.locator('.story-placeholder').count(), 0);
+    if (width > 767) {
+      await maisStory.scrollIntoViewIfNeeded();
+      await maisStory.locator('img').waitFor();
+      assert.equal(await maisStory.locator('.story-placeholder').isVisible(), false);
+    }
     assert.match((await maisStory.locator('img').getAttribute('src'))!, /syria-3talawjYJe7gOOcj\.png$/);
     assert.equal(await cssValue(maisStory.locator('img'), 'backgroundColor'), 'rgba(0, 0, 0, 0)');
     assert.equal(await cssValue(maisStory.locator('img'), 'borderRadius'), '50%');
@@ -466,6 +470,12 @@ test('header and footer use main-site type sizes, colours, and hover treatments'
   }
   assert.equal(await cssValue(page.locator('.footer-appeal'), 'fontSize'), '15px');
   assert.equal(await cssValue(page.locator('.nonprofit'), 'fontSize'), '15px');
+  const [status, languages] = await Promise.all([
+    page.locator('#relay-status').boundingBox(),
+    page.locator('.edition-switcher').boundingBox(),
+  ]);
+  assert.ok(status && languages);
+  assert.ok(Math.abs(status.y + status.height / 2 - languages.y - languages.height / 2) < 1);
   await page.close();
 });
 

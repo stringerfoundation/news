@@ -116,12 +116,14 @@ const suggestionObserver = new IntersectionObserver(entries => {
   loadSuggestions();
 }, { rootMargin: '100px' });
 function loadSuggestions() {
-  if (!imageSession) { suggestionQueue.clear(); return; }
+  if (localizedEdition) {
+    if (!searchImages) return;
+  } else if (!imageSession) { suggestionQueue.clear(); return; }
   for (const id of suggestionQueue) {
     if (activeSuggestions >= 2) break;
     suggestionQueue.delete(id);
     const state = commonsSearches.get(id);
-    if (!state || state.loading || state.searched || !imageSession.refs[id]) continue;
+    if (!state || state.loading || state.searched || (!localizedEdition && !imageSession?.refs[id])) continue;
     activeSuggestions++;
     void findCommons(id, state.query, true).finally(() => { activeSuggestions--; loadSuggestions(); });
   }
@@ -242,7 +244,7 @@ async function connectNostr() {
 function renderNostrAccount() {
   const buttonFocused = imageToolbar.contains(document.activeElement);
   imageToolbar.replaceChildren();
-  imageToolbar.hidden = !imageEditor || !hasSigner();
+  imageToolbar.hidden = localizedEdition || !imageEditor || !hasSigner();
   if (imageToolbar.hidden) return;
   if (voter) {
     const identity = element('div', '', 'nostr-identity');
@@ -393,7 +395,7 @@ function thumbnailCredit(imageCredit: CommonsImage) {
 }
 function prepareImageSearch(storyId: string, title: string) {
   if (!commonsSearches.has(storyId)) {
-    commonsSearches.set(storyId, { query: commonsSubject(title), source: 'all', issues: [], loading: false, results: [], error: '', searched: false });
+    commonsSearches.set(storyId, { query: localizedEdition ? title.trim().slice(0, 200) : commonsSubject(title), source: 'all', issues: [], loading: false, results: [], error: '', searched: false });
   }
 }
 function imageReview(storyId: string, title: string) {
@@ -532,7 +534,7 @@ async function findCommons(storyId: string, query: string, suggest = false) {
   try {
     const result = await searchImages(query, state.source, suggest, fetch, partial => {
       if (partial.images.length) state.results = partial.images; state.issues = partial.issues; renderWorld();
-    });
+    }, locale.split('-')[0]);
     state.results = result.images; state.issues = result.issues;
     if (!result.images.length && result.issues.length) state.error = result.issues.join(' ');
   }
@@ -555,12 +557,23 @@ function element<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, c
   if (className) node.className = className;
   return node;
 }
+function storyPlaceholder(label?: string) {
+  const placeholder = element('div', '', 'story-placeholder');
+  if (label) {
+    placeholder.title = label;
+    placeholder.setAttribute('role', 'img');
+    placeholder.setAttribute('aria-label', label);
+  } else {
+    placeholder.setAttribute('aria-hidden', 'true');
+  }
+  return placeholder;
+}
 function imageCreditKey(image: CommonsImage) {
   const { url, filePage, title, alt, creator, attribution, license, licenseUrl, sourceName } = image;
   return [url, filePage, title, alt, creator, attribution, license, licenseUrl, sourceName];
 }
 function describeSuggestedImage(image: HTMLImageElement, suggested: boolean) {
-  if (suggested) image.setAttribute('aria-description', 'Automatically suggested image');
+  if (suggested) image.setAttribute('aria-description', t('Automatically suggested image'));
   else image.removeAttribute('aria-description');
 }
 const storyCards = new WeakMap<Element, { key: string; controls: string | null; suggested: boolean }>();
@@ -586,12 +599,13 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
       : null;
     // Publisher photos stay hidden, regardless of URL parameters or stored metadata.
     const imageStoryId = wire && !localizedEdition ? story.noteId : undefined;
+    const searchId = wire && localizedEdition ? url : imageStoryId;
     const selection = imageStoryId ? imageSession?.selection(imageStoryId) : null;
-    if (imageStoryId) prepareImageSearch(imageStoryId, story.title);
-    const search = imageStoryId ? commonsSearches.get(imageStoryId) : undefined;
+    if (searchId) prepareImageSearch(searchId, story.title);
+    const search = searchId ? commonsSearches.get(searchId) : undefined;
     const commons = imageStoryId
       ? imageOptions(imageStoryId).find(image => !skippedImages.get(choiceKey(imageStoryId))?.includes(image.filePage))
-      : null;
+      : search?.results[0];
     const imageData = wire ? commons : story.image;
     const imageUrl = wire ? commons?.url : safeImageUrl(imageData?.url) || localImage;
     const suggested = !!commons && commons.filePage !== selection?.winner?.filePage;
@@ -612,7 +626,7 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
         describeSuggestedImage(existing.querySelector<HTMLImageElement>('.story-media img')!, suggested);
         card.suggested = suggested;
       }
-      if (imageStoryId && !search?.loading && !search?.searched)
+      if (searchId && !search?.loading && !search?.searched)
         suggestionObserver.observe(existing.querySelector('.wire-thumbnail')!);
       cards.push(existing);
       continue;
@@ -621,23 +635,26 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
     article.dir = 'auto';
     const body = element('div', '', 'story-body');
     const showPlaceholder = () => {
-      const placeholder = element('div', '', 'story-media story-placeholder');
-      placeholder.setAttribute('aria-hidden', 'true');
+      const placeholder = storyPlaceholder();
+      placeholder.classList.add('story-media');
       article.classList.add('with-image');
       article.prepend(placeholder);
     };
     let wireFigure: HTMLElement | null = null;
-    if (wire && !localizedEdition) {
+    if (wire) {
       article.classList.add('with-image');
       wireFigure = element('figure', '', 'story-media wire-thumbnail');
-      if (imageStoryId) {
-        wireFigure.dataset.storyId = imageStoryId;
+      if (searchId) {
+        wireFigure.dataset.storyId = searchId;
         if (!search?.loading && !search?.searched) suggestionObserver.observe(wireFigure);
       }
       article.append(wireFigure);
     }
     if (imageUrl) {
       const figure = wireFigure || element('figure', '', 'story-media');
+      const placeholder = storyPlaceholder();
+      figure.classList.add('image-loading');
+      figure.append(placeholder);
       const image = element('img');
       image.alt = imageData?.alt || '';
       image.width = wire ? 120 : 240; image.height = wire ? 80 : 240;
@@ -653,23 +670,27 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
         caption = element('figcaption', photoCredit, 'image-credit-caption');
         thumbnailCredits.set(caption, { key: url, credit: { title: story.title, credit: photoCredit } });
       }
+      image.addEventListener('load', () => {
+        const reveal = () => {
+          placeholder.hidden = true;
+          figure.classList.remove('image-loading');
+        };
+        void image.decode().then(reveal, reveal);
+      });
       image.addEventListener('error', () => {
         caption?.remove();
         if (localImage && !triedLocal) {
           triedLocal = true;
+          placeholder.hidden = false;
+          figure.classList.add('image-loading');
           image.src = localImage;
           return;
         }
         // A later refresh can retry a broken thumbnail without moving other stories.
         storyCards.delete(article);
-        if (wire) {
-          const failed = image.closest('a') || image;
-          failed.replaceWith(element('span', 'Image unavailable', 'image-search-status'));
-          return;
-        }
-        const placeholder = element('div', '', 'story-placeholder');
-        placeholder.setAttribute('aria-hidden', 'true');
-        image.replaceWith(placeholder);
+        (image.closest('a') || image).remove();
+        placeholder.replaceWith(storyPlaceholder(t('Image unavailable')));
+        figure.classList.remove('image-loading');
       });
       image.src = imageUrl;
       if (wire && commons) {
@@ -725,19 +746,15 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
       meta.firstElementChild!.after(separator);
     }
     body.append(meta);
-    if (imageStoryId && !commons) {
+    if (searchId && !commons) {
       if (search?.error) wireFigure?.append(element('p', search.error, 'warning'));
-      else if (search?.searched) {
+      else if (search?.searched && (search.results.length || trusted)) {
         const message = search.results.length
           ? 'No more suggestions. Undo a skip or search again.'
-          : trusted
-            ? 'No reusable image found. Open image review to refine the search.'
-            : 'No reusable image found for this headline.';
+          : 'No reusable image found. Open image review to refine the search.';
         wireFigure?.append(element('p', message, 'image-search-status'));
       } else {
-        const placeholder = element('div', '', 'story-placeholder');
-        placeholder.setAttribute('aria-hidden', 'true');
-        wireFigure?.append(placeholder);
+        wireFigure?.append(storyPlaceholder(search?.searched ? t('No reusable image found for this headline.') : undefined));
       }
     }
     if (imageStoryId && trusted) wireFigure?.insertBefore(imageControls(imageStoryId, story.title, commons), wireFigure.querySelector('figcaption'));
@@ -792,6 +809,7 @@ for (const section of sections) {
 }
 mobileLayout.addEventListener('change', updateStoryVisibility);
 function renderStatuses() {
+  requiredElement('.collection-link').hidden = loading && !requiredElement('#stringer-news').querySelector('article');
   const relayDetails = requiredElement('#relay-status-details');
   relayDetails.replaceChildren();
   const notes = [];
@@ -1052,6 +1070,10 @@ window.addEventListener('resize', updateStoryVisibility);
 document.fonts.ready.then(updateStoryVisibility);
 setInterval(() => { renderStatuses(); if (!document.hidden && Date.now() - lastAttempt >= interval) load(); }, 30_000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastAttempt >= interval) load(); });
+if (localizedEdition) void import('./relay-reader.js').then(reader => {
+  searchImages = reader.searchImages;
+  loadSuggestions();
+}, () => suggestionQueue.clear());
 load();
 
 // Image commands share the same eligibility and signer checks as their UI controls.
