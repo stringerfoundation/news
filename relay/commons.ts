@@ -24,22 +24,32 @@ function plain(value: unknown): string {
 }
 interface ImagePage { index?: number; title?: string; imageinfo?: { mime?: string; thumburl?: string; url?: string; descriptionurl?: string; extmetadata?: Record<string, { value?: string }> }[] }
 interface CommonsResponse { error?: unknown; query?: { pages?: ImagePage[] } }
+function headlineMentionsSubject(headline: string, title: string): boolean {
+  const phrase = (value: string) => value.normalize('NFC').toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, ' ').trim();
+  const subject = phrase(title);
+  const text = phrase(headline);
+  return subject.length >= 2 && (/\p{Script=Han}/u.test(subject)
+    ? text.includes(subject) : ` ${text} `.includes(` ${subject} `));
+}
 async function representativeImages(query: string, request: typeof fetch, language: string): Promise<CommonsImage[]> {
   try {
+    const localized = language !== 'en';
     const wiki = new URL('https://en.wikipedia.org/w/api.php');
     if (/^[a-z]{2,3}$/.test(language)) wiki.hostname = `${language}.wikipedia.org`;
     wiki.search = new URLSearchParams({ action: 'query', format: 'json', formatversion: '2', origin: '*',
-      generator: 'search', gsrnamespace: '0', gsrlimit: '1', gsrsearch: query,
+      generator: 'search', gsrnamespace: '0', gsrlimit: localized ? '5' : '1', gsrsearch: query,
       prop: 'pageimages|images', piprop: 'name', pilicense: 'free', imlimit: '100' }).toString();
     const response = await request(wiki, { credentials: 'omit', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(8000) });
     if (!response.ok) return [];
     const data = await response.json() as { query?: { pages?: { title?: string; pageimage?: string; images?: { title?: string }[] }[] } };
-    const page = data.query?.pages?.[0];
-    if (!page) return [];
-    const subject = page.title?.toLocaleLowerCase() || query.toLocaleLowerCase();
-    const maps = (page.images || []).map(image => image.title || '').filter(title =>
-      title.toLocaleLowerCase().includes(subject) && /map|orthographic|location/i.test(title));
-    const titles = [...new Set([...(page.pageimage ? [`File:${page.pageimage}`] : []), ...maps])].slice(0, 4);
+    const pages = data.query?.pages ?? [];
+    const matches = localized ? pages.filter(page => headlineMentionsSubject(query, page.title ?? '')) : pages.slice(0, 1);
+    const titles = [...new Set(matches.flatMap(page => {
+      const subject = page.title?.toLocaleLowerCase() || query.toLocaleLowerCase();
+      const maps = (page.images || []).map(image => image.title || '').filter(title =>
+        title.toLocaleLowerCase().includes(subject) && /map|orthographic|location/i.test(title));
+      return [...(page.pageimage ? [`File:${page.pageimage}`] : []), ...maps];
+    }))].slice(0, 4);
     if (!titles.length) return [];
     const commons = new URL('https://commons.wikimedia.org/w/api.php');
     commons.search = new URLSearchParams({ action: 'query', format: 'json', formatversion: '2', origin: '*',

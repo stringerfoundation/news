@@ -396,7 +396,7 @@ function thumbnailCredit(imageCredit: CommonsImage) {
 }
 function prepareImageSearch(storyId: string, title: string) {
   if (!commonsSearches.has(storyId)) {
-    commonsSearches.set(storyId, { query: localizedEdition ? title.trim().slice(0, 200) : commonsSubject(title), source: 'all', issues: [], loading: false, results: [], error: '', searched: false });
+    commonsSearches.set(storyId, { query: localizedEdition ? title.trim().slice(0, 200) : commonsSubject(title), source: localizedEdition ? 'commons' : 'all', issues: [], loading: false, results: [], error: '', searched: false });
   }
 }
 function imageReview(storyId: string, title: string) {

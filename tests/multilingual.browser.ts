@@ -78,7 +78,7 @@ const fixtureApp = await build({entryPoints: ['app.ts'], bundle: true, write: fa
 });
 
 async function openEdition(browser: Awaited<ReturnType<typeof launchBrowser>>, prefix: string, editionPath: string,
-  options: {holdData?: boolean; unavailable?: boolean; builtApp?: boolean; illustrations?: boolean; firstConnectionFailure?: 'drop' | 'silent'} = {}) {
+  options: {holdData?: boolean; unavailable?: boolean; builtApp?: boolean; illustrations?: 'related' | 'unrelated'; firstConnectionFailure?: 'drop' | 'silent'} = {}) {
   const page = await browser.newPage({viewport: {width: 375, height: 900}});
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -93,9 +93,22 @@ async function openEdition(browser: Awaited<ReturnType<typeof launchBrowser>>, p
     const url = new URL(route.request().url());
     if (options.illustrations && url.hostname === 'fr.wikipedia.org') {
       assert.equal(url.searchParams.get('gsrsearch'), publisherHeadline);
-      return route.fulfill({json: {query: {pages: [{title: 'Illustration', pageimage: 'Illustration.png'}]}}});
+      assert.equal(url.searchParams.get('gsrlimit'), '5');
+      return route.fulfill({json: {query: {pages: [
+        {title: 'Unrelated person', pageimage: 'Unrelated.png'},
+        {title: '无关', pageimage: 'Unrelated.png'},
+        {pageimage: 'Unrelated.png'},
+        ...(options.illustrations === 'related' ? [
+          {title: 'أصل الخبر'},
+          {title: '原始标题', pageimage: 'Illustration.png'},
+        ] : []),
+      ]}}});
     }
     if (options.illustrations && url.hostname === 'commons.wikimedia.org') {
+      if (url.searchParams.has('titles')) {
+        assert.equal(options.illustrations, 'related');
+        assert.equal(url.searchParams.get('titles'), 'File:Illustration.png');
+      }
       const pages = url.searchParams.has('titles') ? [{
         title: 'File:Illustration.png',
         imageinfo: [{mime: 'image/png', thumburl: 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Illustration.png',
@@ -222,7 +235,8 @@ test('localized editions preserve original headlines, direction, layout, loading
 test('a localized edition uses its Wikipedia and displays credited Commons illustrations', async () => {
   const browser = await launchBrowser();
   try {
-    const {page} = await openEdition(browser, '/', 'fr', {illustrations: true});
+    const {page} = await openEdition(browser, '/', 'fr', {illustrations: 'related'});
+    await page.setViewportSize({width: 1280, height: 1000});
     const image = page.locator('#world-news .wire-thumbnail > a > img');
     await image.waitFor();
     assert.equal(await image.getAttribute('alt'), 'Illustration.png');
@@ -232,6 +246,16 @@ test('a localized edition uses its Wikipedia and displays credited Commons illus
     const dialog = page.getByRole('dialog', {name: label});
     assert.equal(await dialog.getByRole('link', {name: 'CC BY 4.0'}).getAttribute('href'), 'https://creativecommons.org/licenses/by/4.0/');
     assert.equal(await dialog.getByRole('link', {name: 'Wikimedia Commons'}).getAttribute('href'), 'https://commons.wikimedia.org/wiki/File:Illustration.png');
+    await dialog.getByRole('button', {name: french.Close!}).click();
+    const utilities = (await page.locator('.footer-utilities').boundingBox())!;
+    const notes = (await page.locator('.footer-notes').boundingBox())!;
+    const languages = (await page.locator('.edition-switcher').boundingBox())!;
+    const provenance = (await page.locator('.source-provenance').boundingBox())!;
+    assert.ok(languages.y < notes.y + notes.height && notes.y < languages.y + languages.height);
+    assert.ok(provenance.y >= utilities.y + utilities.height - 1);
+    const {page: noMatch} = await openEdition(browser, '/', 'fr', {illustrations: 'unrelated'});
+    await noMatch.locator('#world-news').getByRole('img', {name: french['No reusable image found for this headline.']!}).waitFor();
+    assert.equal(await noMatch.locator('#world-news .wire-thumbnail img').count(), 0);
   } finally { await browser.close(); }
 });
 
