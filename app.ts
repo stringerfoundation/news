@@ -334,10 +334,19 @@ const creditEmpty = element('p', t('No image credits to show yet.'));
 creditDialog.append(creditHeader, creditBody);
 document.body.append(creditDialog);
 
-function openCredits(credits: ImageCredit[]) {
-  creditTitle.textContent = t('Image credits');
+function openCredits(credits: ImageCredit[], includeSources = false) {
+  creditTitle.textContent = t(includeSources ? 'Credits' : 'Image credits');
   creditEmpty.hidden = credits.length > 0;
   creditBody.replaceChildren(creditEmpty, ...credits.map(creditEntry));
+  if (includeSources) {
+    const sources = element('section', '', 'image-credit-entry');
+    sources.append(
+      element('h3', t('Story sources')),
+      element('p', t('English newswire headlines come from publisher RSS feeds and are delivered over Nostr. Most other language editions use third-party Atomstr mirrors. The Kiswahili edition uses publisher RSS and Atom feeds.')),
+      element('p', t('Courageous Stories comes from Stringer’s curated collection of reporting. Each headline links to the original story.')),
+    );
+    creditBody.prepend(sources, element('h3', t('Image credits'), 'credits-section-title'));
+  }
   creditDialog.showModal();
   creditBody.scrollTop = 0;
 }
@@ -351,24 +360,24 @@ footerCredits.addEventListener('click', () => {
     const { key, credit } = thumbnailCredits.get(caption)!;
     credits.set(key, credit);
   }
-  openCredits([...credits.values()]);
+  openCredits([...credits.values()], true);
 });
-requiredElement('.footer-bottom').append(footerCredits);
+requiredElement('.footer-bottom > p').append(' ', footerCredits);
 
-function thumbnailCredit(imageCredit: CommonsImage, suggested = false) {
+function thumbnailCredit(imageCredit: CommonsImage) {
   const caption = element('figcaption', '', 'image-credit-caption');
+  thumbnailCredits.set(caption, { key: imageCredit.filePage, credit: imageCredit });
+  caption.hidden = !new URL(imageCredit.licenseUrl).pathname.startsWith('/licenses/');
+  if (caption.hidden) return caption;
   const credit = element('button', '', 'image-credit-button');
-  const licensed = new URL(imageCredit.licenseUrl).pathname.startsWith('/licenses/');
-  const icon = element('span', licensed ? '' : 'i', licensed ? 'image-credit-cc' : 'image-credit-info');
+  const icon = element('span', '', 'image-credit-cc');
   icon.setAttribute('aria-hidden', 'true');
   credit.append(icon);
   credit.type = 'button';
   credit.title = t('Image credits');
   credit.setAttribute('aria-label', credit.title);
   credit.setAttribute('aria-haspopup', 'dialog');
-  if (suggested) credit.setAttribute('aria-description', 'Automatically suggested image');
   credit.addEventListener('click', () => openCredits([imageCredit]));
-  thumbnailCredits.set(caption, { key: imageCredit.filePage, credit: imageCredit });
   caption.append(credit);
   return caption;
 }
@@ -586,7 +595,8 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
       const photoCredit = triedLocal ? '' : story.image?.credit;
       let caption: HTMLElement | undefined;
       if (commons) {
-        caption = thumbnailCredit(commons, commons.filePage !== selection?.winner?.filePage);
+        caption = thumbnailCredit(commons);
+        if (commons.filePage !== selection?.winner?.filePage) image.setAttribute('aria-description', 'Automatically suggested image');
       } else if (photoCredit) {
         caption = element('figcaption', photoCredit, 'image-credit-caption');
         thumbnailCredits.set(caption, { key: url, credit: { title: story.title, credit: photoCredit } });
@@ -721,8 +731,9 @@ function renderStatuses() {
   relayDetails.replaceChildren();
   const notes = [];
   const seconds = ((loading ? performance.now() - loadStarted : loadDuration) / 1000).toFixed(1);
-  const timing = loading ? t('Loading · {seconds} s elapsed', {seconds}) : t('{outcome} in {seconds} s', {outcome: t(loadOutcome), seconds});
-  notes.push(loading ? t('{stage} Total elapsed: {seconds} s.', {stage: loadStage, seconds}) : t('Latest feed load: {timing}.', {timing}));
+  notes.push(loading
+    ? t('{stage} Total elapsed: {seconds} s.', {stage: loadStage, seconds})
+    : t('Latest feed load: {timing}.', {timing: t('{outcome} in {seconds} s', {outcome: t(loadOutcome), seconds})}));
   if (Object.keys(feedTimings).length) {
     notes.push(t('Story retrieval from news relays:'));
     for (const source of SOURCES) {
@@ -767,9 +778,7 @@ function renderStatuses() {
   }
   for (const note of notes) relayDetails.append(element('p', note));
   relayStatus.hidden = notes.length === 0;
-  const summary = relayStatus.querySelector('summary')!;
-  summary.textContent = t('Feed status · {timing}', {timing: locale === 'en-US' ? timing.toLowerCase() : timing});
-  summary.title = notes.join('\n');
+  relayStatus.querySelector('summary')!.textContent = t('Feed status');
 }
 function renderWorld() {
   if (!snapshot) return;

@@ -146,7 +146,7 @@ test('relay reader verifies complete collections, preserves order, caches offlin
       });
       const started = Date.now();
       await page.goto('https://reader.test/news2/');
-      await page.waitForFunction(() => document.querySelector('#relay-status summary')?.textContent?.includes('loading ·'));
+      await page.waitForFunction(() => document.querySelector('#relay-status-details')?.textContent?.includes('Total elapsed:'));
       assert.equal(await page.locator('#relay-status').isVisible(), true);
       assert.match(await page.locator('#relay-status-details').textContent() || '', /Total elapsed: \d+\.\d s/);
       holdInitialResponse = false;
@@ -154,15 +154,15 @@ test('relay reader verifies complete collections, preserves order, caches offlin
       await page.locator('#world-news article').waitFor();
       assert.equal(await page.locator('#stringer-news article').count(), 0, 'Headlines render before the remaining stories arrive');
       assert.equal(await page.locator('#world-news').getAttribute('aria-busy'), 'true');
-      assert.match(await page.locator('#relay-status summary').textContent() || '', /loading ·/);
+      assert.equal(await page.locator('#relay-status summary').textContent(), 'Feed status');
       const progressDetails = await page.locator('#relay-status-details').textContent() || '';
       assert.match(progressDetails, /BBC World · loaded in \d+\.\d s/);
       assert.match(progressDetails, /Stringer · loading · \d+\.\d s elapsed · 0\/2 stories/);
       assert.doesNotMatch(await page.locator('main').textContent() || '', /Loading headlines|Loading courageous stories|Verified collection|Loading published stories/);
       assert.equal(await page.locator('#refresh-status').textContent(), '');
       deliverRemainingStories!();
-      await page.waitForFunction(() => document.querySelector('#relay-status summary')?.textContent?.includes('loaded in'));
-      assert.match(await page.locator('#relay-status summary').textContent() || '', /loaded in \d+\.\d s/);
+      await page.waitForFunction(() => /Latest feed load: .*loaded in/i.test(document.querySelector('#relay-status-details')?.textContent ?? ''));
+      assert.equal(await page.locator('#relay-status-details').isVisible(), false);
       assert.match(await page.locator('#relay-status-details').textContent() || '', /Stringer · loaded in \d+\.\d s/);
       assert.match(await page.locator('#relay-status-details').textContent() || '', /CNA · no published stories/);
       assert.ok(Date.now() - started < 5000, 'Healthy relay renders without waiting for silent relay');
@@ -194,7 +194,7 @@ test('relay reader verifies complete collections, preserves order, caches offlin
       await page.evaluate(() => localStorage.clear());
       await page.reload();
       await page.waitForFunction(() => document.querySelector('#relay-status-details')?.textContent?.includes('1 unavailable'));
-      await page.waitForFunction(() => document.querySelector('#relay-status summary')?.textContent?.includes('loaded in'));
+      await page.waitForFunction(() => /Latest feed load: .*loaded in/i.test(document.querySelector('#relay-status-details')?.textContent ?? ''));
       assert.match(await page.locator('#relay-status-details').textContent() || '', /Stringer · 1\/2 stories received after \d+\.\d s/);
       await page.locator('#relay-status summary').click();
       await page.getByText(/Stringer.*1 unavailable/).waitFor();
@@ -205,7 +205,7 @@ test('relay reader verifies complete collections, preserves order, caches offlin
       await page
         .getByText('Could not check for updates. Keeping the previously loaded collection.')
         .waitFor();
-      assert.match(await page.locator('#relay-status summary').textContent() || '', /failed in \d+\.\d s/);
+      assert.match(await page.locator('#relay-status-details').textContent() || '', /Latest feed load: Failed in \d+\.\d s/);
       assert.equal(await page.locator('main #refresh-status').count(), 1);
       assert.deepEqual(errors, []);
       await page.close();

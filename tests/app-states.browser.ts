@@ -185,9 +185,11 @@ test('relay UI ignores unsafe links and retains image attribution', async (t) =>
   const caption = page.locator('#stringer-news figcaption');
   assert.equal(await caption.textContent(), 'Photographer');
   assert.equal(await caption.locator('a, button').count(), 0);
-  const credits = page.getByRole('dialog', { name: 'Image credits' });
+  const credits = page.getByRole('dialog', { name: 'Credits', exact: true });
   await page.locator('footer').getByRole('button', { name: 'Credits', exact: true }).click();
   await credits.getByText('Photographer', { exact: true }).waitFor();
+  await credits.getByRole('heading', { name: 'Story sources' }).waitFor();
+  assert.match(await credits.innerText(), /publisher RSS feeds.*Nostr.*Atomstr/);
   assert.equal(await credits.getByRole('link').count(), 0);
   await page.evaluate((value) => window.finish(value), value);
 });

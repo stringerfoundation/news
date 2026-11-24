@@ -49,8 +49,8 @@ function fixture(options: FixtureOptions = {}) {
             `<script src="./${name}?v=${name === options.stale ? '0000000000000000' : version}"></script>`).join('')}
           </head><body style="margin:0;${options.overflow ? 'min-width:2000px' : ''}">
           <div id="world-news" aria-busy="true"></div><div id="stringer-news" aria-busy="true"></div>
-          <details id="relay-status"><summary>${options.failed ? 'failed in 1 s' : 'loaded in 1 s'}</summary>
-          <div id="relay-status-details">Stringer · 1/2 stories · 1 unavailable</div></details>
+          <details id="relay-status"><summary>Feed status</summary>
+          <div id="relay-status-details">Latest feed load: ${options.failed ? 'Failed' : 'Partially loaded'} in 1 s.<p>Stringer · 1/2 stories · 1 unavailable</p></div></details>
           <script>
           if (localStorage.getItem('monitor')) throw Error('Context was reused');
           localStorage.setItem('monitor', 'visited');
