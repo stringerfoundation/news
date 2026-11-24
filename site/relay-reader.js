@@ -8328,9 +8328,21 @@ async function representativeImages(query, request, language) {
     return [];
   }
 }
-async function searchCommons(query, request = fetch, suggest = false, language = "en") {
+async function searchCommons(query, request = fetch, suggest = false, language = "en", onRepresentative) {
   if (!query.trim()) throw new Error("Enter a person, place or subject to search for.");
-  const preferred = suggest ? representativeImages(query.trim().slice(0, 200), request, language) : Promise.resolve([]);
+  const preferred = suggest ? representativeImages(query.trim().slice(0, 200), request, language).then((images2) => {
+    if (images2.length) onRepresentative?.(images2);
+    return images2;
+  }) : Promise.resolve([]);
+  const alternatives = searchCommonsFiles(query, request, suggest).catch(async (error) => {
+    if (!(await preferred).length) throw error;
+    return [];
+  });
+  const [representatives, matches] = await Promise.all([preferred, alternatives]);
+  const images = [...representatives, ...matches];
+  return images.filter((image, index) => images.findIndex((other) => other.filePage === image.filePage) === index).slice(0, 5);
+}
+async function searchCommonsFiles(query, request, suggest) {
   const url = new URL("https://commons.wikimedia.org/w/api.php");
   url.search = new URLSearchParams({
     action: "query",
@@ -8351,9 +8363,7 @@ async function searchCommons(query, request = fetch, suggest = false, language =
   if (data.error) throw new Error("Commons search is unavailable. Please retry.");
   const normalize = (value) => value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
   const words = normalize(query).split(" ");
-  const alternatives = readImages(data).filter((image) => !suggest || words.every((word) => normalize(`${image.title} ${decodeURIComponent(new URL(image.filePage).pathname)}`).split(" ").includes(word)));
-  const images = [...await preferred, ...alternatives];
-  return images.filter((image, index) => images.findIndex((other) => other.filePage === image.filePage) === index).slice(0, 5);
+  return readImages(data).filter((image) => !suggest || words.every((word) => normalize(`${image.title} ${decodeURIComponent(new URL(image.filePage).pathname)}`).split(" ").includes(word)));
 }
 function readImages(data) {
   if (data.error) return [];
@@ -8665,7 +8675,7 @@ async function searchImages(query, source = "all", suggest = false, request = fe
     const key = JSON.stringify([id, query.trim(), suggest, language]), cached = cache.get(key);
     if (request === fetch && cached && cached.until > Date.now()) return cached.images;
     try {
-      const images = id === "commons" ? await searchCommons(query, request, suggest, language) : id === "eu" ? await searchEuPhotos(query, request) : await searchOpenverse(query, request, id === "flickr" ? true : ["wellcome", "smithsonian", "europeana"].includes(id) ? id : false);
+      const images = id === "commons" ? await searchCommons(query, request, suggest, language, (images2) => onProgress?.({ images: images2, issues: [...issues] })) : id === "eu" ? await searchEuPhotos(query, request) : await searchOpenverse(query, request, id === "flickr" ? true : ["wellcome", "smithsonian", "europeana"].includes(id) ? id : false);
       if (request === fetch) {
         if (cache.size >= 200) cache.delete(cache.keys().next().value);
         cache.set(key, { until: Date.now() + 10 * 60 * 1e3, images });
