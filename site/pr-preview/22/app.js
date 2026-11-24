@@ -1644,9 +1644,9 @@ var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
 ));
 
 // app.ts
-import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=b70c8a67a2083ce3";
-import relayConfig from "./relay-config.js?v=b70c8a67a2083ce3";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=b70c8a67a2083ce3";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=cf649b5ebaf1d981";
+import relayConfig from "./relay-config.js?v=cf649b5ebaf1d981";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=cf649b5ebaf1d981";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1883,7 +1883,7 @@ async function connectNostr() {
       })
     ]).finally(() => clearTimeout(timer));
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=b70c8a67a2083ce3");
+    const identity = await import("./relay-reader.js?v=cf649b5ebaf1d981");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -1959,39 +1959,84 @@ var signerTimer = setInterval(() => {
 window.addEventListener("load", detectNostr);
 window.addEventListener("nostr:ready", detectNostr);
 detectNostr();
-function commonsCaption(candidate) {
-  const caption = element("figcaption");
-  caption.append(document.createTextNode(`Illustrative image \xB7 ${candidate.creator} \xB7 ${candidate.attribution} \xB7 `));
-  for (const [label, url] of [[candidate.title, candidate.filePage], [candidate.license, candidate.licenseUrl]]) {
-    if (caption.lastChild?.nodeType === Node.ELEMENT_NODE) caption.append(document.createTextNode(" \xB7 "));
-    const link = element("a", label);
-    link.href = url;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    caption.append(link);
-  }
-  if (candidate.sourceName) caption.append(document.createTextNode(` \xB7 ${candidate.sourceName}`));
-  return caption;
+function creditLink(label, url) {
+  const link = element("a", label);
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  return link;
 }
+function creditEntry(credit) {
+  const entry = element("section", "", "image-credit-entry");
+  entry.append(element("h3", credit.title));
+  if ("storyUrl" in credit) {
+    if (credit.credit) entry.append(element("p", credit.credit));
+    entry.append(creditLink(t("Original story"), credit.storyUrl));
+    return entry;
+  }
+  entry.prepend(element("p", t("Illustrative image"), "image-credit-kind"));
+  entry.append(element("p", credit.creator));
+  const links = element("div", "", "image-credit-links");
+  links.append(
+    creditLink(credit.sourceName || "Wikimedia Commons", credit.filePage),
+    creditLink(credit.license.replace(/^CC-BY(-SA)?-/, "CC BY$1 "), credit.licenseUrl)
+  );
+  entry.append(links);
+  if (credit.attribution.trim() !== credit.creator.trim()) {
+    const details = element("details");
+    details.append(element("summary", t("Full attribution")), element("p", credit.attribution));
+    entry.append(details);
+  }
+  return entry;
+}
+var thumbnailCredits = /* @__PURE__ */ new WeakMap();
 var creditDialog = element("dialog", "", "image-credit-dialog");
-creditDialog.setAttribute("aria-label", "Image credits");
-var closeCredit = element("button", "Close");
+creditDialog.setAttribute("aria-labelledby", "image-credit-title");
+var creditTitle = element("h2");
+creditTitle.id = "image-credit-title";
+var closeCredit = element("button", t("Close"), "image-credit-close");
 closeCredit.type = "button";
 closeCredit.autofocus = true;
 closeCredit.addEventListener("click", () => creditDialog.close());
+var creditHeader = element("div", "", "image-credit-header");
+creditHeader.append(creditTitle, closeCredit);
+var creditBody = element("div", "", "image-credit-body");
+var creditEmpty = element("p", t("No image credits to show yet."));
+creditDialog.append(creditHeader, creditBody);
 document.body.append(creditDialog);
-function thumbnailCredit(candidate, suggested) {
+function openCredits(credits) {
+  creditTitle.textContent = t("Image credits");
+  creditEmpty.hidden = credits.length > 0;
+  creditBody.replaceChildren(creditEmpty, ...credits.map(creditEntry));
+  creditDialog.showModal();
+  creditBody.scrollTop = 0;
+}
+var footerCredits = element("button", t("Credits"), "footer-credits");
+footerCredits.type = "button";
+footerCredits.setAttribute("aria-haspopup", "dialog");
+footerCredits.addEventListener("click", () => {
+  const credits = /* @__PURE__ */ new Map();
+  for (const button of document.querySelectorAll(".story-media > figcaption > .image-credit-button")) {
+    const { key, credit } = thumbnailCredits.get(button);
+    credits.set(key, credit);
+  }
+  openCredits([...credits.values()]);
+});
+requiredElement(".footer-bottom").append(footerCredits);
+function thumbnailCredit(key, imageCredit, suggested = false) {
   const caption = element("figcaption");
-  const credit = element("button", "Image credits");
+  const credit = element("button", "", "image-credit-button");
+  const licensed = "licenseUrl" in imageCredit && new URL(imageCredit.licenseUrl).pathname.startsWith("/licenses/");
+  const icon = element("span", licensed ? "" : "i", licensed ? "image-credit-cc" : "image-credit-info");
+  icon.setAttribute("aria-hidden", "true");
+  credit.append(icon);
   credit.type = "button";
+  credit.title = t("Image credits");
+  credit.setAttribute("aria-label", credit.title);
   credit.setAttribute("aria-haspopup", "dialog");
   if (suggested) credit.setAttribute("aria-description", "Automatically suggested image");
-  credit.addEventListener("click", () => {
-    const figure = element("figure");
-    figure.append(commonsCaption(candidate));
-    creditDialog.replaceChildren(figure, closeCredit);
-    creditDialog.showModal();
-  });
+  credit.addEventListener("click", () => openCredits([imageCredit]));
+  thumbnailCredits.set(credit, { key, credit: imageCredit });
   caption.append(credit);
   return caption;
 }
@@ -2066,7 +2111,7 @@ function imageReview(storyId, title) {
     img.height = 80;
     img.loading = "lazy";
     img.referrerPolicy = "no-referrer";
-    figure.append(choiceButton(candidate, img), commonsCaption(candidate));
+    figure.append(choiceButton(candidate, img), thumbnailCredit(candidate.filePage, candidate));
     const selected = current === candidate.id;
     const button = element("button", selected ? "Withdraw approval" : `Upvote image (${count})`);
     button.type = "button";
@@ -2136,7 +2181,7 @@ function imageReview(storyId, title) {
       publish.type = "button";
       publish.disabled = voteBusy || voter !== relayConfig.pubkey;
       publish.addEventListener("click", () => void publishCommons(storyId, image));
-      figure.append(choiceButton(image, preview), commonsCaption(image), publish);
+      figure.append(choiceButton(image, preview), thumbnailCredit(image.filePage, image), publish);
       grid.append(figure);
     }
   }
@@ -2291,12 +2336,18 @@ function renderStories(target, stories, emptyMessage) {
       image.decoding = "async";
       image.referrerPolicy = "no-referrer";
       let triedLocal = imageUrl === localImage;
+      const photoCredit = (credit = "") => thumbnailCredit(url, { title: story.title, storyUrl: url, credit });
+      let caption = commons ? thumbnailCredit(commons.filePage, commons, commons.filePage !== selection?.winner?.filePage) : photoCredit(triedLocal ? void 0 : story.image?.credit);
       image.addEventListener("error", () => {
         if (localImage && !triedLocal) {
           triedLocal = true;
+          const fallbackCaption = photoCredit();
+          caption.replaceWith(fallbackCaption);
+          caption = fallbackCaption;
           image.src = localImage;
           return;
         }
+        caption.remove();
         if (wire) {
           const failed = image.closest("a") || image;
           failed.replaceWith(element("span", "Image unavailable", "image-search-status"));
@@ -2331,15 +2382,14 @@ function renderStories(target, stories, emptyMessage) {
         imageLink.append(image);
         figure.append(imageLink);
       } else figure.append(image);
-      if (commons) figure.append(thumbnailCredit(commons, commons.filePage !== selection?.winner?.filePage));
-      if (!wire && story.image?.credit) figure.append(element("figcaption", story.image.credit));
+      figure.append(caption);
       article.classList.add("with-image");
       if (!wire) article.append(figure);
     } else if (usePlaceholder) {
       showPlaceholder();
     }
     const link = element("a");
-    link.href = url;
+    link.href = articleLink(url);
     link.target = "_blank";
     link.rel = "noopener noreferrer";
     link.append(element("h3", story.title));
@@ -2553,7 +2603,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=b70c8a67a2083ce3");
+      const reader = await import("./relay-reader.js?v=cf649b5ebaf1d981");
       ImageSessionClass = reader.ImageSession;
       searchImages = reader.searchImages;
       commonsSubject = reader.commonsSubject;
@@ -2627,7 +2677,7 @@ async function loadLocalized() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=b70c8a67a2083ce3");
+    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=cf649b5ebaf1d981");
     if (!snapshot) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
@@ -2672,7 +2722,7 @@ async function loadLocalized() {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=b70c8a67a2083ce3");
+            const relay = await import("./relay-reader.js?v=cf649b5ebaf1d981");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
