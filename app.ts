@@ -319,7 +319,7 @@ function creditEntry(credit: ImageCredit) {
   return entry;
 }
 
-const thumbnailCredits = new WeakMap<HTMLButtonElement, ImageCredit>();
+const thumbnailCredits = new WeakMap<HTMLButtonElement, { key: string; credit: ImageCredit }>();
 const creditDialog = element('dialog', '', 'image-credit-dialog');
 creditDialog.setAttribute('aria-labelledby', 'image-credit-title');
 const creditTitle = element('h2');
@@ -331,13 +331,14 @@ closeCredit.addEventListener('click', () => creditDialog.close());
 const creditHeader = element('div', '', 'image-credit-header');
 creditHeader.append(creditTitle, closeCredit);
 const creditBody = element('div', '', 'image-credit-body');
+const creditEmpty = element('p', t('No image credits to show yet.'));
 creditDialog.append(creditHeader, creditBody);
 document.body.append(creditDialog);
 
 function openCredits(credits: ImageCredit[]) {
   creditTitle.textContent = t('Image credits');
-  creditBody.replaceChildren(...credits.map(creditEntry));
-  if (!credits.length) creditBody.append(element('p', t('No image credits to show yet.')));
+  creditEmpty.hidden = credits.length > 0;
+  creditBody.replaceChildren(creditEmpty, ...credits.map(creditEntry));
   creditDialog.showModal();
   creditBody.scrollTop = 0;
 }
@@ -348,15 +349,14 @@ footerCredits.setAttribute('aria-haspopup', 'dialog');
 footerCredits.addEventListener('click', () => {
   const credits = new Map<string, ImageCredit>();
   for (const button of document.querySelectorAll<HTMLButtonElement>('.story-media > figcaption > .image-credit-button')) {
-    const credit = thumbnailCredits.get(button)!;
-    const key = 'filePage' in credit ? credit.filePage : credit.storyUrl;
-    if (!credits.has(key)) credits.set(key, credit);
+    const { key, credit } = thumbnailCredits.get(button)!;
+    credits.set(key, credit);
   }
   openCredits([...credits.values()]);
 });
 requiredElement('.footer-bottom').append(footerCredits);
 
-function thumbnailCredit(imageCredit: ImageCredit, suggested = false) {
+function thumbnailCredit(key: string, imageCredit: ImageCredit, suggested = false) {
   const caption = element('figcaption');
   const credit = element('button', '', 'image-credit-button');
   const licensed = 'licenseUrl' in imageCredit && new URL(imageCredit.licenseUrl).pathname.startsWith('/licenses/');
@@ -369,7 +369,7 @@ function thumbnailCredit(imageCredit: ImageCredit, suggested = false) {
   credit.setAttribute('aria-haspopup', 'dialog');
   if (suggested) credit.setAttribute('aria-description', 'Automatically suggested image');
   credit.addEventListener('click', () => openCredits([imageCredit]));
-  thumbnailCredits.set(credit, imageCredit);
+  thumbnailCredits.set(credit, { key, credit: imageCredit });
   caption.append(credit);
   return caption;
 }
@@ -423,7 +423,7 @@ function imageReview(storyId: string, title: string) {
     const figure = element('figure');
     const img = element('img'); img.src = candidate.url; img.alt = candidate.alt;
     img.width = 120; img.height = 80; img.loading = 'lazy'; img.referrerPolicy = 'no-referrer';
-    figure.append(choiceButton(candidate, img), thumbnailCredit(candidate));
+    figure.append(choiceButton(candidate, img), thumbnailCredit(candidate.filePage, candidate));
     const selected = current === candidate.id;
     const button = element('button', selected ? 'Withdraw approval' : `Upvote image (${count})`);
     button.type = 'button'; button.disabled = voteBusy; button.setAttribute('aria-pressed', String(selected));
@@ -463,7 +463,7 @@ function imageReview(storyId: string, title: string) {
       const preview = element('img'); preview.src = image.url; preview.alt = image.alt; preview.width = 120; preview.height = 80; preview.loading = 'lazy'; preview.referrerPolicy = 'no-referrer';
       const publish = element('button', 'Publish and upvote image'); publish.type = 'button'; publish.disabled = voteBusy || voter !== relayConfig.pubkey;
       publish.addEventListener('click', () => void publishCommons(storyId, image));
-      figure.append(choiceButton(image, preview), thumbnailCredit(image), publish); grid.append(figure);
+      figure.append(choiceButton(image, preview), thumbnailCredit(image.filePage, image), publish); grid.append(figure);
     }
   }
   details.insertBefore(grid, details.querySelector('form'));
@@ -584,9 +584,9 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
       image.loading = index === 0 ? 'eager' : 'lazy';
       image.decoding = 'async'; image.referrerPolicy = 'no-referrer';
       let triedLocal = imageUrl === localImage;
-      const photoCredit = (credit = '') => thumbnailCredit({ title: story.title, storyUrl: url, credit });
+      const photoCredit = (credit = '') => thumbnailCredit(url, { title: story.title, storyUrl: url, credit });
       let caption = commons
-        ? thumbnailCredit(commons, commons.filePage !== selection?.winner?.filePage)
+        ? thumbnailCredit(commons.filePage, commons, commons.filePage !== selection?.winner?.filePage)
         : photoCredit(triedLocal ? undefined : story.image?.credit);
       image.addEventListener('error', () => {
         if (localImage && !triedLocal) {
