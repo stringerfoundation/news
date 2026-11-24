@@ -73,7 +73,7 @@ Automated mobile, tablet, and desktop screenshots are published only for PRs who
 
 The publisher reconciles all current PR heads on every successful CI run or PR-close event, so concurrent events cannot discard another preview. Run the **Publish production and PR previews** workflow manually to retry a publication. Initial activation requires merging these workflows into `main` and a successful main CI run. Existing PRs need a new CI run using the updated workflow to upload their first `checked-site` artifact.
 
-Production HTML permits indexing; every preview receives server-rendered `noindex, nofollow, noarchive, noimageindex` metadata. Crawling stays allowed so search engines can read `noindex`; blocking crawling with `robots.txt` can leave linked URLs indexed. Project Pages cannot set a separate host-root robots policy. Previews are public test URLs, are not linked from production, and are removed when PRs close. The existing public Worker configuration (`PUBLIC_INDEXING=true`) continues to permit indexing of the main hostname.
+GitHub Pages production and previews carry `noindex, nofollow, noarchive, noimageindex` metadata and a project-level `robots.txt` with `Disallow: /`. Crawlers read `/robots.txt` at the hostname root, which is controlled by the organization’s GitHub Pages site. The homepage Worker strips the upstream robots metadata when `PUBLIC_INDEXING=true` on the public hostname. The homepage and its language editions use same-origin links and share assets under `/news-assets/`.
 
 Preview publishing and archive tests use Python 3.10+ from the GitHub Ubuntu runner, with only standard-library modules. `pnpm run test:previews` also exercises generated-branch persistence and cleanup using a local temporary Git repository. Browser checks exercise the real combined production/preview build at desktop and mobile sizes.
 
@@ -136,6 +136,8 @@ Illustrations display Commons attribution, file and license links, and an explic
 Dependabot opens weekly pnpm and GitHub Action update pull requests. A weekly audit checks for newly disclosed dependency vulnerabilities even without source changes. Repository admins can require the CI jobs in a branch protection rule; workflows alone do not prevent direct pushes.
 
 ## Language editions
+
+On the public news homepage, the Cloudflare Worker opens the highest-ranked supported language edition from the browser’s preferences and defaults to English. The language picker remembers an explicit choice for one year in a browser cookie. Direct links to localized editions open the linked edition.
 
 The Pages build includes `/fr/` (French), `/es/` (Spanish), `/ar/` (Arabic), `/zh/` (Simplified Chinese), `/ru/` (Russian), `/nl/` (Dutch), and `/de/` (German). Each edition has its own pinned publisher catalogue in `sources/`; source selection is saved separately for each language. Arabic uses a right-to-left interface; story text keeps its original direction.
 

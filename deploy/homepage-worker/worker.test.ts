@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker, { routeFor } from './worker.ts';
+import { EDITIONS } from '../../reader-locales.ts';
 const request = (path: string, method = 'GET') => new Request('https://example.org' + path, { method });
 const environment = { PUBLIC_HOST: 'example.org', PAGES_ORIGIN: 'https://pages.example.org' };
 
@@ -17,18 +18,82 @@ function assertIdentity(value: unknown): asserts value is {
     for (const url of urls) assert.equal(typeof url, 'string');
   }
 }
-test('only homepage and namespaced reader assets reach Pages', () => {
+test('only the homepage, editions and namespaced reader assets reach Pages', () => {
   for (const path of ['/', '/?utm_source=fixture']) assert.equal(routeFor(request(path)).kind, 'home');
+  for (const { path } of EDITIONS.filter(edition => edition.path)) {
+    assert.deepEqual(routeFor(request(`/${path}/`)), { kind: 'home', path: `/${path}/` });
+    assert.equal(routeFor(request(`/${path}/extra`)).kind, 'legacy');
+    assert.equal(routeFor(request(`/${path}/`, 'POST')).kind, 'legacy');
+  }
   for (const path of ['/mission', '/awards', '/assets/site.css', '/robots.txt', '/sitemap.xml'])
     assert.equal(routeFor(request(path)).kind, 'legacy');
   for (const path of ['/donate', '/donate/']) assert.equal(routeFor(request(path)).kind, 'donate');
   for (const path of ['/who-we-are', '/who-we-are/']) assert.equal(routeFor(request(path)).kind, 'about');
-  for (const path of ['/news-assets/app.js', '/news-assets/response.js', '/news-assets/publications.js', '/news-assets/relay-reader.js', '/news-assets/assets/stringer-thumbnails/photo-1.png'])
+  for (const path of ['/news-assets/app.js', '/news-assets/response.js', '/news-assets/publications.js', '/news-assets/relay-reader.js', '/news-assets/atomstr-reader.js', '/news-assets/assets/stringer-thumbnails/photo-1.png'])
     assert.equal(routeFor(request(path)).kind, 'asset');
   for (const path of ['/news-assets/private.csv', '/news-assets/', '/news-assets/dashboard/index.html', '/news-assets/wire-images.js'])
     assert.equal(routeFor(request(path)).kind, 'missing');
   assert.equal(routeFor(request('/', 'POST')).kind, 'legacy');
   assert.equal(routeFor(request('/donate?source=fixture', 'POST')).kind, 'legacy');
+});
+test('edition redirects preserve query parameters and HEAD requests use the upstream edition', async t => {
+  const mock = t.mock.method(globalThis, 'fetch', async (url: URL, options?: RequestInit) => {
+    assert.equal(url.href, 'https://pages.example.org/news/sw/?campaign=test');
+    assert.equal(options?.method, 'HEAD');
+    return new Response(null, { headers: { 'content-type': 'text/html', 'x-robots-tag': 'noindex' } });
+  });
+  const env = { ...environment, PAGES_ORIGIN: 'https://pages.example.org/news/', PUBLIC_INDEXING: 'true' };
+  const redirect = await worker.fetch(request('/sw?campaign=test'), env);
+  assert.equal(redirect.status, 308);
+  assert.equal(redirect.headers.get('location'), '/sw/?campaign=test');
+  assert.equal(mock.mock.callCount(), 0);
+  const response = await worker.fetch(request('/sw/?campaign=test', 'HEAD'), env);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.has('x-robots-tag'), false);
+  assert.equal(await response.text(), '');
+  assert.equal(mock.mock.callCount(), 1);
+});
+test('homepage uses browser language order, quality and the configured editions', async t => {
+  t.mock.method(globalThis, 'fetch', async () => new Response(null, { headers: { 'content-type': 'text/html' } }));
+  for (const [language, path] of [
+    ['pt-PT,pt;q=0.9,en;q=0.8', '/pt/'],
+    ['pt-BR,pt;q=0.9', '/br/'],
+    ['fr-CA,es;q=0.8', '/fr/'],
+    ['es;q=0.4, de;q=0.9', '/de/'],
+    ['it-IT,zh-Hant;q=0.9,ru;q=0.9', '/zh/'],
+    ['ar;q=0,sw-KE;q=0.5', '/sw/'],
+    ['en-GB,fr;q=0.8', null],
+    ['it-IT,fr;q=0, *;q=0.8, ar;q=1.5', null],
+    ['', null],
+  ] as const) {
+    const response = await worker.fetch(new Request('https://example.org/?campaign=test&source=fixture', {
+      method: 'HEAD', headers: { 'Accept-Language': language },
+    }), environment);
+    assert.equal(response.status, path ? 302 : 200, language);
+    assert.equal(response.headers.get('location'), path ? path + '?campaign=test&source=fixture' : null, language);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.equal(response.headers.get('vary'), 'Accept-Language, Cookie');
+    assert.equal(response.headers.get('set-cookie'), null);
+  }
+});
+test('saved preference wins on the homepage while direct edition links keep their language', async t => {
+  const visited: string[] = [];
+  t.mock.method(globalThis, 'fetch', async (url: URL, options?: RequestInit) => {
+    visited.push(url.pathname + url.search);
+    assert.equal(new Headers(options?.headers).get('cookie'), null);
+    assert.equal(new Headers(options?.headers).get('accept-language'), null);
+    return new Response(null, { headers: { 'content-type': 'text/html' } });
+  });
+  const open = (path: string, cookie: string) => worker.fetch(new Request('https://example.org' + path, {
+    method: 'HEAD', headers: { Cookie: cookie, 'Accept-Language': 'fr' },
+  }), environment);
+  assert.equal((await open('/', 'other=value; stringer_edition=pt-PT')).headers.get('location'), '/pt/');
+  assert.equal((await open('/', 'stringer_edition=invalid')).headers.get('location'), '/fr/');
+  assert.equal((await open('/', 'stringer_edition=en-US')).status, 200);
+  assert.equal((await open('/de/', 'stringer_edition=pt-PT')).status, 200);
+  assert.equal((await open('/?edition=en-US&campaign=test', '')).status, 200);
+  assert.equal((await open('/?edition=de', '')).headers.get('location'), '/fr/');
+  assert.deepEqual(visited, ['/', '/de/', '/?campaign=test']);
 });
 test('donation links redirect GET and HEAD to the external page, preserving attribution', async t => {
   t.mock.method(globalThis, 'fetch', () => { throw new Error('Donation redirects must not reach an origin'); });

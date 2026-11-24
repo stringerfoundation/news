@@ -1,4 +1,5 @@
 import { isPublicAsset } from '../../public-assets.ts';
+import { EDITIONS, localeForLanguage, type Locale } from '../../reader-locales.ts';
 import relayConfig from '../../relay-config.ts';
 import type { HTMLRewriter as CloudflareHTMLRewriter } from '@cloudflare/workers-types';
 
@@ -22,10 +23,34 @@ type Route =
   | { kind: 'about'; search: string }
   | { kind: 'legacy' }
   | { kind: 'missing' }
+  | { kind: 'edition-redirect'; location: string }
   | { kind: 'home'; path: string }
   | { kind: 'asset'; path: string };
 
 const prefix = '/news-assets/';
+const editionPaths = new Map<string, Locale>(EDITIONS.map(({ path, locale }) => [path ? `/${path}/` : '/', locale]));
+const pathsByLocale = new Map<string, string>([...editionPaths].map(([path, locale]) => [locale, path]));
+const editionCookie = 'stringer_edition';
+const languageVary = 'Accept-Language, Cookie';
+
+function browserEdition(header: string) {
+  const preferences = header.split(',').flatMap(value => {
+    const match = /^\s*([a-z]{1,8}(?:-[a-z0-9]{1,8})*)(?:\s*;\s*q=(0(?:\.\d{0,3})?|1(?:\.0{0,3})?))?\s*$/i.exec(value);
+    if (!match?.[1]) return [];
+    const weight = Number(match[2] ?? 1);
+    if (weight === 0) return [];
+    const tag = match[1].toLowerCase();
+    const locale = localeForLanguage(tag);
+    return locale !== 'en-US' || tag === 'en' || tag.startsWith('en-') ? [{ locale, weight }] : [];
+  });
+  return preferences.sort((a, b) => b.weight - a.weight)[0]?.locale ?? 'en-US';
+}
+
+function savedEdition(request: Request) {
+  return request.headers.get('cookie')?.split(';').map(value => value.trim())
+    .find(value => value.startsWith(editionCookie + '='))?.slice(editionCookie.length + 1) ?? '';
+}
+
 export function routeFor(request: Request): Route {
   const url = new URL(request.url);
   if (url.pathname === '/.well-known/nostr.json' && ['GET', 'HEAD', 'OPTIONS'].includes(request.method))
@@ -35,7 +60,9 @@ export function routeFor(request: Request): Route {
     return { kind: 'donate', search: url.search };
   if (url.pathname === '/who-we-are' || url.pathname === '/who-we-are/')
     return { kind: 'about', search: url.search };
-  if (url.pathname === '/') return { kind: 'home', path: '/' };
+  if (editionPaths.has(url.pathname)) return { kind: 'home', path: url.pathname };
+  if (editionPaths.has(url.pathname + '/'))
+    return { kind: 'edition-redirect', location: url.pathname + '/' + url.search };
   if (!url.pathname.startsWith(prefix)) return { kind: 'legacy' };
   const path = url.pathname.slice(prefix.length);
   return isPublicAsset(path) || path === 'data/news.json'
@@ -78,10 +105,28 @@ export default {
       return fetch(new Request(legacy, request));
     }
     if (route.kind === 'missing') return new Response('Not found', { status: 404 });
+    if (route.kind === 'edition-redirect')
+      return new Response(null, { status: 308, headers: { Location: route.location } });
+    const page = new URL(request.url);
+    const choice = page.searchParams.get('edition');
+    const explicitEdition = route.kind === 'home' && choice !== null &&
+      choice === editionPaths.get(route.path) ? choice : null;
+    if (route.kind === 'home' && route.path === '/' && !explicitEdition) {
+      const preferredPath = pathsByLocale.get(savedEdition(request)) ??
+        pathsByLocale.get(browserEdition(request.headers.get('accept-language') ?? ''));
+      if (preferredPath && preferredPath !== '/') {
+        if (choice !== null) page.searchParams.delete('edition');
+        return new Response(null, {
+          status: 302,
+          headers: { Location: preferredPath + page.search, 'Cache-Control': 'no-store', Vary: languageVary },
+        });
+      }
+    }
     const target = new URL(env.PAGES_ORIGIN);
     if (target.protocol !== 'https:') return new Response('Invalid origin configuration', { status: 503 });
     target.pathname = target.pathname.replace(/\/$/, '') + route.path;
-    target.search = new URL(request.url).search;
+    target.search = page.search;
+    if (explicitEdition) target.searchParams.delete('edition');
     let response;
     try {
       // Never forward visitor cookies or authentication to the public Pages origin.
@@ -99,22 +144,34 @@ export default {
     const headers = new Headers(response.headers);
     for (const name of ['etag', 'content-length', 'content-encoding', 'set-cookie', 'link']) headers.delete(name);
     headers.set('cache-control', 'no-store');
-    const publicRequest = new URL(request.url).hostname === env.PUBLIC_HOST;
+    if (route.path === '/') headers.append('vary', languageVary);
+    if (explicitEdition && request.method === 'GET') {
+      headers.set('set-cookie', `${editionCookie}=${explicitEdition}; Path=/; Max-Age=31536000; Secure; HttpOnly; SameSite=Lax`);
+    }
+    const publicRequest = page.hostname === env.PUBLIC_HOST;
     if (publicRequest && env.PUBLIC_INDEXING === 'true') headers.delete('x-robots-tag');
     else headers.set('x-robots-tag', 'noindex, nofollow, noarchive, noimageindex');
     const body = new Response(response.body, { status: response.status, headers });
     if (request.method === 'HEAD') return body;
-    const homepage = new URL(request.url);
+    // Edition documents use ../ for shared assets, so keep their depth under the asset prefix.
+    const assetBase = prefix + route.path.slice(1);
     return new HTMLRewriter()
-      .on('head', { element(el) { el.prepend('<base href="/news-assets/">', { html: true }); } })
+      .on('head', { element(el) { el.prepend(`<base href="${assetBase}">`, { html: true }); } })
       .on('a[href]', { element(el) {
         const href = el.getAttribute('href');
-        if (href === './') el.setAttribute('href', '/' + homepage.search);
-        else if (href?.startsWith('#')) el.setAttribute('href', '/' + homepage.search + href);
+        if (href === './') el.setAttribute('href', page.pathname + page.search);
+        else if (href?.startsWith('#')) el.setAttribute('href', page.pathname + page.search + href);
       } })
-      .on('.edition-switcher a[href^="./"][hreflang]:not([href="./"])', { element(el) {
-        // Edition HTML lives on Pages; the apex base URL serves assets only.
-        el.setAttribute('href', new URL(String(el.getAttribute('href')), target).href);
+      .on('.edition-switcher a[hreflang][href]', { element(el) {
+        const href = el.getAttribute('href');
+        if (!href) return;
+        const edition = new URL(href, page);
+        const locale = editionPaths.get(edition.pathname);
+        if (edition.origin === page.origin && locale) {
+          edition.search = page.search;
+          edition.searchParams.set('edition', locale);
+          el.setAttribute('href', edition.pathname + edition.search + edition.hash);
+        }
       } })
       .on('meta[name="robots"]', { element(el) {
         if (publicRequest && env.PUBLIC_INDEXING === 'true') el.remove();

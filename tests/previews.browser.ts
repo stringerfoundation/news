@@ -46,7 +46,7 @@ test('built production and PR previews preserve relative assets, indexing and mo
       await page.goto(`http://127.0.0.1:${(server.address() as AddressInfo).port}${path}`);
       await page.waitForSelector('#world-news article');
       const robots = await page.locator('meta[name="robots"]').getAttribute('content');
-      assert.equal(robots?.includes('noindex'), preview);
+      assert.equal(robots?.includes('noindex'), true);
       assert.equal(await page.locator('#world-news article').count(), 30);
       if (width === 375) assert.equal(await page.locator('#world-news article:not([hidden])').count(), 5);
       else {

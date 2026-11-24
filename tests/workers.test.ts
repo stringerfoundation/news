@@ -74,9 +74,10 @@ test('homepage rewrites relative navigation and indexing only on the configured 
   t.mock.method(
     globalThis,
     'fetch',
-    async () =>
-      new Response(
-        '<html><head><meta name="robots" content="noindex"></head><body><a href="./">Home</a><a href="#stories">Stories</a><a href="https://outside.org">Outside</a><nav class="edition-switcher"><a href="./" hreflang="en">English</a><a href="./br/" hreflang="pt-BR">Brazil</a><a href="./pt/" hreflang="pt-PT">Portugal</a></nav></body></html>',
+    async (url: URL) => {
+      const relative = url.pathname === '/news/' ? './' : '../';
+      return new Response(
+        `<html><head><meta name="robots" content="noindex"><link rel="stylesheet" href="${relative}style.css?v=1"></head><body><a href="${relative}">Home</a><a href="#stories">Stories</a><a href="https://outside.org">Outside</a><nav class="edition-switcher"><a href="${relative}" hreflang="en">English</a><a href="${relative}br/" hreflang="pt-BR">Brazil</a><a href="${relative}pt/" hreflang="pt-PT">Portugal</a><a href="" hreflang="fr">French</a></nav></body></html>`,
         {
           headers: {
             'content-type': 'text/html',
@@ -88,30 +89,42 @@ test('homepage rewrites relative navigation and indexing only on the configured 
             'x-robots-tag': 'noindex',
           },
         },
-      ),
+      );
+    },
   );
-  for (const [host, indexing, publicIndex] of [
-    ['example.org', 'true', true],
-    ['preview.example.org', 'true', false],
-    ['example.org', 'false', false],
+  for (const [host, path, indexing, publicIndex] of [
+    ['example.org', '/', 'true', true],
+    ['example.org', '/br/', 'true', true],
+    ['preview.example.org', '/pt/', 'true', false],
+    ['example.org', '/', 'false', false],
   ] as const) {
-    const response = await worker.fetch(request('/?campaign=test', host), {
+    const response = await worker.fetch(request(`${path}?campaign=test`, host), {
       ...env,
       PAGES_ORIGIN: 'https://pages.example.org/news/',
       PUBLIC_INDEXING: indexing,
     });
     const $ = load(await response.text());
-    assert.equal($('base').attr('href'), '/news-assets/');
-    assert.equal($('a').eq(0).attr('href'), '/?campaign=test');
-    assert.equal($('a').eq(1).attr('href'), '/?campaign=test#stories');
+    const base = new URL($('base').attr('href') ?? '', `https://${host}${path}`);
+    assert.equal(base.pathname, `/news-assets${path}`);
+    assert.equal(new URL($('link[rel="stylesheet"]').attr('href') ?? '', base).href, `https://${host}/news-assets/style.css?v=1`);
+    assert.equal($('a').eq(1).attr('href'), `${path}?campaign=test#stories`);
     assert.equal($('a').eq(2).attr('href'), 'https://outside.org');
-    assert.equal($('[hreflang="en"]').attr('href'), '/?campaign=test');
-    assert.equal($('[hreflang="pt-BR"]').attr('href'), 'https://pages.example.org/news/br/');
-    assert.equal($('[hreflang="pt-PT"]').attr('href'), 'https://pages.example.org/news/pt/');
+    assert.equal($('[hreflang="en"]').attr('href'), '/?campaign=test&edition=en-US');
+    assert.equal($('[hreflang="pt-BR"]').attr('href'), '/br/?campaign=test&edition=pt-BR');
+    assert.equal($('[hreflang="pt-PT"]').attr('href'), '/pt/?campaign=test&edition=pt-PT');
+    assert.equal($('[hreflang="fr"]').attr('href'), '');
     assert.equal($('meta[name="robots"]').length, publicIndex ? 0 : 1);
     assert.equal(response.headers.has('x-robots-tag'), !publicIndex);
     assert.equal(response.headers.get('cache-control'), 'no-store');
     for (const name of ['etag', 'content-length', 'content-encoding', 'set-cookie', 'link'])
       assert.equal(response.headers.get(name), null);
   }
+
+  const selected = await worker.fetch(new Request('https://example.org/?edition=en-US', {
+    headers: { Cookie: 'stringer_edition=pt-PT', 'Accept-Language': 'fr' },
+  }), env);
+  assert.equal(selected.status, 200);
+  assert.equal(selected.headers.get('set-cookie'), 'stringer_edition=en-US; Path=/; Max-Age=31536000; Secure; HttpOnly; SameSite=Lax');
+  const brazil = await worker.fetch(request('/br/?edition=pt-BR'), env);
+  assert.match(brazil.headers.get('set-cookie') ?? '', /^stringer_edition=pt-BR;/);
 });
