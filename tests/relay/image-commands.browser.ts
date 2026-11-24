@@ -102,7 +102,9 @@ test('image commands reject stale actions, recover from signer/search failures, 
       await c.findCommons(storyId, 'No matches');
       outcomes.push(document.body.textContent!.includes('No reusable image found. Open image review to refine the search.'));
       win.eligible = false; c.renderWorld();
-      outcomes.push(document.body.textContent!.includes('No reusable image found for this headline.'));
+      const placeholder = document.querySelector<HTMLElement>('.wire-thumbnail > .story-placeholder');
+      const noImage = 'No reusable image found for this headline.';
+      outcomes.push(placeholder?.title === noImage && placeholder.getAttribute('aria-label') === noImage);
       win.eligible = true;
       win.searchTask = async () => ({images: [photo], issues: []});
       await c.findCommons('2'.repeat(64), 'New search');
@@ -206,7 +208,7 @@ test('image commands reject stale actions, recover from signer/search failures, 
       await new Promise(resolve => setTimeout(resolve, 0)); outcomes.push(withdrawn);
       const img = document.querySelector('#world-news .wire-thumbnail > a > img') as HTMLImageElement;
       img.closest('a')!.replaceWith(img); img.dispatchEvent(new Event('error'));
-      outcomes.push(document.body.textContent!.includes('Image unavailable'));
+      outcomes.push(!!document.querySelector('.wire-thumbnail > .story-placeholder[aria-label="Image unavailable"]'));
       let finishProposal!: () => void;
       win.proposeTask = () => new Promise<string>(resolve => {finishProposal = () => resolve('candidate');});
       win.voteTask = async () => {};

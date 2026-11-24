@@ -149,6 +149,8 @@ test('relay reader verifies complete collections, preserves order, caches offlin
       const feedStatus = page.locator('footer').getByRole('button', { name: 'Feed status', exact: true });
       const statusDialog = page.getByRole('dialog', { name: 'Feed status', exact: true });
       await page.waitForFunction(() => document.querySelector('#relay-status-details')?.textContent?.includes('Total elapsed:'));
+      const collectionLink = page.getByRole('link', {name: 'Explore the Stringer collection'});
+      assert.equal(await collectionLink.isVisible(), false, 'The collection link stays out of the initial loading layout');
       assert.equal(await page.locator('#relay-status').isVisible(), true);
       assert.match(await page.locator('#relay-status-details').textContent() || '', /Total elapsed: \d+\.\d s/);
       holdInitialResponse = false;
@@ -164,6 +166,7 @@ test('relay reader verifies complete collections, preserves order, caches offlin
       assert.equal(await page.locator('#refresh-status').textContent(), '');
       deliverRemainingStories!();
       await page.waitForFunction(() => /Latest feed load: .*loaded in/i.test(document.querySelector('#relay-status-details')?.textContent ?? ''));
+      assert.equal(await collectionLink.isVisible(), true);
       assert.equal(await page.locator('#relay-status-details').isVisible(), false);
       assert.match(await page.locator('#relay-status-details').textContent() || '', /Stringer · loaded in \d+\.\d s/);
       assert.match(await page.locator('#relay-status-details').textContent() || '', /CNA · no published stories/);

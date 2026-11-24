@@ -24,9 +24,10 @@ function plain(value: unknown): string {
 }
 interface ImagePage { index?: number; title?: string; imageinfo?: { mime?: string; thumburl?: string; url?: string; descriptionurl?: string; extmetadata?: Record<string, { value?: string }> }[] }
 interface CommonsResponse { error?: unknown; query?: { pages?: ImagePage[] } }
-async function representativeImages(query: string, request: typeof fetch): Promise<CommonsImage[]> {
+async function representativeImages(query: string, request: typeof fetch, language: string): Promise<CommonsImage[]> {
   try {
     const wiki = new URL('https://en.wikipedia.org/w/api.php');
+    if (/^[a-z]{2,3}$/.test(language)) wiki.hostname = `${language}.wikipedia.org`;
     wiki.search = new URLSearchParams({ action: 'query', format: 'json', formatversion: '2', origin: '*',
       generator: 'search', gsrnamespace: '0', gsrlimit: '1', gsrsearch: query,
       prop: 'pageimages|images', piprop: 'name', pilicense: 'free', imlimit: '100' }).toString();
@@ -50,9 +51,9 @@ async function representativeImages(query: string, request: typeof fetch): Promi
     return readImages(result);
   } catch { return []; /* Optional subject lookup can fall back to Commons search. */ }
 }
-export async function searchCommons(query: string, request: typeof fetch = fetch, suggest = false): Promise<CommonsImage[]> {
+export async function searchCommons(query: string, request: typeof fetch = fetch, suggest = false, language = 'en'): Promise<CommonsImage[]> {
   if (!query.trim()) throw new Error('Enter a person, place or subject to search for.');
-  const preferred = suggest ? representativeImages(query.trim().slice(0, 200), request) : Promise.resolve([]);
+  const preferred = suggest ? representativeImages(query.trim().slice(0, 200), request, language) : Promise.resolve([]);
   const url = new URL('https://commons.wikimedia.org/w/api.php');
   url.search = new URLSearchParams({ action: 'query', format: 'json', formatversion: '2', origin: '*',
     generator: 'search', gsrnamespace: '6', gsrlimit: '10', gsrsearch: `${query.trim().slice(0, 200)} filetype:bitmap`,

@@ -87,7 +87,7 @@ export async function searchEuPhotos(query: string, request: typeof fetch = fetc
   return images;
 }
 const cache = new Map<string, { until: number; images: CommonsImage[] }>();
-export async function searchImages(query: string, source: ImageSource = 'all', suggest = false, request: typeof fetch = fetch, onProgress?: (result: ImageSearchResult) => void): Promise<ImageSearchResult> {
+export async function searchImages(query: string, source: ImageSource = 'all', suggest = false, request: typeof fetch = fetch, onProgress?: (result: ImageSearchResult) => void, language = 'en'): Promise<ImageSearchResult> {
   if (!query.trim()) throw new Error('Enter a person, place or subject to search for.');
   const issues: string[] = [];
   const completed: CommonsImage[][] = [];
@@ -99,10 +99,10 @@ export async function searchImages(query: string, source: ImageSource = 'all', s
     return { images: images.slice(0, 30), issues: [...issues] };
   };
   const run = async (id: Exclude<ImageSource, 'all'>) => {
-    const key = JSON.stringify([id, query.trim(), suggest]), cached = cache.get(key);
+    const key = JSON.stringify([id, query.trim(), suggest, language]), cached = cache.get(key);
     if (request === fetch && cached && cached.until > Date.now()) return cached.images;
     try {
-      const images = id === 'commons' ? await searchCommons(query, request, suggest) : id === 'eu' ? await searchEuPhotos(query, request)
+      const images = id === 'commons' ? await searchCommons(query, request, suggest, language) : id === 'eu' ? await searchEuPhotos(query, request)
         : await searchOpenverse(query, request, id === 'flickr' ? true : ['wellcome', 'smithsonian', 'europeana'].includes(id) ? id as 'wellcome' | 'smithsonian' | 'europeana' : false);
       if (request === fetch) {
         if (cache.size >= 200) cache.delete(cache.keys().next().value!);
