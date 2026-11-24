@@ -39,6 +39,14 @@ test('source adapters preserve credits, reject unsuitable metadata and recover f
         return new Response('', { status: 503 });
       });
       const limited = await searchImages('Rate limited', 'openverse', false, async () => new Response('', { status: 429 }));
+      const offline = await searchImages('Offline', 'all', true, async input => {
+        const host = new URL(String(input)).hostname;
+        if (host === 'api.openverse.org') throw new TypeError('NetworkError when attempting to fetch resource.');
+        if (host === 'gfdwwnbuul.execute-api.eu-west-1.amazonaws.com')
+          return Response.json({ response: { docs: [eu] } });
+        return new Response('', { status: 503 });
+      });
+      const malformed = await searchImages('Malformed response', 'openverse', false, async () => new Response('<html>Unavailable</html>'));
       const providerResults: Record<string, number> = {};
       for (const [provider, source] of [['wellcome', 'wellcome_collection'], ['europeana', 'europeana'], ['smithsonian', 'smithsonian_libraries']] as const) {
         const images = await searchOpenverse('Example', async input => {
@@ -66,7 +74,7 @@ test('source adapters preserve credits, reject unsuitable metadata and recover f
       const empty = await searchImages('No results', 'all', false, async (input: Parameters<typeof fetch>[0]) => new Response(JSON.stringify(
         new URL(String(input)).pathname.endsWith('/stats/') ? [{ source_name: 'smithsonian_libraries' }] : new URL(String(input)).hostname === 'api.openverse.org' ? { results: [] }
           : new URL(String(input)).hostname === 'commons.wikimedia.org' ? { query: { pages: [] } } : { response: { docs: [] } })));
-      return { ov, european, sourceFilter, licenses, fallback, limited, empty, providerResults, progressive };
+      return { ov, european, sourceFilter, licenses, fallback, limited, offline, malformed, empty, providerResults, progressive };
     });
     assert.deepEqual(result.providerResults, { wellcome: 1, europeana: 1, smithsonian: 1 });
     assert.equal(result.progressive, true, 'Fast results must be available while other providers are pending');
@@ -86,6 +94,10 @@ test('source adapters preserve credits, reject unsuitable metadata and recover f
     assert.equal(result.fallback.issues.length, 2);
     assert.equal(result.limited.images.length, 0);
     assert.match(result.limited.issues[0] || '', /Search limit reached/);
+    assert.equal(result.offline.images[0]?.source, 'eu');
+    assert.ok(result.offline.issues.includes('Openverse: Search is unavailable. Please retry.'));
+    assert.ok(result.offline.issues.every(issue => !issue.includes('NetworkError')));
+    assert.deepEqual(result.malformed, { images: [], issues: ['Openverse: Search is unavailable. Please retry.'] });
     assert.deepEqual(result.empty, { images: [], issues: [] });
   } finally { await browser.close(); }
 });

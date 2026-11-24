@@ -63,7 +63,7 @@ test('reusable image searches fail closed for malformed responses and recover fr
       await Promise.all(Array.from({length: 210}, (_, i) => searchImages(`Cache capacity ${i}`, 'openverse')));
       await searchImages('Last cache entry', 'openverse');
       await searchImages('Last cache entry', 'openverse');
-      const nonError = await searchImages('Subject', 'openverse', false, async () => { throw 'Offline'; });
+      const nonError = await searchImages('Subject', 'commons', false, async () => { throw 'Offline'; });
       return { rejected, degraded, malformed, missingTitle, many, empty, noRepresentative, diverse, publicDomain, europe, nonError };
     });
     assert.equal(catalogRequests, 211, 'A repeated recent query must use the bounded cache');
