@@ -3692,7 +3692,7 @@ function expand(hash, prk, info, length = 32) {
   return okm.slice(0, length);
 }
 
-// node_modules/.pnpm/nostr-tools@2.26.0_nostr-wasm@0.1.0_typescript@7.0.2/node_modules/nostr-tools/lib/esm/index.js
+// node_modules/.pnpm/nostr-tools@2.26.1_nostr-wasm@0.1.0_typescript@7.0.2/node_modules/nostr-tools/lib/esm/index.js
 var __defProp = Object.defineProperty;
 var __export = (target, all) => {
   for (var name in all)
@@ -4631,6 +4631,8 @@ function encodeTLV(tlv) {
   let entries = [];
   Object.entries(tlv).reverse().forEach(([t, vs]) => {
     vs.forEach((v) => {
+      if (v.length > 255)
+        throw new Error(`TLV ${t} value is too long (${v.length} bytes, max 255)`);
       let entry = new Uint8Array(v.length + 2);
       entry.set([parseInt(t)], 0);
       entry.set([v.length], 1);
@@ -6559,7 +6561,7 @@ async function validateEvent2(event, url, method, body) {
   return true;
 }
 
-// node_modules/.pnpm/nostr-tools@2.26.0_nostr-wasm@0.1.0_typescript@7.0.2/node_modules/nostr-tools/lib/esm/pool.js
+// node_modules/.pnpm/nostr-tools@2.26.1_nostr-wasm@0.1.0_typescript@7.0.2/node_modules/nostr-tools/lib/esm/pool.js
 var utf8Decoder2 = new TextDecoder("utf-8");
 var utf8Encoder3 = new TextEncoder();
 function normalizeURL2(url) {
@@ -7002,7 +7004,13 @@ var AbstractRelay = class {
           }
         }, this.publishTimeout);
         this.openEventPublishes.set(evt.id, { resolve, reject, timeout });
-        this.send('["AUTH",' + JSON.stringify(evt) + "]");
+        try {
+          await this.send('["AUTH",' + JSON.stringify(evt) + "]");
+        } catch (err) {
+          clearTimeout(timeout);
+          this.openEventPublishes.delete(evt.id);
+          throw err;
+        }
       } catch (err) {
         reject(err);
       }
@@ -7256,7 +7264,10 @@ var Subscription = class {
     });
   }
   fire() {
-    this.relay.send('["REQ","' + this.id + '",' + JSON.stringify(this.filters).substring(1));
+    this.relay.send('["REQ","' + this.id + '",' + JSON.stringify(this.filters).substring(1)).catch(() => {
+      clearTimeout(this.eoseTimeoutHandle);
+      this.close("relay connection closed");
+    });
     this.eoseTimeoutHandle = setTimeout(this.receivedEose.bind(this), this.eoseTimeout);
   }
   receivedEose() {
@@ -7268,14 +7279,10 @@ var Subscription = class {
   }
   close(reason = "closed by caller") {
     if (!this.closed && this.relay.connected) {
-      try {
-        this.relay.send('["CLOSE",' + JSON.stringify(this.id) + "]");
-      } catch (err) {
-        if (err instanceof SendingOnClosedConnection) {
-        } else {
-          throw err;
-        }
-      }
+      this.relay.send('["CLOSE",' + JSON.stringify(this.id) + "]").catch((err) => {
+        if (!(err instanceof SendingOnClosedConnection))
+          console.warn("sending CLOSE failed:", err);
+      });
       this.closed = true;
     }
     this.relay.openSubs.delete(this.id);
