@@ -109,15 +109,14 @@
 }
 .refresh-status { margin: 14px 0 18px; }
 .refresh-status:empty, .feed-status:empty { display: none; }
-.relay-status { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.5; max-width: 260px; }
+.relay-status { margin: 0; padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 10px; line-height: 1.5; min-height: 24px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.relay-status:hover { color: var(--ink); }
 .build-info { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
 .build-repository { display: inline-grid; place-items: center; width: 24px; height: 24px; vertical-align: middle; border-radius: 3px; }
 .build-repository svg { width: 12px; height: 12px; }
 .build-repository:hover { color: var(--ink); }
-.relay-status summary { width: fit-content; cursor: pointer; }
-.relay-status summary:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
-.relay-status p { margin: 2px 0; }
-.relay-status[open] summary { margin-bottom: 5px; }
+#relay-status-details { padding-block: 12px; font-size: 13px; line-height: 1.5; }
+#relay-status-details p { margin: 4px 0; }
 .page-intro {
   display: block;
   padding-block: 28px 24px;
@@ -144,7 +143,7 @@
 .story-media { margin: 0; min-width: 0; }
 .story-placeholder { width: 100%; aspect-ratio: 1; border-radius: 50%; background: var(--accent); }
 .story-media img { display: block; width: 100%; height: auto; aspect-ratio: 1; object-fit: contain; background: var(--soft); }
-.stringer .story-media img { background: transparent; }
+#stringer-news .story-media img { height: auto; aspect-ratio: 1; border-radius: 50%; background: transparent; }
 #global-newswire .story.with-image { grid-template-columns: 120px minmax(0, 1fr); row-gap: 4px; }
 #global-newswire .story-body { grid-column: 2; grid-row: 1; }
 #global-newswire .wire-thumbnail { display: contents; }
@@ -200,6 +199,7 @@
   .desk #global-newswire .wire-thumbnail > a { grid-column: 2; }
   .desk .story .summary { display: none; }
   .desk .story-media img { width: 64px; height: 48px; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 4px; }
+  #stringer-news .story-media img { width: 48px; }
   .desk .story-placeholder { width: 48px; }
   .desk .story { color: #291a14; --muted: #514139; }
   .desk .story .source { color: inherit; }
@@ -241,7 +241,7 @@ button.image-credit-button {
   padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--muted);
   vertical-align: top; cursor: pointer;
 }
-.image-credit-button:hover, .image-credit-close:hover { background: var(--soft); color: var(--ink); }
+.image-credit-button:hover, .reader-dialog-close:hover { background: var(--soft); color: var(--ink); }
 .image-credit-button:focus-visible { outline-offset: 0; }
 /* Creative Commons press kit icon, embedded to keep the Pages artifact paths stable. */
 .image-credit-cc {
@@ -272,23 +272,23 @@ c0-3.048,0.885-5.466,2.658-7.257c1.77-1.79,4.008-2.686,6.713-2.686C51.117,18.558
   min-height: 24px; margin-inline-start: 6px; padding: 0; border: 0; background: transparent;
   color: inherit; font-size: 11px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
 }
-.image-credit-dialog {
+.reader-dialog {
   width: min(480px, calc(100% - 32px)); max-height: min(680px, calc(100dvh - 32px));
   margin: auto; padding: 0; border: 1px solid var(--line); border-radius: 10px;
   background: white; color: var(--ink); box-shadow: 0 12px 50px #0003; overflow: hidden;
 }
-.image-credit-dialog[open] { display: flex; flex-direction: column; }
-.image-credit-dialog::backdrop { background: #0004; }
-.image-credit-header {
+.reader-dialog[open] { display: flex; flex-direction: column; }
+.reader-dialog::backdrop { background: #0004; }
+.reader-dialog-header {
   display: flex; flex: none; align-items: center; justify-content: space-between;
   gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--line);
 }
-.image-credit-header h2 { font-size: 18px; }
-.image-credit-close {
+.reader-dialog-header h2 { font-size: 18px; }
+.reader-dialog-close {
   min-height: 32px; padding: 3px 10px; border: 1px solid var(--line); border-radius: 4px;
   background: white; color: inherit; font-size: 13px; cursor: pointer;
 }
-.image-credit-body { padding: 0 20px; overflow: auto; overflow-wrap: anywhere; }
+.reader-dialog-body { padding: 0 20px; overflow: auto; overflow-wrap: anywhere; }
 .image-credit-entry { padding: 16px 0; font-size: 14px; line-height: 1.5; }
 .image-credit-entry + .image-credit-entry { border-top: 1px solid var(--line); }
 .image-credit-entry h3 { font-size: 16px; line-height: 1.35; }

@@ -146,6 +146,8 @@ test('relay reader verifies complete collections, preserves order, caches offlin
       });
       const started = Date.now();
       await page.goto('https://reader.test/news2/');
+      const feedStatus = page.locator('footer').getByRole('button', { name: 'Feed status', exact: true });
+      const statusDialog = page.getByRole('dialog', { name: 'Feed status', exact: true });
       await page.waitForFunction(() => document.querySelector('#relay-status-details')?.textContent?.includes('Total elapsed:'));
       assert.equal(await page.locator('#relay-status').isVisible(), true);
       assert.match(await page.locator('#relay-status-details').textContent() || '', /Total elapsed: \d+\.\d s/);
@@ -154,7 +156,7 @@ test('relay reader verifies complete collections, preserves order, caches offlin
       await page.locator('#world-news article').waitFor();
       assert.equal(await page.locator('#stringer-news article').count(), 0, 'Headlines render before the remaining stories arrive');
       assert.equal(await page.locator('#world-news').getAttribute('aria-busy'), 'true');
-      assert.equal(await page.locator('#relay-status summary').textContent(), 'Feed status');
+      assert.equal(await feedStatus.textContent(), 'Feed status');
       const progressDetails = await page.locator('#relay-status-details').textContent() || '';
       assert.match(progressDetails, /BBC World · loaded in \d+\.\d s/);
       assert.match(progressDetails, /Stringer · loading · \d+\.\d s elapsed · 0\/2 stories/);
@@ -183,8 +185,8 @@ test('relay reader verifies complete collections, preserves order, caches offlin
         (await page.locator('#relay-status-details').textContent()) || '',
         /BBC World · 7 queued/,
       );
-      assert.equal(await page.locator('#relay-status').getAttribute('open'), null);
-      assert.equal(await page.locator('footer #relay-status').count(), 1);
+      assert.equal(await statusDialog.isVisible(), false);
+      assert.equal(await feedStatus.count(), 1);
       assert.equal(await page.locator('.image-disclaimer').count(), 0);
       assert.equal(
         await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
@@ -196,8 +198,17 @@ test('relay reader verifies complete collections, preserves order, caches offlin
       await page.waitForFunction(() => document.querySelector('#relay-status-details')?.textContent?.includes('1 unavailable'));
       await page.waitForFunction(() => /Latest feed load: .*loaded in/i.test(document.querySelector('#relay-status-details')?.textContent ?? ''));
       assert.match(await page.locator('#relay-status-details').textContent() || '', /Stringer · 1\/2 stories received after \d+\.\d s/);
-      await page.locator('#relay-status summary').click();
-      await page.getByText(/Stringer.*1 unavailable/).waitFor();
+      await feedStatus.click();
+      const closeStatus = statusDialog.getByRole('button', { name: 'Close', exact: true });
+      await statusDialog.getByText(/Stringer.*1 unavailable/).waitFor();
+      assert.equal(await closeStatus.evaluate(button => document.activeElement === button), true);
+      await page.keyboard.press('Escape');
+      assert.equal(await statusDialog.isVisible(), false);
+      assert.equal(await feedStatus.evaluate(button => document.activeElement === button), true);
+      await feedStatus.click();
+      await closeStatus.click();
+      assert.equal(await statusDialog.isVisible(), false);
+      assert.equal(await feedStatus.evaluate(button => document.activeElement === button), true);
       assert.deepEqual(await page.locator('#stringer-news h3').allTextContents(), ['First story']);
       offline = true;
       await page.reload();

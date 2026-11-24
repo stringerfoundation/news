@@ -153,17 +153,19 @@ test('news timestamps use the browser time zone and visibly label it', async () 
     await page.close();
   }
 });
-test('Stringer lead image has the same thumbnail size as other stories', async () => {
-  for (const width of [1280, 768]) {
+test('Courageous Stories images have matching circular thumbnails', async () => {
+  for (const width of [1280, 768, 375]) {
     const page = await pageAt('/', width);
     assert.equal(await page.locator('.feed-status:visible').count(), 0);
     const maisStory = page.locator('#stringer-news article').filter({hasText:'Mais Katt'});
     assert.equal(await maisStory.locator('.story-placeholder').count(), 0);
     assert.match((await maisStory.locator('img').getAttribute('src'))!, /syria-3talawjYJe7gOOcj\.png$/);
     assert.equal(await cssValue(maisStory.locator('img'), 'backgroundColor'), 'rgba(0, 0, 0, 0)');
-    const images = page.locator('#stringer-news .story-media img');
+    assert.equal(await cssValue(maisStory.locator('img'), 'borderRadius'), '50%');
+    const images = page.locator('#stringer-news .story-media img:visible');
     const first = await images.first().boundingBox();
     assert.ok(first);
+    assert.equal(first.width, first.height);
     for (const image of await images.all()) {
       const box = await image.boundingBox();
       assert.ok(box);

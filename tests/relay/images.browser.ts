@@ -66,7 +66,7 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     await dialog.getByRole('button', { name: 'Close' }).click();
     assert.equal(await trigger.evaluate(button => document.activeElement === button), true);
   }
-  async function setup(page: Page, signer: boolean | 'owner', denied = false) {
+  async function setup(page: Page, signer: boolean | 'owner', editor = Boolean(signer)) {
     // tsx emits this helper for nested callbacks serialized into the browser.
     await page.addInitScript('window.__name = (fn) => fn;');
     page.on('pageerror', error => errors.push(error.message));
@@ -154,16 +154,16 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
         };
       }, signer === 'owner' ? pubkey : voterKey);
     }
-    await page.goto('https://reader.test/');
+    await page.goto(editor ? 'https://reader.test/?edit-images=1' : 'https://reader.test/');
     await page.getByRole('heading', { name: 'The Failures of Emmanuel Macron' }).waitFor();
-    if (signer) {
+    if (signer && editor) {
       const connect = page.locator('footer').getByRole('button', { name: 'Connect Nostr', exact: true });
       await connect.waitFor();
       assert.equal(await page.locator('.account-npub').count(), 0);
       await connect.click();
       await page.getByText(npubEncode(signer === 'owner' ? pubkey : voterKey), { exact: true }).waitFor();
       await page.locator('.account-nip05').filter({ hasText: signer === 'owner' ? /^identity.test$/ : /^reporter@identity.test$/ }).waitFor();
-    } else if (!denied) {
+    } else if (!editor) {
       assert.equal(await page.locator('.image-toolbar').isVisible(), false);
       assert.equal(await page.getByRole('button', { name: 'Connect Nostr', exact: true }).count(), 0);
     }
@@ -171,7 +171,8 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
   try {
     const editor = await browser.newPage({ viewport: { width: 375, height: 1000 } });
     const reader = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
-    await setup(editor, true); await setup(reader, false);
+    await setup(editor, true); await setup(reader, true, false);
+    assert.equal(await reader.evaluate(() => typeof window.nostr?.getPublicKey === 'function'), true);
     await editor.locator(suggestedImage).waitFor();
     await checkCredits(editor, /Illustrative image.*Example creator.*CC0-1.0/);
     await reader.locator(`#world-news ${suggestedImage}`).waitFor();
@@ -307,7 +308,7 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
       await checkCredits(reader, new RegExp(credit!), true);
     }
     const late = await browser.newPage();
-    await setup(late, false);
+    await setup(late, false, true);
     await late.evaluate(key => { window.nostr = { async getPublicKey() { return key; }, async signEvent() { throw new Error('No signing in identity test'); } }; }, voterKey);
     const lateConnect = late.locator('footer').getByRole('button', { name: 'Connect Nostr', exact: true });
     await lateConnect.waitFor();
