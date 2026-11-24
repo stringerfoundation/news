@@ -1644,9 +1644,9 @@ var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
 ));
 
 // app.ts
-import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=cf649b5ebaf1d981";
-import relayConfig from "./relay-config.js?v=cf649b5ebaf1d981";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=cf649b5ebaf1d981";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=138f200eefb3f09f";
+import relayConfig from "./relay-config.js?v=138f200eefb3f09f";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=138f200eefb3f09f";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1883,7 +1883,7 @@ async function connectNostr() {
       })
     ]).finally(() => clearTimeout(timer));
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=cf649b5ebaf1d981");
+    const identity = await import("./relay-reader.js?v=138f200eefb3f09f");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -1969,9 +1969,8 @@ function creditLink(label, url) {
 function creditEntry(credit) {
   const entry = element("section", "", "image-credit-entry");
   entry.append(element("h3", credit.title));
-  if ("storyUrl" in credit) {
-    if (credit.credit) entry.append(element("p", credit.credit));
-    entry.append(creditLink(t("Original story"), credit.storyUrl));
+  if ("credit" in credit) {
+    entry.append(element("p", credit.credit));
     return entry;
   }
   entry.prepend(element("p", t("Illustrative image"), "image-credit-kind"));
@@ -2016,17 +2015,17 @@ footerCredits.type = "button";
 footerCredits.setAttribute("aria-haspopup", "dialog");
 footerCredits.addEventListener("click", () => {
   const credits = /* @__PURE__ */ new Map();
-  for (const button of document.querySelectorAll(".story-media > figcaption > .image-credit-button")) {
-    const { key, credit } = thumbnailCredits.get(button);
+  for (const caption of document.querySelectorAll(".story-media > .image-credit-caption")) {
+    const { key, credit } = thumbnailCredits.get(caption);
     credits.set(key, credit);
   }
   openCredits([...credits.values()]);
 });
 requiredElement(".footer-bottom").append(footerCredits);
-function thumbnailCredit(key, imageCredit, suggested = false) {
-  const caption = element("figcaption");
+function thumbnailCredit(imageCredit, suggested = false) {
+  const caption = element("figcaption", "", "image-credit-caption");
   const credit = element("button", "", "image-credit-button");
-  const licensed = "licenseUrl" in imageCredit && new URL(imageCredit.licenseUrl).pathname.startsWith("/licenses/");
+  const licensed = new URL(imageCredit.licenseUrl).pathname.startsWith("/licenses/");
   const icon = element("span", licensed ? "" : "i", licensed ? "image-credit-cc" : "image-credit-info");
   icon.setAttribute("aria-hidden", "true");
   credit.append(icon);
@@ -2036,7 +2035,7 @@ function thumbnailCredit(key, imageCredit, suggested = false) {
   credit.setAttribute("aria-haspopup", "dialog");
   if (suggested) credit.setAttribute("aria-description", "Automatically suggested image");
   credit.addEventListener("click", () => openCredits([imageCredit]));
-  thumbnailCredits.set(credit, { key, credit: imageCredit });
+  thumbnailCredits.set(caption, { key: imageCredit.filePage, credit: imageCredit });
   caption.append(credit);
   return caption;
 }
@@ -2111,7 +2110,7 @@ function imageReview(storyId, title) {
     img.height = 80;
     img.loading = "lazy";
     img.referrerPolicy = "no-referrer";
-    figure.append(choiceButton(candidate, img), thumbnailCredit(candidate.filePage, candidate));
+    figure.append(choiceButton(candidate, img), thumbnailCredit(candidate));
     const selected = current === candidate.id;
     const button = element("button", selected ? "Withdraw approval" : `Upvote image (${count})`);
     button.type = "button";
@@ -2181,7 +2180,7 @@ function imageReview(storyId, title) {
       publish.type = "button";
       publish.disabled = voteBusy || voter !== relayConfig.pubkey;
       publish.addEventListener("click", () => void publishCommons(storyId, image));
-      figure.append(choiceButton(image, preview), thumbnailCredit(image.filePage, image), publish);
+      figure.append(choiceButton(image, preview), thumbnailCredit(image), publish);
       grid.append(figure);
     }
   }
@@ -2336,18 +2335,21 @@ function renderStories(target, stories, emptyMessage) {
       image.decoding = "async";
       image.referrerPolicy = "no-referrer";
       let triedLocal = imageUrl === localImage;
-      const photoCredit = (credit = "") => thumbnailCredit(url, { title: story.title, storyUrl: url, credit });
-      let caption = commons ? thumbnailCredit(commons.filePage, commons, commons.filePage !== selection?.winner?.filePage) : photoCredit(triedLocal ? void 0 : story.image?.credit);
+      const photoCredit = triedLocal ? "" : story.image?.credit;
+      let caption;
+      if (commons) {
+        caption = thumbnailCredit(commons, commons.filePage !== selection?.winner?.filePage);
+      } else if (photoCredit) {
+        caption = element("figcaption", photoCredit, "image-credit-caption");
+        thumbnailCredits.set(caption, { key: url, credit: { title: story.title, credit: photoCredit } });
+      }
       image.addEventListener("error", () => {
+        caption?.remove();
         if (localImage && !triedLocal) {
           triedLocal = true;
-          const fallbackCaption = photoCredit();
-          caption.replaceWith(fallbackCaption);
-          caption = fallbackCaption;
           image.src = localImage;
           return;
         }
-        caption.remove();
         if (wire) {
           const failed = image.closest("a") || image;
           failed.replaceWith(element("span", "Image unavailable", "image-search-status"));
@@ -2382,7 +2384,7 @@ function renderStories(target, stories, emptyMessage) {
         imageLink.append(image);
         figure.append(imageLink);
       } else figure.append(image);
-      figure.append(caption);
+      if (caption) figure.append(caption);
       article.classList.add("with-image");
       if (!wire) article.append(figure);
     } else if (usePlaceholder) {
@@ -2603,7 +2605,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=cf649b5ebaf1d981");
+      const reader = await import("./relay-reader.js?v=138f200eefb3f09f");
       ImageSessionClass = reader.ImageSession;
       searchImages = reader.searchImages;
       commonsSubject = reader.commonsSubject;
@@ -2677,7 +2679,7 @@ async function loadLocalized() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=cf649b5ebaf1d981");
+    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=138f200eefb3f09f");
     if (!snapshot) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
@@ -2722,7 +2724,7 @@ async function loadLocalized() {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=cf649b5ebaf1d981");
+            const relay = await import("./relay-reader.js?v=138f200eefb3f09f");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
