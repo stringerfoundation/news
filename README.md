@@ -1,152 +1,25 @@
-# Stringer website
+# Stringer News
 
-Public source for the news homepage at https://stringerjournalism.org/.
+Public source for the [Stringer news homepage](https://stringerjournalism.org/) and its [Android reader](android/README.md). The readers show global headlines with links to their original sources alongside reporting from Stringer journalists.
 
-## Hosting
+## Quick start
 
-GitHub Actions checks pull requests and pushes. Successful CI on `main` updates production at https://stringerfoundation.github.io/news/. Successful same-repository PR builds are published alongside production at `/news/pr-preview/<number>/`. Each PR receives one bot comment linking to its deployed preview and the checked commit.
-
-The Cloudflare Worker in `deploy/homepage-worker/` serves `/` and `/news-assets/` from that Pages site. GET and HEAD requests to `/donate` (with or without a trailing slash) redirect to `https://stringerjournalism.org/get-involved`, preserving query attribution. Other paths and non-read requests continue to Hostinger. The separate news-subdomain Worker redirects visitors to the main homepage. GitHub Pages has no custom domain; the public website domains stay on Cloudflare and Hostinger.
-
-The private collector and dashboard continue running independently on the operator's server. This repository contains only the public reader, public relay protocol and configuration, public assets, Worker code, and tests. Never add credentials, private keys, journalist CSV files, or databases.
-
-## Development
-
-The native Android reader lives in [`android/`](android/README.md). It uses the same signed relay protocol and publisher catalogues as the website. Generate its bundled editions and interface translations with `node --import tsx scripts/generate-android-catalogue.ts`; add `--check` to detect drift. Android development requires Java 17 and the Android SDK. See the [Android release guide](docs/android-releases.md) for signing setup, Obtainium updates, and independent Zapstore publication.
-
-Use Node 24 or newer and pnpm 11.18.0 (pinned in `package.json`). Install pnpm with `npm install --global pnpm@11.18.0` if needed:
+Use Node 24 or newer and the pnpm version pinned in [package.json](package.json).
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm run check
-pnpm run lint
-pnpm run typecheck
-pnpm test
-pnpm run test:relay
-pnpm run test:previews
 pnpm run build
-pnpm run test:artifact
-pnpm exec playwright install chromium
-pnpm run test:browser
-pnpm run test:relay-browser
+pnpm test
 ```
 
-All maintained JavaScript source is now TypeScript: the reader, relay implementation, collector, build tooling, Workers, tests, and ESLint configuration share strict compiler checks. `pnpm run build` compiles browser source to the existing relative JavaScript asset paths in `_site`; TypeScript sources, declarations, and source maps are excluded from the published allowlist. Tests load source modules through `tsx`; browser fixtures compile their source with esbuild. Node 24+ runs build scripts with native type stripping and ESLint with its native TypeScript config loader.
+The static web build is written to `_site/`.
 
-The reader loads verified news from the configured Nostr relays. CI tests use synthetic fixtures. The publication build separately collects Kiswahili headlines for the static edition. Global publishers supply headlines, attribution, dates and original links; Stringer reporting and photos remain separate. See `LEGAL.md` for the publication policy. Source availability does not grant reuse rights to publisher material or photographs.
+## Documentation
 
-Relay lookups, story downloads and retries share a 15-second network loading budget. Partial refreshes retain displayed stories while keeping unavailable-note counts and source failures visible. Browser storage is optional: malformed or oversized caches are ignored, and only a verified cached collection can supply fallback stories or prevent an older collection from replacing newer reporting.
+- [Development](docs/development.md) and [testing](TESTING.md)
+- [Hosting, deployment, CI, and PR previews](docs/deployment.md)
+- [Language editions](docs/language-editions.md)
+- [Illustrative images and editorial approvals](docs/illustrative-images.md)
+- [Android releases](docs/android-releases.md)
 
-## Worker configuration
-
-Keep Wrangler configuration and Cloudflare account/zone details outside tracked source. Set `PAGES_ORIGIN=https://stringerfoundation.github.io/news/`, `PUBLIC_HOST=stringerjournalism.org`, and `PUBLIC_INDEXING=true`. Deploy as a Worker Route over the existing Hostinger DNS origin. Hostinger passthrough preserves methods, headers, bodies and queries. Pages requests omit visitor cookies and credentials. The Worker preserves the repository path in the Pages origin.
-
-The Worker serves the apex Nostr identity endpoint directly. The existing news-subdomain redirect and identity handling remain independent. The GitHub Pages publisher uses its GitHub credentials.
-
-### Homepage Worker CI
-
-The homepage Worker workflow runs its routing tests and publishes a new `stringer-homepage` version when a push to `main` changes `deploy/homepage-worker/worker.ts`, `public-assets.ts`, or `relay-config.ts`. Update its trigger and diff checks when the Worker gains another local runtime import. The version upload uses the existing Worker variables and the release uses the existing route.
-
-Allow `main` in the GitHub `cloudflare-homepage-worker` environment. Set `CLOUDFLARE_ACCOUNT_ID` to the account that owns the Worker and `CLOUDFLARE_API_TOKEN` to a token with Editor access to `stringer-homepage`. Keep production bindings and routing in private operator configuration.
-
-To roll back the Pages origin, restore the previous `PAGES_ORIGIN` in private operator configuration and redeploy the Worker. Disabling the homepage route restores Hostinger's original homepage.
-
-### Cloudflare Pages Direct Upload
-
-The Cloudflare Pages workflow uploads the checked public artifact after the website CI workflow succeeds on `main`. Set `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_PAGES_PROJECT` as secrets in the GitHub `cloudflare-pages` environment. Allow the `main` branch in that environment and grant the token Cloudflare Pages Edit access to the account that owns the Direct Upload project. A push or a manual run of the website workflow on `main` can deploy the checked build.
-
-## License
-
-Original project code is licensed under the [MIT License](LICENSE). This license does not grant rights to Stringer names, trademarks, logos, reporting, photographs, or third-party content. Those materials retain their respective rights and permissions; see `LEGAL.md`. Dependency licenses remain applicable.
-
-## Continuous integration
-
-Every pull request and push to `main` runs syntax and lint checks, strict TypeScript checks for all maintained source, unit tests on Node 24 and 26, signed-event security tests, workflow lint, a redacted Git history secret scan, dependency auditing, and CodeQL security analysis. A separate browser job builds the public artifact and verifies its exact allowlist, relative assets, content versions, and production indexing metadata before running desktop/mobile browser regressions, including relay streaming, a silent relay, missing notes, and offline cache recovery. Test fixtures are synthetic and never publish events.
-
-The browser job uploads its checked public assets as a `checked-site` artifact. A separate publisher (`previews.yml`) runs only trusted `main` code, verifies successful CI provenance and current commit heads, and treats PR archives as data. It rejects unknown files, traversal, links, oversized archives, and incomplete builds. PR builds have no deployment permissions; fork PRs are tested but are not automatically published on the production origin. Actions use immutable commit pins and checkout does not persist credentials. Worker deployment remains a separate operator action.
-
-## PR previews
-
-The generated `pages-state` branch in this same repository holds the last checked production build, active previews, and deployment metadata. Only its `site/` directory is uploaded to Pages. A PR update replaces its own preview; a production update preserves all active previews. Closing or merging a PR removes its preview and updates the bot comment after the combined Pages deployment succeeds. Failed or pending CI retains the previous preview, whose comment identifies the actual checked commit. Generated state survives CI artifact expiry. Adding public asset names requires updating both the artifact-test and trusted publisher allowlists.
-
-Automated mobile, tablet, and desktop screenshots are published only for PRs whose full diff changes reader HTML/CSS, browser JavaScript/TypeScript, or visual assets. Documentation, tests, tooling, and CI-only PRs still run browser checks but do not publish screenshots. Images are shown directly in the PR comment, without collapsible sections, and use synthetic test data. They are stored separately at `pr-screenshots/<number>/<commit>/` and remain embedded in the same bot comment after merge or closure. Production deployments and preview cleanup preserve these images. Retention has no automatic expiry; an operator can explicitly clean up stored screenshots later. Past closed PRs are not backfilled.
-
-The publisher reconciles all current PR heads on every successful CI run or PR-close event, so concurrent events cannot discard another preview. Run the **Publish production and PR previews** workflow manually to retry a publication. Initial activation requires merging these workflows into `main` and a successful main CI run. Existing PRs need a new CI run using the updated workflow to upload their first `checked-site` artifact.
-
-GitHub Pages production and previews carry `noindex, nofollow, noarchive, noimageindex` metadata and a project-level `robots.txt` with `Disallow: /`. Crawlers read `/robots.txt` at the hostname root, which is controlled by the organization’s GitHub Pages site. The homepage Worker strips the upstream robots metadata when `PUBLIC_INDEXING=true` on the public hostname. The homepage and its language editions use same-origin links and share assets under `/news-assets/`.
-
-Preview publishing and archive tests use Python 3.10+ from the GitHub Ubuntu runner, with only standard-library modules. `pnpm run test:previews` also exercises generated-branch persistence and cleanup using a local temporary Git repository. Browser checks exercise the real combined production/preview build at desktop and mobile sizes.
-
-## Openly licensed images and trusted approvals
-
-The public reader shows openly licensed illustrative images to everyone, including readers without NIP-07. Approved images take priority; otherwise a validated candidate or automatic subject suggestion appears. A headline such as “The Failures of Emmanuel Macron” searches Commons for “Emmanuel Macron”; this capitalization-based hint is approximate and needs human review. At most two automatic searches run together as cards enter the viewport. Empty or failed searches show an honest status instead of an unrelated filler image. Image editors can open the reader with `?edit-images=1` and use **Connect Nostr** in the footer to request access to a browser signer. Trusted accounts can click the thumbnail or **Review illustrative images** to open a modal of related alternatives. Choosing an image is instant and local. Stringer’s own account can **Publish and upvote image**, requesting two signatures: a candidate, then an approval. Other trusted accounts can approve already-published candidates. Signed approvals change the shared image through the configured relays without a backend or manifest update. Disconnecting leaves the public illustrations visible.
-
-Image approvals use direct follows (`p` tags) in the latest verified kind-3 list from the configured Stringer public key. Stringer’s configured public key is also eligible directly, without following itself. Trust is not transitive. The list is read from the same configured relays as the news. No additional whitelist or private keys are stored by the site. A missing list disables approval for other accounts; an empty list leaves only Stringer’s own account eligible. Contact-list changes affect existing approvals immediately when received. All readers converge after receiving the same signed events; relay outages can temporarily produce different views.
-
-Trusted readers get compact upvote, skip, undo and image-review controls inside the same fixed media slot reserved for other readers. Downvotes are local skips for the current browser session: the next suggestion appears, and Undo restores the previous image without signing or publishing. Undo also restores the previous signed approval when used after an upvote; this requests another signature. History is separate for each connected account and news note. Image review opens in a dismissible modal, so searching or comparing alternatives does not expand the news row. Mobile and desktop rows retain the same height whether the reader is connected, reviewing suggestions, or viewing approved images. The CC icon opens attribution and source and license links for Creative Commons-licensed images. The footer’s **Credits** dialog lists image attributions, including public-domain images, and explains where the stories come from.
-
-### Additional image sources
-
-**Image source** in image review offers Wikimedia Commons, Openverse, Flickr via Openverse, and the European Commission audiovisual library. Automatic suggestions use Commons first, then Openverse and EU photos when no Commons match is available. Manual **All sources** searches include alternatives from all three catalogs. Flickr searches use Openverse's Flickr filter and need no Flickr API key. Provider failures remain visible alongside any successful results; empty results are not reported as failures. Successful searches are cached in memory for ten minutes, with at most 200 cached query/source combinations. Rate-limit errors request a later retry without automatic retry loops.
-
-Openverse results retain the original image and source-page URLs, creator, supplied attribution, matching license URL and Openverse record URL. Only CC BY, CC BY-SA, CC0 and public-domain-mark records with complete credits are accepted; mature results are excluded. Openverse is a discovery index, so the approver must verify the license on the original source page. EU photos require EU-only copyright holders, an identified photographer, a dated copyright notice, and no individual rights notice in the API response; these use the library's default CC BY 4.0 terms. Third-party-owned or incomplete records are excluded. Remote metadata is converted to text in an inert document.
-
-These sources use the same trusted candidate publication and approval flow as Commons. New-source candidate metadata adds `source` (`openverse` or `eu`), `sourceName`, and `sourceUrl` (the Openverse record or official EU photo page). Existing Commons records remain valid without these fields. New-source records require public HTTPS image/source URLs and a supported matching Creative Commons license. EU records additionally require the official photo-page and image-host paths. No API secrets are stored in the static reader. The existing publisher-image suppression remains in force.
-
-The reader attempts NIP-07 connection once when the signer is detected, including delayed extension injection. Without NIP-07, no account controls or approval UI appear. The connected account displays its complete npub and a NIP-05 address only after verified kind-0 metadata and the domain’s HTTPS well-known mapping confirm the same public key; redirects are rejected. Stringer’s known root identifier is also checked if profile metadata is absent. Missing/unverifiable addresses are labeled unavailable, and they never change voting eligibility. Rejected signer access leaves a manual retry button without repeated automatic prompts. A public-key request times out after ten seconds with an extension-permission hint; it can also be cancelled immediately and retried from a user click. Late results from cancelled requests cannot connect an old account. Disconnect clears account details; automatic connection never signs or publishes an event. Eligible readers can approve one candidate per news note, switch their choice, or withdraw. Everyone sees the candidate with the most active trusted approvals, with one approval sufficient. Ties favor the earliest active approving vote, then the lexically lowest candidate event ID. Changing a vote resets its approval time. Only the latest valid vote per author/story counts (latest timestamp, then lowest event ID). Votes are public, and are scoped to exact news-note IDs rather than URLs or clusters.
-
-Automatic suggestions prefer the subject’s free representative image from Wikipedia, then a subject location map, with file metadata fetched and validated directly from Commons. Commons search supplies alternatives and remains available if the optional subject lookup fails. SVG source files are supported only through Commons-generated PNG thumbnails. Public-domain files without a `LicenseUrl` require all three explicit metadata values: `License=pd`, `Copyrighted=False`, and `UsageTerms=Public domain`; these use the canonical `PDM-1.0` link. Files with restrictions or missing attribution remain excluded. Search loading, empty and failure states appear beside the headline.
-
-### Publisher contract (version 1)
-
-The existing signed manifest optionally adds `imageCandidates: { "<news-note-id>": ["<candidate-event-id>"] }`. Only global publisher story IDs in that manifest are eligible, with one to five unique candidate IDs each. Invalid entries are ignored without rejecting the news. Removing a manifest-only candidate or its story from the manifest removes its image and eligibility; an obsolete vote is not transferred to a replacement news note. Existing manifests need no migration.
-
-Each candidate is a kind-1 note signed by Stringer's configured publishing key, with human-readable `content` and exactly one root reference. Add the `t` tag below to make a candidate discoverable independently of the optional manifest map; its news-note ID must still belong to the current manifest:
-
-```json
-[
-  ["e", "<news-note-id>", "", "root"],
-  ["t", "stringer-image-v1"],
-  ["stringer-image-v1", "<JSON metadata>"]
-]
-```
-
-Metadata fields are `version: 1`, `url`, `filePage`, `title`, `alt`, `creator`, `attribution`, `license`, and `licenseUrl`. All text must be nonempty plain text, at most 2,000 characters per field. `url` must be an HTTPS image URL under `upload.wikimedia.org/wikipedia/commons/` or `thumb.wikimedia.org/wikipedia/commons/`; `filePage` must be an HTTPS `commons.wikimedia.org/wiki/File:` URL. Neither may contain credentials, nondefault ports, query strings or fragments. Serve a suitably sized thumbnail. No image bytes go into Nostr events.
-
-Supported license identifiers are `CC0-1.0`, `PDM-1.0`, and `CC-BY-<version>` / `CC-BY-SA-<version>` for versions 1.0, 2.0, 2.5, 3.0 and 4.0. The HTTPS `creativecommons.org` license URL must match the identifier exactly (for example `https://creativecommons.org/licenses/by-sa/4.0/`). The candidate publisher must verify the Commons source, applicable license, attribution requirements, and subject relevance. It should leave uncertain matches absent and supply attribution text that preserves any required credit. The browser search uses Commons `imageinfo` / `extmetadata`, retains plain-text credits, skips unsupported file types/restrictions/incomplete licenses, canonicalizes known Creative Commons license URLs, and removes thumbnail tracking parameters. Search failures and empty results remain visible, and a user must choose the illustration’s relevance. The reader never fetches publisher article images. Independently indexed candidates remain discoverable while their news note is current; withdraw approvals to hide them.
-
-### Vote contract (version 1)
-
-A vote is a kind-1 note signed by the voting user's key, with human-readable `content` and these tags:
-
-```json
-[
-  ["e", "<news-note-id>", "", "root"],
-  ["t", "stringer-image-vote-v1"],
-  ["stringer-image-vote-v1", "{\"version\":1,\"candidateId\":\"<candidate-event-id>\"}"]
-]
-```
-
-Publish a newer vote with `candidateId: null` to withdraw. A new candidate ID changes the choice. The UI requires a later second than the previous vote, verifies the signer's returned event against the requested payload, and reports publication only after a configured relay accepts it. Signer refusal, account changes and relay failures leave the previous choice intact. Standard likes and unrelated replies do not count. A latest signed choice for an unavailable candidate contributes no approval and supersedes earlier choices; removing a candidate cannot resurrect an older vote.
-
-The image session runs independently of headline loading. It fetches manifest-listed candidates by ID and independently indexed candidates by Stringer author, current news-note references and the candidate topic tag (up to 750 initial results), subscribes to the trust list and live votes, and loads latest-vote history through batches of five author/story filters with at most three history requests in flight and a six-second timeout. Signed image events are cached separately (up to 5 MB) and reverified on recovery; cached counts are never trusted. Cached approvals can be displayed offline, but voting by other accounts requires a current live trust-list response. Stringer’s own account does not depend on a self-follow or contact-list response. Sessions are disposed when the current news-note set or manifest candidate mapping changes, or the page closes.
-
-Illustrations display Commons attribution, file and license links, and an explicit illustrative-image label. Publisher image metadata remains stripped, including in old snapshots; Stringer's approved photos remain separate. A failed Commons image leaves the headline readable.
-
-Dependabot opens weekly pnpm and GitHub Action update pull requests. A weekly audit checks for newly disclosed dependency vulnerabilities even without source changes. Repository admins can require the CI jobs in a branch protection rule; workflows alone do not prevent direct pushes.
-
-## Language editions
-
-On the public news homepage, the Cloudflare Worker opens the highest-ranked supported language edition from the browser’s preferences and defaults to English. The language picker remembers an explicit choice for one year in a browser cookie. Direct links to localized editions open the linked edition.
-
-The Pages build includes `/fr/` (French), `/es/` (Spanish), `/ar/` (Arabic), `/zh/` (Simplified Chinese), `/ru/` (Russian), `/nl/` (Dutch), and `/de/` (German). Each edition has its own pinned publisher catalogue in `sources/`; source selection is saved separately for each language. Arabic uses a right-to-left interface; story text keeps its original direction.
-
-It also includes `/br/` (Brazilian Portuguese) and `/pt/` (European Portuguese), sharing the pinned catalogue in `portuguese-sources.ts`. On the project site these resolve beneath `/stringer-news/`. The edition links and shared assets remain relative. The locale pages preserve the same UTC build stamp as the English reader.
-
-These editions translate the interface only; headlines and Stringer reporting remain in their original languages. Localized headlines are read directly from the configured Atomstr relay and require both a pinned mirror signature and matching RSS provenance. Publisher summaries and photos are discarded. Language editions look up reusable illustrations using the original headline and their Wikipedia language, and show source and license details in Credits. Mirror timestamps and social-feed fallbacks are labeled, and unavailable mirrors retain previously verified stories without claiming a successful refresh. BR and PT share source choices in browser storage; other language choices remain independent. The English reader continues to enable every configured global publisher. The `/sw/` edition loads DW’s Kiswahili feed directly. The checked publication build collects Kiswahili headlines from RFI, HabariLeo, BBC and VOA. Those four sources update with each published build, and their collection times appear in the feed status. The reader displays publisher headlines, publication timestamps and original links.
-
-Each published Atomstr edition also includes up to eight verified headlines per source in its own HTML. Readers can display these headlines before the live relay responds, and keep them if the connection fails. The reader gives newer browser collections priority and ignores build headlines older than seven days. A daily Pages build on `main` refreshes the production fallback.
-
-The catalogues use active feeds listed by [Atomstr](https://atomstr.data.haus/), checked on 19 October 2026. They do not claim exhaustive coverage. Arabic currently has two direct publisher mirrors; Chinese includes both simplified and traditional reporting and a clearly named Cantonese source. Dutch includes explicitly named football feeds alongside general news; Spanish currently includes EL PAÍS and the sports publisher Olé. All editions preserve the publisher’s original wording and script. A catalogue listing is not a guarantee of continued relay availability.
-
-Run `pnpm run build`, `pnpm test`, and `pnpm run test:browser` to check the generated pages and browser behavior. Locale routes are available on GitHub Pages after merge and deployment. The apex homepage links to those editions on GitHub Pages; the Cloudflare Worker continues to serve the homepage and reader assets only.
+Project code is [MIT licensed](LICENSE). See the [publication policy](LEGAL.md) for content rights and reuse permissions.
