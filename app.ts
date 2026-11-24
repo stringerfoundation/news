@@ -7,7 +7,7 @@ import { sourcesForLocale } from './edition-sources.ts';
 import { refreshSwahiliSource, swahiliPublisher } from './sources/sw.ts';
 import { collectedSwahiliPublishers } from './swahili-publishers.ts';
 import { ATOMSTR_MAX_AGE_MS } from './atomstr-config.ts';
-import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from './news-model.js';
+import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from './news-model.js';
 import relayConfig from './relay-config.js';
 import { STRINGER_MEDIA } from './stringer-media.js';
 function requiredElement<T extends HTMLElement = HTMLElement>(selector: string): T {
@@ -159,7 +159,7 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
     } else if (usePlaceholder) {
       showPlaceholder();
     }
-    const link = element('a'); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer';
+    const link = element('a'); link.href = articleLink(url); link.target = '_blank'; link.rel = 'noopener noreferrer';
     link.append(element('h3', story.title)); body.append(link);
     if (story.credits) body.append(element('p', story.credits, 'credits'));
     if (story.summary) body.append(element('p', story.summary, 'summary'));

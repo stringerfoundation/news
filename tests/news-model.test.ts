@@ -56,6 +56,14 @@ test('URLs reject credentials and non-web protocols; image URLs require HTTPS', 
   assert.ok(model.newestFirst({ publishedAt: null }, story()) > 0);
   assert.ok(model.newestFirst(story(), { publishedAt: null }) < 0);
 });
+test('Al Jazeera article links remove only the broken RSS parameter', () => {
+  const articleUrl = 'https://www.aljazeera.com/features/2026/11/24/example';
+  assert.equal(model.articleLink(`${articleUrl}?traffic_source=rss`), articleUrl);
+  assert.equal(model.articleLink(`${articleUrl}?view=full&traffic_source=rss#top`), `${articleUrl}?view=full#top`);
+  assert.equal(model.articleLink(`${articleUrl}?traffic_source=newsletter`), `${articleUrl}?traffic_source=newsletter`);
+  const otherPublisher = 'https://example.org/story?traffic_source=rss';
+  assert.equal(model.articleLink(otherPublisher), otherPublisher);
+});
 test('permissions strip unlicensed content and preserve Stringer attribution without mutation', () => {
   const s = populated('stringer');
   const original = structuredClone(s);

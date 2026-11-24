@@ -55,6 +55,13 @@ export function safeImageUrl(value: unknown): string | null {
   const url = safeUrl(value);
   return url && new URL(url).protocol === 'https:' ? url : null;
 }
+export function articleLink(value: string): string {
+  const url = new URL(value);
+  if (url.hostname === 'www.aljazeera.com' && url.searchParams.has('traffic_source', 'rss')) {
+    url.searchParams.delete('traffic_source', 'rss');
+  }
+  return url.href;
+}
 export function urlIdentity(value: string) {
   const url = new URL(value); url.hash = ''; return url.href;
 }
