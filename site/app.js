@@ -1644,9 +1644,9 @@ var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
 ));
 
 // app.ts
-import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=47d907baec62abc6";
-import relayConfig from "./relay-config.js?v=47d907baec62abc6";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=47d907baec62abc6";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=aef3af3bbbc2a33f";
+import relayConfig from "./relay-config.js?v=aef3af3bbbc2a33f";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=aef3af3bbbc2a33f";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1846,6 +1846,7 @@ async function castImageVote(storyId, candidateId, remember = true) {
   return published;
 }
 var imageToolbar = element("div", "", "image-toolbar");
+var imageEditor = new URLSearchParams(location.search).get("edit-images") === "1";
 imageToolbar.hidden = true;
 requiredElement(".footer-notes").append(imageToolbar);
 function syncImages() {
@@ -1883,7 +1884,7 @@ async function connectNostr() {
       })
     ]).finally(() => clearTimeout(timer));
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=47d907baec62abc6");
+    const identity = await import("./relay-reader.js?v=aef3af3bbbc2a33f");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -1912,7 +1913,7 @@ async function connectNostr() {
 function renderNostrAccount() {
   const buttonFocused = imageToolbar.contains(document.activeElement);
   imageToolbar.replaceChildren();
-  imageToolbar.hidden = !hasSigner();
+  imageToolbar.hidden = !imageEditor || !hasSigner();
   if (imageToolbar.hidden) return;
   if (voter) {
     const identity = element("div", "", "nostr-identity");
@@ -1989,20 +1990,28 @@ function creditEntry(credit) {
   return entry;
 }
 var thumbnailCredits = /* @__PURE__ */ new WeakMap();
-var creditDialog = element("dialog", "", "image-credit-dialog");
+var creditDialog = element("dialog", "", "reader-dialog");
 creditDialog.setAttribute("aria-labelledby", "image-credit-title");
 var creditTitle = element("h2");
 creditTitle.id = "image-credit-title";
-var closeCredit = element("button", t("Close"), "image-credit-close");
+var closeCredit = element("button", t("Close"), "reader-dialog-close");
 closeCredit.type = "button";
 closeCredit.autofocus = true;
 closeCredit.addEventListener("click", () => creditDialog.close());
-var creditHeader = element("div", "", "image-credit-header");
+var creditHeader = element("div", "", "reader-dialog-header");
 creditHeader.append(creditTitle, closeCredit);
-var creditBody = element("div", "", "image-credit-body");
+var creditBody = element("div", "", "reader-dialog-body");
 var creditEmpty = element("p", t("No image credits to show yet."));
 creditDialog.append(creditHeader, creditBody);
 document.body.append(creditDialog);
+var relayStatus = requiredElement("#relay-status");
+var feedStatusDialog = requiredElement("#feed-status-dialog");
+var closeFeedStatus = requiredElement("#feed-status-dialog .reader-dialog-close");
+relayStatus.textContent = t("Feed status");
+requiredElement("#feed-status-title").textContent = relayStatus.textContent;
+closeFeedStatus.textContent = t("Close");
+relayStatus.addEventListener("click", () => feedStatusDialog.showModal());
+closeFeedStatus.addEventListener("click", () => feedStatusDialog.close());
 function openCredits(credits, includeSources = false) {
   creditTitle.textContent = t(includeSources ? "Credits" : "Image credits");
   creditEmpty.hidden = credits.length > 0;
@@ -2554,7 +2563,6 @@ for (const section of sections) {
 }
 mobileLayout.addEventListener("change", updateStoryVisibility);
 function renderStatuses() {
-  const relayStatus = requiredElement("#relay-status");
   const relayDetails = requiredElement("#relay-status-details");
   relayDetails.replaceChildren();
   const notes = [];
@@ -2602,7 +2610,6 @@ function renderStatuses() {
   }
   for (const note of notes) relayDetails.append(element("p", note));
   relayStatus.hidden = notes.length === 0;
-  relayStatus.querySelector("summary").textContent = t("Feed status");
 }
 function renderWorld() {
   if (!snapshot) return;
@@ -2674,7 +2681,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=47d907baec62abc6");
+      const reader = await import("./relay-reader.js?v=aef3af3bbbc2a33f");
       ImageSessionClass = reader.ImageSession;
       searchImages = reader.searchImages;
       commonsSubject = reader.commonsSubject;
@@ -2748,7 +2755,7 @@ async function loadLocalized() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=47d907baec62abc6");
+    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=aef3af3bbbc2a33f");
     if (!snapshot) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
@@ -2793,7 +2800,7 @@ async function loadLocalized() {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=47d907baec62abc6");
+            const relay = await import("./relay-reader.js?v=aef3af3bbbc2a33f");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
