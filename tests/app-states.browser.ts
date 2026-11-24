@@ -173,17 +173,22 @@ test('relay UI ignores unsafe links and retains image attribution', async (t) =>
         ...story(),
         image: { url: 'https://example.org/photo', alt: 'Photo', credit: 'Photographer' },
       },
+      {
+        ...story('https://example.org/other-story'),
+        title: 'Reporting without a photo credit',
+        image: { url: 'https://example.org/photo', alt: 'Another photo', credit: '' },
+      },
     ],
   };
   await page.evaluate((value) => window.readerCallbacks.partial(value), value);
-  assert.equal(await page.locator('#stringer-news article').count(), 1);
-  await page.locator('figcaption').getByRole('button', { name: 'Image credits' }).click();
+  assert.equal(await page.locator('#stringer-news article').count(), 2);
+  const caption = page.locator('#stringer-news figcaption');
+  assert.equal(await caption.textContent(), 'Photographer');
+  assert.equal(await caption.locator('a, button').count(), 0);
   const credits = page.getByRole('dialog', { name: 'Image credits' });
-  await credits.getByText('Photographer', { exact: true }).waitFor();
-  assert.equal(await credits.getByRole('link', { name: 'Original story' }).getAttribute('href'), 'https://example.org/story');
-  await credits.getByRole('button', { name: 'Close' }).click();
   await page.locator('footer').getByRole('button', { name: 'Credits', exact: true }).click();
   await credits.getByText('Photographer', { exact: true }).waitFor();
+  assert.equal(await credits.getByRole('link').count(), 0);
   await page.evaluate((value) => window.finish(value), value);
 });
 test('older final snapshots are rejected and do not erase cached stories', async (t) => {
