@@ -8281,9 +8281,10 @@ function plain(value) {
   if (typeof value !== "string") return "";
   return new DOMParser().parseFromString(value, "text/html").body.textContent?.replace(/\s+/g, " ").trim().slice(0, 2e3) || "";
 }
-async function representativeImages(query, request) {
+async function representativeImages(query, request, language) {
   try {
     const wiki = new URL("https://en.wikipedia.org/w/api.php");
+    if (/^[a-z]{2,3}$/.test(language)) wiki.hostname = `${language}.wikipedia.org`;
     wiki.search = new URLSearchParams({
       action: "query",
       format: "json",
@@ -8327,9 +8328,9 @@ async function representativeImages(query, request) {
     return [];
   }
 }
-async function searchCommons(query, request = fetch, suggest = false) {
+async function searchCommons(query, request = fetch, suggest = false, language = "en") {
   if (!query.trim()) throw new Error("Enter a person, place or subject to search for.");
-  const preferred = suggest ? representativeImages(query.trim().slice(0, 200), request) : Promise.resolve([]);
+  const preferred = suggest ? representativeImages(query.trim().slice(0, 200), request, language) : Promise.resolve([]);
   const url = new URL("https://commons.wikimedia.org/w/api.php");
   url.search = new URLSearchParams({
     action: "query",
@@ -8649,7 +8650,7 @@ async function searchEuPhotos(query, request = fetch) {
   return images;
 }
 var cache = /* @__PURE__ */ new Map();
-async function searchImages(query, source = "all", suggest = false, request = fetch, onProgress) {
+async function searchImages(query, source = "all", suggest = false, request = fetch, onProgress, language = "en") {
   if (!query.trim()) throw new Error("Enter a person, place or subject to search for.");
   const issues = [];
   const completed = [];
@@ -8661,10 +8662,10 @@ async function searchImages(query, source = "all", suggest = false, request = fe
     return { images: images.slice(0, 30), issues: [...issues] };
   };
   const run = async (id) => {
-    const key = JSON.stringify([id, query.trim(), suggest]), cached = cache.get(key);
+    const key = JSON.stringify([id, query.trim(), suggest, language]), cached = cache.get(key);
     if (request === fetch && cached && cached.until > Date.now()) return cached.images;
     try {
-      const images = id === "commons" ? await searchCommons(query, request, suggest) : id === "eu" ? await searchEuPhotos(query, request) : await searchOpenverse(query, request, id === "flickr" ? true : ["wellcome", "smithsonian", "europeana"].includes(id) ? id : false);
+      const images = id === "commons" ? await searchCommons(query, request, suggest, language) : id === "eu" ? await searchEuPhotos(query, request) : await searchOpenverse(query, request, id === "flickr" ? true : ["wellcome", "smithsonian", "europeana"].includes(id) ? id : false);
       if (request === fetch) {
         if (cache.size >= 200) cache.delete(cache.keys().next().value);
         cache.set(key, { until: Date.now() + 10 * 60 * 1e3, images });

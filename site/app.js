@@ -75,6 +75,10 @@ var french = {
   "Atomstr mirror timestamp ({zone})": "Horodatage du miroir Atomstr ({zone})",
   "via {network} / Atomstr": "via {network} / Atomstr",
   "Atomstr mirrors; these are not official publisher Nostr accounts.": "Miroirs Atomstr ; il ne s\u2019agit pas de comptes Nostr officiels des \xE9diteurs.",
+  "Image credits": "Cr\xE9dits de l\u2019image",
+  "Image unavailable": "Image indisponible",
+  "Automatically suggested image": "Image sugg\xE9r\xE9e automatiquement",
+  "No reusable image found for this headline.": "Aucune image r\xE9utilisable trouv\xE9e pour ce titre.",
   "Feed status": "\xC9tat des flux",
   "Unavailable sources ({count})": "Sources indisponibles ({count})",
   "Language": "Langue",
@@ -190,6 +194,10 @@ var spanish = {
   "Atomstr mirror timestamp ({zone})": "Fecha y hora del espejo de Atomstr ({zone})",
   "via {network} / Atomstr": "v\xEDa {network} / Atomstr",
   "Atomstr mirrors; these are not official publisher Nostr accounts.": "Espejos de Atomstr; no son cuentas oficiales de Nostr de los editores.",
+  "Image credits": "Cr\xE9ditos de la imagen",
+  "Image unavailable": "Imagen no disponible",
+  "Automatically suggested image": "Imagen sugerida autom\xE1ticamente",
+  "No reusable image found for this headline.": "No se encontr\xF3 ninguna imagen reutilizable para este titular.",
   "Feed status": "Estado de los canales",
   "Unavailable sources ({count})": "Fuentes no disponibles ({count})",
   "Language": "Idioma",
@@ -301,6 +309,10 @@ var arabic = {
   "Atomstr mirror timestamp ({zone})": "\u0648\u0642\u062A \u0627\u0644\u0646\u0634\u0631 \u0641\u064A \u0646\u0633\u062E\u0629 Atomstr ({zone})",
   "via {network} / Atomstr": "\u0639\u0628\u0631 {network} / Atomstr",
   "Atomstr mirrors; these are not official publisher Nostr accounts.": "\u0646\u0633\u062E Atomstr\u061B \u0647\u0630\u0647 \u0644\u064A\u0633\u062A \u062D\u0633\u0627\u0628\u0627\u062A Nostr \u0627\u0644\u0631\u0633\u0645\u064A\u0629 \u0644\u0644\u0646\u0627\u0634\u0631\u064A\u0646.",
+  "Image credits": "\u062D\u0642\u0648\u0642 \u0627\u0644\u0635\u0648\u0631\u0629",
+  "Image unavailable": "\u0627\u0644\u0635\u0648\u0631\u0629 \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629",
+  "Automatically suggested image": "\u0635\u0648\u0631\u0629 \u0645\u0642\u062A\u0631\u062D\u0629 \u062A\u0644\u0642\u0627\u0626\u064A\u064B\u0627",
+  "No reusable image found for this headline.": "\u0644\u0645 \u064A\u064F\u0639\u062B\u0631 \u0639\u0644\u0649 \u0635\u0648\u0631\u0629 \u0642\u0627\u0628\u0644\u0629 \u0644\u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0644\u0647\u0630\u0627 \u0627\u0644\u0639\u0646\u0648\u0627\u0646.",
   "Feed status": "\u062D\u0627\u0644\u0629 \u0627\u0644\u062E\u0644\u0627\u0635\u0627\u062A",
   "Unavailable sources ({count})": "\u0627\u0644\u0645\u0635\u0627\u062F\u0631 \u063A\u064A\u0631 \u0627\u0644\u0645\u062A\u0627\u062D\u0629 ({count})",
   "Language": "\u0627\u0644\u0644\u063A\u0629",
@@ -416,6 +428,10 @@ var chinese = {
   "Atomstr mirror timestamp ({zone})": "Atomstr \u955C\u50CF\u65F6\u95F4\uFF08{zone}\uFF09",
   "via {network} / Atomstr": "\u901A\u8FC7 {network} / Atomstr",
   "Atomstr mirrors; these are not official publisher Nostr accounts.": "Atomstr \u955C\u50CF\uFF1B\u8FD9\u4E9B\u5E76\u975E\u51FA\u7248\u65B9\u7684\u5B98\u65B9 Nostr \u8D26\u53F7\u3002",
+  "Image credits": "\u56FE\u7247\u6765\u6E90",
+  "Image unavailable": "\u56FE\u7247\u6682\u4E0D\u53EF\u7528",
+  "Automatically suggested image": "\u81EA\u52A8\u63A8\u8350\u7684\u56FE\u7247",
+  "No reusable image found for this headline.": "\u672A\u627E\u5230\u53EF\u7528\u4E8E\u8FD9\u6761\u65B0\u95FB\u6807\u9898\u7684\u56FE\u7247\u3002",
   "Feed status": "\u4FE1\u606F\u6E90\u72B6\u6001",
   "Unavailable sources ({count})": "\u65E0\u6CD5\u83B7\u53D6\u7684\u6765\u6E90\uFF08{count}\uFF09",
   "Language": "\u8BED\u8A00",
@@ -531,6 +547,10 @@ var russian = {
   "Atomstr mirror timestamp ({zone})": "\u0412\u0440\u0435\u043C\u044F \u0432 \u0437\u0435\u0440\u043A\u0430\u043B\u0435 Atomstr ({zone})",
   "via {network} / Atomstr": "\u0447\u0435\u0440\u0435\u0437 {network} / Atomstr",
   "Atomstr mirrors; these are not official publisher Nostr accounts.": "\u0417\u0435\u0440\u043A\u0430\u043B\u0430 Atomstr; \u044D\u0442\u043E \u043D\u0435 \u043E\u0444\u0438\u0446\u0438\u0430\u043B\u044C\u043D\u044B\u0435 \u0430\u043A\u043A\u0430\u0443\u043D\u0442\u044B \u0438\u0437\u0434\u0430\u0442\u0435\u043B\u0435\u0439 \u0432 Nostr.",
+  "Image credits": "\u0421\u0432\u0435\u0434\u0435\u043D\u0438\u044F \u043E\u0431 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0438",
+  "Image unavailable": "\u0418\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u043E",
+  "Automatically suggested image": "\u0410\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438 \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u043D\u043E\u0435 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435",
+  "No reusable image found for this headline.": "\u041F\u043E\u0434\u0445\u043E\u0434\u044F\u0449\u0435\u0435 \u0434\u043B\u044F \u043F\u043E\u0432\u0442\u043E\u0440\u043D\u043E\u0433\u043E \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u044F \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u043E.",
   "Feed status": "\u0421\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u0435 \u043B\u0435\u043D\u0442\u044B",
   "Unavailable sources ({count})": "\u041D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u044B\u0435 \u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0438 ({count})",
   "Language": "\u042F\u0437\u044B\u043A",
@@ -650,6 +670,10 @@ var dutch = {
   "Atomstr mirror timestamp ({zone})": "Tijdstip van de Atomstr-spiegel ({zone})",
   "via {network} / Atomstr": "via {network} / Atomstr",
   "Atomstr mirrors; these are not official publisher Nostr accounts.": "Atomstr-spiegels; dit zijn geen offici\xEBle Nostr-accounts van uitgevers.",
+  "Image credits": "Beeldcredits",
+  "Image unavailable": "Afbeelding niet beschikbaar",
+  "Automatically suggested image": "Automatisch voorgestelde afbeelding",
+  "No reusable image found for this headline.": "Geen herbruikbare afbeelding gevonden voor deze kop.",
   "Feed status": "Feedstatus",
   "Unavailable sources ({count})": "Niet-beschikbare bronnen ({count})",
   "Language": "Taal",
@@ -761,6 +785,10 @@ var german = {
   "Atomstr mirror timestamp ({zone})": "Zeitangabe des Atomstr-Spiegels ({zone})",
   "via {network} / Atomstr": "\xFCber {network} / Atomstr",
   "Atomstr mirrors; these are not official publisher Nostr accounts.": "Atomstr-Spiegel; dies sind keine offiziellen Nostr-Konten der Verlage.",
+  "Image credits": "Bildnachweis",
+  "Image unavailable": "Bild nicht verf\xFCgbar",
+  "Automatically suggested image": "Automatisch vorgeschlagenes Bild",
+  "No reusable image found for this headline.": "F\xFCr diese Schlagzeile wurde kein wiederverwendbares Bild gefunden.",
   "Feed status": "Feed-Status",
   "Unavailable sources ({count})": "Nicht verf\xFCgbare Quellen ({count})",
   "Language": "Sprache",
@@ -880,6 +908,10 @@ var swahili = {
   "Atomstr mirror timestamp ({zone})": "Muhuri wa muda wa nakala ya Atomstr ({zone})",
   "via {network} / Atomstr": "kupitia {network} / Atomstr",
   "Atomstr mirrors; these are not official publisher Nostr accounts.": "Nakala za Atomstr kutoka nje ya akaunti rasmi za wachapishaji kwenye Nostr.",
+  "Image credits": "Sifa za picha",
+  "Image unavailable": "Picha haipatikani",
+  "Automatically suggested image": "Picha iliyopendekezwa kiotomatiki",
+  "No reusable image found for this headline.": "Hakuna picha inayoweza kutumiwa tena iliyopatikana kwa kichwa hiki.",
   "Feed status": "Hali ya vyanzo",
   "Unavailable sources ({count})": "Vyanzo visivyopatikana ({count})",
   "Language": "Lugha",
@@ -1022,6 +1054,10 @@ var portuguese = {
   "Atomstr mirror timestamp ({zone})": "Data informada pelo espelho Atomstr ({zone})",
   "via {network} / Atomstr": "via {network} / Atomstr",
   "Atomstr mirrors; these are not official publisher Nostr accounts.": "Espelhos do Atomstr; n\xE3o s\xE3o contas oficiais das fontes no Nostr.",
+  "Image credits": "Cr\xE9ditos da imagem",
+  "Image unavailable": "Imagem indispon\xEDvel",
+  "Automatically suggested image": "Imagem sugerida automaticamente",
+  "No reusable image found for this headline.": "Nenhuma imagem reutiliz\xE1vel foi encontrada para esta manchete.",
   "Feed status": "Estado das fontes",
   "Unavailable sources ({count})": "Fontes indispon\xEDveis ({count})",
   "Language": "Idioma",
@@ -1644,9 +1680,9 @@ var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
 ));
 
 // app.ts
-import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=aef3af3bbbc2a33f";
-import relayConfig from "./relay-config.js?v=aef3af3bbbc2a33f";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=aef3af3bbbc2a33f";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=25a87f7223bc89e9";
+import relayConfig from "./relay-config.js?v=25a87f7223bc89e9";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=25a87f7223bc89e9";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1759,7 +1795,9 @@ var suggestionObserver = new IntersectionObserver((entries) => {
   loadSuggestions();
 }, { rootMargin: "100px" });
 function loadSuggestions() {
-  if (!imageSession) {
+  if (localizedEdition) {
+    if (!searchImages) return;
+  } else if (!imageSession) {
     suggestionQueue.clear();
     return;
   }
@@ -1767,7 +1805,7 @@ function loadSuggestions() {
     if (activeSuggestions >= 2) break;
     suggestionQueue.delete(id);
     const state = commonsSearches.get(id);
-    if (!state || state.loading || state.searched || !imageSession.refs[id]) continue;
+    if (!state || state.loading || state.searched || !localizedEdition && !imageSession?.refs[id]) continue;
     activeSuggestions++;
     void findCommons(id, state.query, true).finally(() => {
       activeSuggestions--;
@@ -1884,7 +1922,7 @@ async function connectNostr() {
       })
     ]).finally(() => clearTimeout(timer));
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=aef3af3bbbc2a33f");
+    const identity = await import("./relay-reader.js?v=25a87f7223bc89e9");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -1913,7 +1951,7 @@ async function connectNostr() {
 function renderNostrAccount() {
   const buttonFocused = imageToolbar.contains(document.activeElement);
   imageToolbar.replaceChildren();
-  imageToolbar.hidden = !imageEditor || !hasSigner();
+  imageToolbar.hidden = localizedEdition || !imageEditor || !hasSigner();
   if (imageToolbar.hidden) return;
   if (voter) {
     const identity = element("div", "", "nostr-identity");
@@ -2059,7 +2097,7 @@ function thumbnailCredit(imageCredit) {
 }
 function prepareImageSearch(storyId, title) {
   if (!commonsSearches.has(storyId)) {
-    commonsSearches.set(storyId, { query: commonsSubject(title), source: "all", issues: [], loading: false, results: [], error: "", searched: false });
+    commonsSearches.set(storyId, { query: localizedEdition ? title.trim().slice(0, 200) : commonsSubject(title), source: "all", issues: [], loading: false, results: [], error: "", searched: false });
   }
 }
 function imageReview(storyId, title) {
@@ -2275,7 +2313,7 @@ async function findCommons(storyId, query, suggest = false) {
       if (partial.images.length) state.results = partial.images;
       state.issues = partial.issues;
       renderWorld();
-    });
+    }, locale.split("-")[0]);
     state.results = result.images;
     state.issues = result.issues;
     if (!result.images.length && result.issues.length) state.error = result.issues.join(" ");
@@ -2307,12 +2345,23 @@ function element(tag, text, className) {
   if (className) node.className = className;
   return node;
 }
+function storyPlaceholder(label) {
+  const placeholder = element("div", "", "story-placeholder");
+  if (label) {
+    placeholder.title = label;
+    placeholder.setAttribute("role", "img");
+    placeholder.setAttribute("aria-label", label);
+  } else {
+    placeholder.setAttribute("aria-hidden", "true");
+  }
+  return placeholder;
+}
 function imageCreditKey(image) {
   const { url, filePage, title, alt, creator, attribution, license, licenseUrl, sourceName } = image;
   return [url, filePage, title, alt, creator, attribution, license, licenseUrl, sourceName];
 }
 function describeSuggestedImage(image, suggested) {
-  if (suggested) image.setAttribute("aria-description", "Automatically suggested image");
+  if (suggested) image.setAttribute("aria-description", t("Automatically suggested image"));
   else image.removeAttribute("aria-description");
 }
 var storyCards = /* @__PURE__ */ new WeakMap();
@@ -2336,10 +2385,11 @@ function renderStories(target, stories, emptyMessage) {
     const approvedMedia = usePlaceholder ? STRINGER_MEDIA.get(url) : null;
     const localImage = CONTENT_PERMISSIONS2.stringer.images && approvedMedia?.image ? locale !== "en-US" ? new URL(approvedMedia.image, import.meta.url).href : approvedMedia.image : null;
     const imageStoryId = wire && !localizedEdition ? story.noteId : void 0;
+    const searchId = wire && localizedEdition ? url : imageStoryId;
     const selection = imageStoryId ? imageSession?.selection(imageStoryId) : null;
-    if (imageStoryId) prepareImageSearch(imageStoryId, story.title);
-    const search = imageStoryId ? commonsSearches.get(imageStoryId) : void 0;
-    const commons = imageStoryId ? imageOptions(imageStoryId).find((image) => !skippedImages.get(choiceKey(imageStoryId))?.includes(image.filePage)) : null;
+    if (searchId) prepareImageSearch(searchId, story.title);
+    const search = searchId ? commonsSearches.get(searchId) : void 0;
+    const commons = imageStoryId ? imageOptions(imageStoryId).find((image) => !skippedImages.get(choiceKey(imageStoryId))?.includes(image.filePage)) : search?.results[0];
     const imageData = wire ? commons : story.image;
     const imageUrl = wire ? commons?.url : safeImageUrl(imageData?.url) || localImage;
     const suggested = !!commons && commons.filePage !== selection?.winner?.filePage;
@@ -2369,7 +2419,7 @@ function renderStories(target, stories, emptyMessage) {
         describeSuggestedImage(existing.querySelector(".story-media img"), suggested);
         card.suggested = suggested;
       }
-      if (imageStoryId && !search?.loading && !search?.searched)
+      if (searchId && !search?.loading && !search?.searched)
         suggestionObserver.observe(existing.querySelector(".wire-thumbnail"));
       cards.push(existing);
       continue;
@@ -2378,23 +2428,26 @@ function renderStories(target, stories, emptyMessage) {
     article.dir = "auto";
     const body = element("div", "", "story-body");
     const showPlaceholder = () => {
-      const placeholder = element("div", "", "story-media story-placeholder");
-      placeholder.setAttribute("aria-hidden", "true");
+      const placeholder = storyPlaceholder();
+      placeholder.classList.add("story-media");
       article.classList.add("with-image");
       article.prepend(placeholder);
     };
     let wireFigure = null;
-    if (wire && !localizedEdition) {
+    if (wire) {
       article.classList.add("with-image");
       wireFigure = element("figure", "", "story-media wire-thumbnail");
-      if (imageStoryId) {
-        wireFigure.dataset.storyId = imageStoryId;
+      if (searchId) {
+        wireFigure.dataset.storyId = searchId;
         if (!search?.loading && !search?.searched) suggestionObserver.observe(wireFigure);
       }
       article.append(wireFigure);
     }
     if (imageUrl) {
       const figure = wireFigure || element("figure", "", "story-media");
+      const placeholder = storyPlaceholder();
+      figure.classList.add("image-loading");
+      figure.append(placeholder);
       const image = element("img");
       image.alt = imageData?.alt || "";
       image.width = wire ? 120 : 240;
@@ -2412,22 +2465,26 @@ function renderStories(target, stories, emptyMessage) {
         caption = element("figcaption", photoCredit, "image-credit-caption");
         thumbnailCredits.set(caption, { key: url, credit: { title: story.title, credit: photoCredit } });
       }
+      image.addEventListener("load", () => {
+        const reveal = () => {
+          placeholder.hidden = true;
+          figure.classList.remove("image-loading");
+        };
+        void image.decode().then(reveal, reveal);
+      });
       image.addEventListener("error", () => {
         caption?.remove();
         if (localImage && !triedLocal) {
           triedLocal = true;
+          placeholder.hidden = false;
+          figure.classList.add("image-loading");
           image.src = localImage;
           return;
         }
         storyCards.delete(article);
-        if (wire) {
-          const failed = image.closest("a") || image;
-          failed.replaceWith(element("span", "Image unavailable", "image-search-status"));
-          return;
-        }
-        const placeholder = element("div", "", "story-placeholder");
-        placeholder.setAttribute("aria-hidden", "true");
-        image.replaceWith(placeholder);
+        (image.closest("a") || image).remove();
+        placeholder.replaceWith(storyPlaceholder(t("Image unavailable")));
+        figure.classList.remove("image-loading");
       });
       image.src = imageUrl;
       if (wire && commons) {
@@ -2499,15 +2556,13 @@ function renderStories(target, stories, emptyMessage) {
       meta.firstElementChild.after(separator);
     }
     body.append(meta);
-    if (imageStoryId && !commons) {
+    if (searchId && !commons) {
       if (search?.error) wireFigure?.append(element("p", search.error, "warning"));
-      else if (search?.searched) {
-        const message = search.results.length ? "No more suggestions. Undo a skip or search again." : trusted ? "No reusable image found. Open image review to refine the search." : "No reusable image found for this headline.";
+      else if (search?.searched && (search.results.length || trusted)) {
+        const message = search.results.length ? "No more suggestions. Undo a skip or search again." : "No reusable image found. Open image review to refine the search.";
         wireFigure?.append(element("p", message, "image-search-status"));
       } else {
-        const placeholder = element("div", "", "story-placeholder");
-        placeholder.setAttribute("aria-hidden", "true");
-        wireFigure?.append(placeholder);
+        wireFigure?.append(storyPlaceholder(search?.searched ? t("No reusable image found for this headline.") : void 0));
       }
     }
     if (imageStoryId && trusted) wireFigure?.insertBefore(imageControls(imageStoryId, story.title, commons), wireFigure.querySelector("figcaption"));
@@ -2563,6 +2618,7 @@ for (const section of sections) {
 }
 mobileLayout.addEventListener("change", updateStoryVisibility);
 function renderStatuses() {
+  requiredElement(".collection-link").hidden = loading && !requiredElement("#stringer-news").querySelector("article");
   const relayDetails = requiredElement("#relay-status-details");
   relayDetails.replaceChildren();
   const notes = [];
@@ -2681,7 +2737,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=aef3af3bbbc2a33f");
+      const reader = await import("./relay-reader.js?v=25a87f7223bc89e9");
       ImageSessionClass = reader.ImageSession;
       searchImages = reader.searchImages;
       commonsSubject = reader.commonsSubject;
@@ -2755,7 +2811,7 @@ async function loadLocalized() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=aef3af3bbbc2a33f");
+    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=25a87f7223bc89e9");
     if (!snapshot) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
@@ -2800,7 +2856,7 @@ async function loadLocalized() {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=aef3af3bbbc2a33f");
+            const relay = await import("./relay-reader.js?v=25a87f7223bc89e9");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
@@ -2846,6 +2902,10 @@ setInterval(() => {
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && Date.now() - lastAttempt >= interval) load();
 });
+if (localizedEdition) void import("./relay-reader.js?v=25a87f7223bc89e9").then((reader) => {
+  searchImages = reader.searchImages;
+  loadSuggestions();
+}, () => suggestionQueue.clear());
 load();
 export {
   castImageVote,
