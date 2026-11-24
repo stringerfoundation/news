@@ -113,7 +113,7 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
       const file = url.pathname.slice(1) || 'index.html';
       if (file === 'relay-config.js') { await route.fulfill({ contentType: 'text/javascript', body: `export default ${JSON.stringify({ enabled: true, pubkey, relays: ['wss://relay.test'] })}` }); return; }
       if (file !== 'index.html' && !isPublicAsset(file)) { await route.fulfill({ status: 404 }); return; }
-      await route.fulfill({ contentType: file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.png') ? 'image/png' : file.endsWith('.svg') ? 'image/svg+xml' : 'text/html', body: await readFile(file.endsWith('.js') ? `_site/${file}` : file) });
+      await route.fulfill({ contentType: file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.png') ? 'image/png' : 'text/html', body: await readFile(file.endsWith('.js') ? `_site/${file}` : file) });
     });
     await page.routeWebSocket('wss://relay.test/', socket => {
       if (offline) { socket.close(); return; }
@@ -287,7 +287,14 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
       await ownerPage.getByText('Image and approval published.', { exact: true }).waitFor();
       await reader.waitForFunction(expected => document.querySelector('#world-news .wire-thumbnail > a > img')?.getAttribute('alt')?.includes(expected), alt!);
       assert.equal(await reader.locator('#world-news .wire-thumbnail > a').getAttribute('href'), 'https://example.org/story');
-      assert.equal(await reader.locator('.wire-thumbnail .image-credit-cc').count(), 1);
+      const icon = reader.locator('.wire-thumbnail .image-credit-cc');
+      assert.equal(await icon.count(), 1);
+      await icon.evaluate(async mark => {
+        const background = getComputedStyle(mark).backgroundImage;
+        const image = new Image();
+        image.src = background.slice(5, -2);
+        await image.decode();
+      });
       await checkCredits(reader, new RegExp(credit!));
     }
     const late = await browser.newPage();

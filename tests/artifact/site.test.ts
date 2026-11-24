@@ -17,7 +17,7 @@ async function walk(dir: string): Promise<string[]> {
 test('Pages artifact contains only the public asset allowlist', async () => {
   const exact = new Set(['index.html', 'app.js', 'style.css', 'news-model.js', 'relay-config.js',
     'response.js', 'publications.js', 'stringer-media.js', 'relay-reader.js', 'atomstr-reader.js', ...EDITIONS.filter(edition => edition.path).map(edition => `${edition.path}/index.html`), '.well-known/nostr.json', '.nojekyll', 'robots.txt',
-    ...['stringer-logo.png','nostr-banner.png','favicon-16.png','favicon-32.png','favicon-192.png','favicon-180.png','creative-commons.svg'].map(f => `assets/${f}`)]);
+    ...['stringer-logo.png','nostr-banner.png','favicon-16.png','favicon-32.png','favicon-192.png','favicon-180.png'].map(f => `assets/${f}`)]);
   const paths = (await walk('_site')).map(path => path.slice(6));
   for (const path of paths) assert.ok(exact.has(path) || /^assets\/stringer-thumbnails\/[a-zA-Z0-9-]+\.png$/.test(path), `Unexpected published file: ${path}`);
   for (const path of exact) assert.ok(paths.includes(path), `Missing public asset: ${path}`);
