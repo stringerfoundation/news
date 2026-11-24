@@ -8547,14 +8547,19 @@ function cachedRelaySnapshot(config) {
 // relay/open-images.ts
 var sources = { commons: "Wikimedia Commons", openverse: "Openverse", flickr: "Flickr via Openverse", eu: "EU audiovisual library", wellcome: "Wellcome Collection via Openverse", smithsonian: "Smithsonian via Openverse", europeana: "Europeana via Openverse" };
 var euEndpoint = "https://gfdwwnbuul.execute-api.eu-west-1.amazonaws.com/avsportal/avsportal";
+var searchUnavailable = "Search is unavailable. Please retry.";
 function plain2(value) {
   if (typeof value !== "string") return "";
   return new DOMParser().parseFromString(value, "text/html").body.textContent?.replace(/\s+/g, " ").trim().slice(0, 2e3) || "";
 }
 async function json(url, request, timeout = 12e3) {
-  const response = await request(url, { credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(timeout) });
-  if (!response.ok) throw new Error(response.status === 429 ? "Search limit reached. Please retry later." : "Search is unavailable. Please retry.");
-  return response.json();
+  const response = await request(url, { credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(timeout) }).catch(() => {
+    throw new Error(searchUnavailable);
+  });
+  if (!response.ok) throw new Error(response.status === 429 ? "Search limit reached. Please retry later." : searchUnavailable);
+  return response.json().catch(() => {
+    throw new Error(searchUnavailable);
+  });
 }
 async function searchOpenverse(query, request = fetch, provider = false) {
   const url = new URL("https://api.openverse.org/v1/images/");
@@ -8666,7 +8671,7 @@ async function searchImages(query, source = "all", suggest = false, request = fe
       }
       return images;
     } catch (error) {
-      issues.push(`${sources[id]}: ${error instanceof Error ? error.message : "Search is unavailable. Please retry."}`);
+      issues.push(`${sources[id]}: ${error instanceof Error ? error.message : searchUnavailable}`);
       return [];
     }
   };
