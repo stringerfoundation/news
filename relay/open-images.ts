@@ -5,14 +5,16 @@ export type ImageSource = 'all' | 'commons' | 'openverse' | 'flickr' | 'eu' | 'w
 export interface ImageSearchResult { images: CommonsImage[]; issues: string[] }
 const sources = { commons: 'Wikimedia Commons', openverse: 'Openverse', flickr: 'Flickr via Openverse', eu: 'EU audiovisual library', wellcome: 'Wellcome Collection via Openverse', smithsonian: 'Smithsonian via Openverse', europeana: 'Europeana via Openverse' };
 const euEndpoint = 'https://gfdwwnbuul.execute-api.eu-west-1.amazonaws.com/avsportal/avsportal';
+const searchUnavailable = 'Search is unavailable. Please retry.';
 function plain(value: unknown): string {
   if (typeof value !== 'string') return '';
   return new DOMParser().parseFromString(value, 'text/html').body.textContent?.replace(/\s+/g, ' ').trim().slice(0, 2000) || '';
 }
 async function json(url: URL, request: typeof fetch, timeout = 12000) {
-  const response = await request(url, { credentials: 'omit', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(timeout) });
-  if (!response.ok) throw new Error(response.status === 429 ? 'Search limit reached. Please retry later.' : 'Search is unavailable. Please retry.');
-  return response.json();
+  const response = await request(url, { credentials: 'omit', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(timeout) })
+    .catch(() => { throw new Error(searchUnavailable); });
+  if (!response.ok) throw new Error(response.status === 429 ? 'Search limit reached. Please retry later.' : searchUnavailable);
+  return response.json().catch(() => { throw new Error(searchUnavailable); });
 }
 interface OpenverseImage {
   id?: string; title?: string; creator?: string; attribution?: string; url?: string; foreign_landing_url?: string;
@@ -108,7 +110,7 @@ export async function searchImages(query: string, source: ImageSource = 'all', s
       }
       return images;
     } catch (error) {
-      issues.push(`${sources[id]}: ${error instanceof Error ? error.message : 'Search is unavailable. Please retry.'}`);
+      issues.push(`${sources[id]}: ${error instanceof Error ? error.message : searchUnavailable}`);
       return [];
     }
   };
