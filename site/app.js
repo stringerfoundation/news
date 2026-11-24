@@ -1644,9 +1644,9 @@ var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
 ));
 
 // app.ts
-import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=a269a7bb24820715";
-import relayConfig from "./relay-config.js?v=a269a7bb24820715";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=a269a7bb24820715";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=51e885708a6ec97e";
+import relayConfig from "./relay-config.js?v=51e885708a6ec97e";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=51e885708a6ec97e";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1744,6 +1744,538 @@ var loadDuration = 0;
 var loadOutcome = "";
 var loadStage = "";
 var feedTimings = {};
+var ImageSessionClass = null;
+var searchImages = null;
+var commonsSubject;
+var commonsSearches = /* @__PURE__ */ new Map();
+var suggestionQueue = /* @__PURE__ */ new Set();
+var activeSuggestions = 0;
+var suggestionObserver = new IntersectionObserver((entries) => {
+  for (const entry of entries) if (entry.isIntersecting) {
+    suggestionObserver.unobserve(entry.target);
+    const id = entry.target.dataset.storyId;
+    if (id) suggestionQueue.add(id);
+  }
+  loadSuggestions();
+}, { rootMargin: "100px" });
+function loadSuggestions() {
+  if (!imageSession) {
+    suggestionQueue.clear();
+    return;
+  }
+  for (const id of suggestionQueue) {
+    if (activeSuggestions >= 2) break;
+    suggestionQueue.delete(id);
+    const state = commonsSearches.get(id);
+    if (!state || state.loading || state.searched || !imageSession.refs[id]) continue;
+    activeSuggestions++;
+    void findCommons(id, state.query, true).finally(() => {
+      activeSuggestions--;
+      loadSuggestions();
+    });
+  }
+}
+var imageSession = null;
+var imageRefsKey = "";
+var voter = null;
+var accountNpub = "";
+var accountNip05 = null;
+var identityPending = false;
+var connectingSigner = false;
+var accountRevision = 0;
+var connectedSigner;
+var voteBusy = false;
+var voteMessage = "";
+var openImageReviews = /* @__PURE__ */ new Set();
+var chosenImages = /* @__PURE__ */ new Map();
+var skippedImages = /* @__PURE__ */ new Map();
+var imageHistory = /* @__PURE__ */ new Map();
+var choiceKey = (storyId, account = voter) => `${account}:${storyId}`;
+function rememberImageAction(storyId, kind, candidateId, account = voter) {
+  const key = choiceKey(storyId, account), history = imageHistory.get(key) || [];
+  history.push({ kind, candidateId, chosen: chosenImages.get(key) || null, skipped: [...skippedImages.get(key) || []] });
+  imageHistory.set(key, history.slice(-100));
+}
+function imageOptions(storyId) {
+  const selection = imageSession?.selection(storyId);
+  const chosen = chosenImages.get(choiceKey(storyId));
+  const images = [...chosen ? [selection?.scores.find((score) => score.candidate.filePage === chosen.filePage)?.candidate || chosen] : [], ...selection?.winner ? [selection.winner] : [], ...selection?.scores.map((score) => score.candidate) || [], ...commonsSearches.get(storyId)?.results || []];
+  return images.filter((image, index) => images.findIndex((other) => other.filePage === image.filePage) === index);
+}
+function skipImage(storyId, image) {
+  if (!voter || !imageSession?.canVote(voter) || voteBusy) return;
+  rememberImageAction(storyId, "skip", null);
+  const key = choiceKey(storyId);
+  skippedImages.set(key, [...skippedImages.get(key) || [], image.filePage]);
+  renderWorld();
+}
+async function undoImage(storyId) {
+  const key = choiceKey(storyId), history = imageHistory.get(key), action = history?.at(-1);
+  if (!action || voteBusy) return;
+  if (action.kind === "vote" && !await castImageVote(storyId, action.candidateId, false)) return;
+  if (action.chosen) chosenImages.set(key, action.chosen);
+  else chosenImages.delete(key);
+  skippedImages.set(key, [...action.skipped]);
+  history.pop();
+  renderWorld();
+}
+async function castImageVote(storyId, candidateId, remember = true) {
+  const session = imageSession, account = voter, signer = window.nostr;
+  if (!session || !account || !signer || voteBusy) return false;
+  const prior = session.selection(storyId).latest.get(account)?.vote.candidateId || null;
+  voteBusy = true;
+  voteMessage = "Waiting for your signer and relay confirmation\u2026";
+  renderWorld();
+  let published = false;
+  try {
+    const previousTime = session.selection(storyId).latest.get(account)?.event.created_at;
+    const delay = previousTime ? (previousTime + 1) * 1e3 - Date.now() : 0;
+    if (delay > 0 && delay < 2e3) await new Promise((resolve) => setTimeout(resolve, delay));
+    await session.vote(signer, account, storyId, candidateId);
+    if (remember) rememberImageAction(storyId, "vote", prior, account);
+    const image = candidateId ? session.candidates.get(candidateId) : null;
+    if (image) skippedImages.set(choiceKey(storyId, account), (skippedImages.get(choiceKey(storyId, account)) || []).filter((page) => page !== image.filePage));
+    voteMessage = remember ? "Vote published." : "Previous approval restored.";
+    published = true;
+  } catch (error) {
+    voteMessage = error instanceof Error ? error.message : "Could not publish your vote. Please retry.";
+  } finally {
+    voteBusy = false;
+    renderWorld();
+  }
+  return published;
+}
+var imageToolbar = element("div", "", "image-toolbar");
+imageToolbar.hidden = true;
+requiredElement(".footer-notes").append(imageToolbar);
+function syncImages() {
+  const refs = snapshot?.imageCandidates || {};
+  const storyIds = Object.entries(snapshot?.sources || {}).filter(([id]) => id !== "stringer").flatMap(([, source]) => source.stories.flatMap((story) => story.noteId ? [story.noteId] : []));
+  const key = JSON.stringify([refs, storyIds]);
+  if (key !== imageRefsKey && ImageSessionClass && (!loading || !imageSession)) {
+    imageSession?.close();
+    imageSession = null;
+    imageRefsKey = key;
+    if (storyIds.length) imageSession = new ImageSessionClass(relayConfig, refs, () => renderWorld(), storyIds);
+  }
+  renderNostrAccount();
+}
+function hasSigner() {
+  return typeof window.nostr?.getPublicKey === "function" && typeof window.nostr?.signEvent === "function";
+}
+function refreshAccount() {
+  if (snapshot) renderWorld();
+  else renderNostrAccount();
+}
+async function connectNostr() {
+  if (!hasSigner() || connectingSigner) return;
+  const signer = window.nostr, revision = ++accountRevision;
+  connectedSigner = signer;
+  connectingSigner = true;
+  voteMessage = "";
+  renderNostrAccount();
+  try {
+    let timer;
+    const key = await Promise.race([
+      signer.getPublicKey(),
+      new Promise((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error("Nostr connection timed out. Check your extension\u2019s permission prompt, then click Connect Nostr to retry.")), 1e4);
+      })
+    ]).finally(() => clearTimeout(timer));
+    if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
+    const identity = await import("./relay-reader.js?v=51e885708a6ec97e");
+    if (revision !== accountRevision || window.nostr !== signer) return;
+    voter = key;
+    accountNpub = identity.npubEncode(key);
+    accountNip05 = null;
+    identityPending = true;
+    connectingSigner = false;
+    refreshAccount();
+    const address = await identity.readIdentity(key, relayConfig.relays, key === relayConfig.pubkey ? "_@stringerjournalism.org" : void 0);
+    if (revision !== accountRevision || voter !== key || window.nostr !== signer) return;
+    accountNip05 = address;
+    identityPending = false;
+    refreshAccount();
+  } catch (error) {
+    if (revision !== accountRevision) return;
+    if (voter) {
+      identityPending = false;
+      accountNip05 = null;
+    } else voteMessage = error instanceof Error ? error.message : "Could not connect to your signer.";
+  } finally {
+    if (revision === accountRevision) {
+      connectingSigner = false;
+      refreshAccount();
+    }
+  }
+}
+function renderNostrAccount() {
+  const buttonFocused = imageToolbar.contains(document.activeElement);
+  imageToolbar.replaceChildren();
+  imageToolbar.hidden = !hasSigner();
+  if (imageToolbar.hidden) return;
+  if (voter) {
+    const identity = element("div", "", "nostr-identity");
+    const npub = element("code", accountNpub);
+    npub.className = "account-npub";
+    identity.append(npub, element("span", identityPending ? "Looking up NIP-05\u2026" : accountNip05 || "NIP-05 unavailable", "account-nip05"));
+    imageToolbar.append(identity);
+  }
+  const connect = element("button", connectingSigner ? "Cancel Nostr connection" : voter ? "Disconnect Nostr" : "Connect Nostr");
+  connect.type = "button";
+  connect.disabled = voteBusy;
+  connect.addEventListener("click", () => {
+    if (voter || connectingSigner) disconnectNostr();
+    else void connectNostr();
+  });
+  imageToolbar.append(connect);
+  if (buttonFocused) connect.focus({ preventScroll: true });
+  let status = voter && imageSession?.trustLive && !imageSession.canVote(voter) ? "This account is not followed by Stringer and cannot approve images." : voteMessage;
+  if (!status && voter && imageSession) status = imageSession.canVote(voter) ? "You can approve illustrative images." : "Waiting for Stringer\u2019s follow list.";
+  const message = element("p", status);
+  message.setAttribute("role", "status");
+  imageToolbar.append(message);
+}
+function disconnectNostr() {
+  ++accountRevision;
+  connectedSigner = void 0;
+  connectingSigner = false;
+  voter = null;
+  accountNpub = "";
+  accountNip05 = null;
+  identityPending = false;
+  voteMessage = "";
+  refreshAccount();
+}
+function detectNostr() {
+  if ((voter || connectingSigner) && (!hasSigner() || connectedSigner !== window.nostr)) disconnectNostr();
+  else renderNostrAccount();
+}
+var signerChecks = 0;
+var signerTimer = setInterval(() => {
+  detectNostr();
+  if (++signerChecks >= 40 || hasSigner()) clearInterval(signerTimer);
+}, 250);
+window.addEventListener("load", detectNostr);
+window.addEventListener("nostr:ready", detectNostr);
+detectNostr();
+function creditLink(label, url) {
+  const link = element("a", label);
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  return link;
+}
+function creditEntry(credit) {
+  const entry = element("section", "", "image-credit-entry");
+  entry.append(element("h3", credit.title));
+  if ("credit" in credit) {
+    entry.append(element("p", credit.credit));
+    return entry;
+  }
+  entry.prepend(element("p", t("Illustrative image"), "image-credit-kind"));
+  entry.append(element("p", credit.creator));
+  const links = element("div", "", "image-credit-links");
+  links.append(
+    creditLink(credit.sourceName || "Wikimedia Commons", credit.filePage),
+    creditLink(credit.license.replace(/^CC-BY(-SA)?-/, "CC BY$1 "), credit.licenseUrl)
+  );
+  entry.append(links);
+  if (credit.attribution.trim() !== credit.creator.trim()) {
+    const details = element("details");
+    details.append(element("summary", t("Full attribution")), element("p", credit.attribution));
+    entry.append(details);
+  }
+  return entry;
+}
+var thumbnailCredits = /* @__PURE__ */ new WeakMap();
+var creditDialog = element("dialog", "", "image-credit-dialog");
+creditDialog.setAttribute("aria-labelledby", "image-credit-title");
+var creditTitle = element("h2");
+creditTitle.id = "image-credit-title";
+var closeCredit = element("button", t("Close"), "image-credit-close");
+closeCredit.type = "button";
+closeCredit.autofocus = true;
+closeCredit.addEventListener("click", () => creditDialog.close());
+var creditHeader = element("div", "", "image-credit-header");
+creditHeader.append(creditTitle, closeCredit);
+var creditBody = element("div", "", "image-credit-body");
+var creditEmpty = element("p", t("No image credits to show yet."));
+creditDialog.append(creditHeader, creditBody);
+document.body.append(creditDialog);
+function openCredits(credits) {
+  creditTitle.textContent = t("Image credits");
+  creditEmpty.hidden = credits.length > 0;
+  creditBody.replaceChildren(creditEmpty, ...credits.map(creditEntry));
+  creditDialog.showModal();
+  creditBody.scrollTop = 0;
+}
+var footerCredits = element("button", t("Credits"), "footer-credits");
+footerCredits.type = "button";
+footerCredits.setAttribute("aria-haspopup", "dialog");
+footerCredits.addEventListener("click", () => {
+  const credits = /* @__PURE__ */ new Map();
+  for (const caption of document.querySelectorAll(".story-media > .image-credit-caption")) {
+    const { key, credit } = thumbnailCredits.get(caption);
+    credits.set(key, credit);
+  }
+  openCredits([...credits.values()]);
+});
+requiredElement(".footer-bottom").append(footerCredits);
+function thumbnailCredit(imageCredit, suggested = false) {
+  const caption = element("figcaption", "", "image-credit-caption");
+  const credit = element("button", "", "image-credit-button");
+  const licensed = new URL(imageCredit.licenseUrl).pathname.startsWith("/licenses/");
+  const icon = element("span", licensed ? "" : "i", licensed ? "image-credit-cc" : "image-credit-info");
+  icon.setAttribute("aria-hidden", "true");
+  credit.append(icon);
+  credit.type = "button";
+  credit.title = t("Image credits");
+  credit.setAttribute("aria-label", credit.title);
+  credit.setAttribute("aria-haspopup", "dialog");
+  if (suggested) credit.setAttribute("aria-description", "Automatically suggested image");
+  credit.addEventListener("click", () => openCredits([imageCredit]));
+  thumbnailCredits.set(caption, { key: imageCredit.filePage, credit: imageCredit });
+  caption.append(credit);
+  return caption;
+}
+function prepareImageSearch(storyId, title) {
+  if (!commonsSearches.has(storyId)) {
+    commonsSearches.set(storyId, { query: commonsSubject(title), source: "all", issues: [], loading: false, results: [], error: "", searched: false });
+  }
+}
+function imageReview(storyId, title) {
+  if (!hasSigner() || !voter || !imageSession?.canVote(voter)) return null;
+  const selection = imageSession.selection(storyId);
+  prepareImageSearch(storyId, title);
+  const control = element("div", "", "image-review-control");
+  control.dataset.storyId = storyId;
+  const details = element("dialog", "", "image-review");
+  details.id = `image-review-${storyId}`;
+  details.setAttribute("aria-label", `Image choices for ${title}`);
+  const open = element("button", "\u22EF");
+  open.type = "button";
+  open.title = "Review illustrative images";
+  open.setAttribute("aria-label", "Review illustrative images");
+  open.dataset.imageAction = `${storyId}:review`;
+  const closeReview = () => {
+    openImageReviews.delete(storyId);
+    details.close();
+    open.focus();
+  };
+  open.addEventListener("click", () => {
+    const visible = imageOptions(storyId).find((image) => !skippedImages.get(choiceKey(storyId))?.includes(image.filePage));
+    if (visible) chosenImages.set(choiceKey(storyId), visible);
+    openImageReviews.add(storyId);
+    details.showModal();
+    const state = commonsSearches.get(storyId);
+    if (state && !state.loading) void findCommons(storyId, state.query);
+  });
+  const close = element("button", "Close image review");
+  close.type = "button";
+  close.addEventListener("click", closeReview);
+  details.addEventListener("cancel", () => {
+    openImageReviews.delete(storyId);
+  });
+  details.append(close, element("h3", title), element("p", "Click an image to choose it. Approve it afterwards to share it with other readers."));
+  queueMicrotask(() => {
+    if (details.isConnected && openImageReviews.has(storyId)) details.showModal();
+  });
+  const grid = element("div", "", "image-choice-grid");
+  const choose = (image) => {
+    rememberImageAction(storyId, "choose", null);
+    chosenImages.set(choiceKey(storyId), image);
+    skippedImages.set(choiceKey(storyId), (skippedImages.get(choiceKey(storyId)) || []).filter((page) => page !== image.filePage));
+    closeReview();
+    renderWorld();
+    queueMicrotask(() => document.querySelector(`[data-image-action="${storyId}:up"]`)?.focus());
+  };
+  const choiceButton = (image, img) => {
+    const button = element("button", "", "image-choice");
+    button.type = "button";
+    button.setAttribute("aria-label", `Choose image: ${image.title}`);
+    button.dataset.imageAction = `${storyId}:choose:${image.filePage}`;
+    button.setAttribute("aria-pressed", String(chosenImages.get(choiceKey(storyId))?.filePage === image.filePage));
+    button.append(img);
+    button.addEventListener("click", () => choose(image));
+    return button;
+  };
+  const current = selection.latest.get(voter)?.vote.candidateId;
+  for (const { candidate, count } of selection.scores) {
+    const figure = element("figure");
+    const img = element("img");
+    img.src = candidate.url;
+    img.alt = candidate.alt;
+    img.width = 120;
+    img.height = 80;
+    img.loading = "lazy";
+    img.referrerPolicy = "no-referrer";
+    figure.append(choiceButton(candidate, img), thumbnailCredit(candidate));
+    const selected = current === candidate.id;
+    const button = element("button", selected ? "Withdraw approval" : `Upvote image (${count})`);
+    button.type = "button";
+    button.disabled = voteBusy;
+    button.setAttribute("aria-pressed", String(selected));
+    button.addEventListener("click", () => void castImageVote(storyId, selected ? null : candidate.id));
+    figure.append(button);
+    grid.append(figure);
+  }
+  {
+    const state = commonsSearches.get(storyId);
+    const form = element("form", "", "commons-search");
+    const label = element("label", "Search reusable images for a person, place or subject");
+    const sourceLabel = element("label", "Image source");
+    const sourceSelect = element("select");
+    sourceSelect.setAttribute("aria-label", "Image source");
+    sourceSelect.dataset.imageAction = `${storyId}:source`;
+    for (const [value, text] of [["all", "All sources"], ["commons", "Wikimedia Commons"], ["openverse", "Openverse"], ["flickr", "Flickr via Openverse"], ["eu", "EU audiovisual library"], ["wellcome", "Wellcome Collection via Openverse"], ["smithsonian", "Smithsonian via Openverse"], ["europeana", "Europeana via Openverse"]]) {
+      const option = element("option", text);
+      option.value = value;
+      sourceSelect.append(option);
+    }
+    sourceSelect.value = state.source;
+    sourceSelect.disabled = !!state?.loading;
+    sourceSelect.addEventListener("change", () => {
+      if (state) {
+        state.source = sourceSelect.value;
+        void findCommons(storyId, state.query);
+      }
+    });
+    sourceLabel.append(sourceSelect);
+    const input = element("input");
+    input.type = "search";
+    input.value = state.query;
+    input.maxLength = 200;
+    input.required = true;
+    input.dataset.imageAction = `${storyId}:search`;
+    label.append(input);
+    input.addEventListener("input", () => {
+      if (state) state.query = input.value;
+    });
+    const submit = element("button", state?.loading ? "Searching images\u2026" : "Search images");
+    submit.type = "submit";
+    submit.disabled = !!state?.loading;
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      void findCommons(storyId, input.value);
+    });
+    form.append(sourceLabel, label, submit);
+    details.append(form);
+    details.append(element("p", voter === relayConfig.pubkey ? "Everyone can see automatic suggestions. Publish and upvote your choice to share an approved image. This requests two signatures." : "Everyone can see automatic suggestions. Approve a published candidate to change the shared image. Stringer\u2019s account must publish new candidates first."));
+    if (state?.error) details.append(element("p", state.error, "warning"));
+    else if (state?.issues.length) details.append(element("p", state.issues.join(" "), "warning"));
+    if (state?.searched && !state.loading && !state.error && !state.results.length)
+      details.append(element("p", "No reusable images found. Try a specific person, place or subject."));
+    for (const image of imageOptions(storyId)) {
+      if (selection.scores.some((score) => score.candidate.filePage === image.filePage)) continue;
+      const figure = element("figure");
+      const preview = element("img");
+      preview.src = image.url;
+      preview.alt = image.alt;
+      preview.width = 120;
+      preview.height = 80;
+      preview.loading = "lazy";
+      preview.referrerPolicy = "no-referrer";
+      const publish = element("button", "Publish and upvote image");
+      publish.type = "button";
+      publish.disabled = voteBusy || voter !== relayConfig.pubkey;
+      publish.addEventListener("click", () => void publishCommons(storyId, image));
+      figure.append(choiceButton(image, preview), thumbnailCredit(image), publish);
+      grid.append(figure);
+    }
+  }
+  details.insertBefore(grid, details.querySelector("form"));
+  control.append(open, details);
+  return control;
+}
+async function publishCommons(storyId, image) {
+  const session = imageSession, account = voter, signer = window.nostr;
+  if (!session || !account || !signer || voteBusy) return;
+  const prior = session.selection(storyId).latest.get(account)?.vote.candidateId || null;
+  voteBusy = true;
+  voteMessage = "Approve two signer requests: the image candidate, then your vote.";
+  renderWorld();
+  try {
+    const id = await session.propose(signer, account, storyId, image);
+    await session.vote(signer, account, storyId, id);
+    rememberImageAction(storyId, "vote", prior, account);
+    skippedImages.set(choiceKey(storyId, account), (skippedImages.get(choiceKey(storyId, account)) || []).filter((page) => page !== image.filePage));
+    voteMessage = "Image and approval published.";
+  } catch (error) {
+    voteMessage = error instanceof Error ? error.message : "Could not publish the image. Please retry.";
+  } finally {
+    voteBusy = false;
+    renderWorld();
+  }
+}
+function imageControls(storyId, title, image) {
+  const controls = element("div", "", "image-controls");
+  if (image) {
+    const candidateId = "id" in image && typeof image.id === "string" ? image.id : null;
+    const selected = candidateId && imageSession?.selection(storyId).latest.get(voter)?.vote.candidateId === candidateId;
+    const label = selected ? "Withdraw approval" : candidateId ? "Approve suggested image" : "Publish and upvote image";
+    const up = element("button", selected ? "\u2713" : "\u2191");
+    up.type = "button";
+    up.title = label;
+    up.setAttribute("aria-label", label);
+    up.setAttribute("aria-pressed", String(!!selected));
+    up.dataset.imageAction = `${storyId}:up`;
+    up.disabled = voteBusy || !candidateId && voter !== relayConfig.pubkey;
+    up.addEventListener("click", () => {
+      if (candidateId) void castImageVote(storyId, selected ? null : candidateId);
+      else void publishCommons(storyId, image);
+    });
+    const down = element("button", "\u2193");
+    down.type = "button";
+    down.title = "Skip image for me";
+    down.setAttribute("aria-label", "Skip image for me");
+    down.dataset.imageAction = `${storyId}:down`;
+    down.disabled = voteBusy;
+    down.addEventListener("click", () => skipImage(storyId, image));
+    controls.append(up, down);
+  }
+  const undo = element("button", "\u21B6");
+  undo.type = "button";
+  undo.title = "Undo image choice";
+  undo.setAttribute("aria-label", "Undo image choice");
+  undo.dataset.imageAction = `${storyId}:undo`;
+  undo.disabled = voteBusy || !imageHistory.get(choiceKey(storyId))?.length;
+  undo.addEventListener("click", () => void undoImage(storyId));
+  controls.append(undo);
+  const review = imageReview(storyId, title);
+  if (review) controls.append(review);
+  return controls;
+}
+async function findCommons(storyId, query, suggest = false) {
+  if (!searchImages || commonsSearches.get(storyId)?.loading) return;
+  const state = commonsSearches.get(storyId) || { query, source: "all", issues: [], loading: false, results: [], error: "", searched: false };
+  Object.assign(state, { query, loading: true, results: state.query === query ? state.results : [], error: "", issues: [], searched: false });
+  commonsSearches.set(storyId, state);
+  renderWorld();
+  try {
+    const result = await searchImages(query, state.source, suggest, fetch, (partial) => {
+      if (partial.images.length) state.results = partial.images;
+      state.issues = partial.issues;
+      renderWorld();
+    });
+    state.results = result.images;
+    state.issues = result.issues;
+    if (!result.images.length && result.issues.length) state.error = result.issues.join(" ");
+  } catch (error) {
+    state.error = error instanceof Error ? error.message : "Image search is unavailable. Please retry.";
+  } finally {
+    state.loading = false;
+    state.searched = true;
+    renderWorld();
+  }
+}
+window.addEventListener("pagehide", () => imageSession?.close());
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted && snapshot) {
+    imageRefsKey = "";
+    renderWorld();
+  }
+});
 var stringerOrder = /* @__PURE__ */ new Map();
 function shuffledStringerStories(stories) {
   for (const story of stories) {
@@ -1758,6 +2290,7 @@ function element(tag, text, className) {
   return node;
 }
 function renderStories(target, stories, emptyMessage) {
+  for (const media of target.querySelectorAll(".wire-thumbnail")) suggestionObserver.unobserve(media);
   target.replaceChildren();
   const usePlaceholder = target.id === "stringer-news";
   const wire = target.id === "world-news";
@@ -1775,22 +2308,51 @@ function renderStories(target, stories, emptyMessage) {
       article.classList.add("with-image");
       article.prepend(placeholder);
     };
-    const imageData = wire ? null : story.image;
-    const imageUrl = wire ? null : safeImageUrl(imageData?.url) || localImage;
+    const imageStoryId = wire && !localizedEdition ? story.noteId : void 0;
+    const selection = imageStoryId ? imageSession?.selection(imageStoryId) : null;
+    const trusted = hasSigner() && voter && imageSession?.canVote(voter);
+    if (imageStoryId) prepareImageSearch(imageStoryId, story.title);
+    const commons = imageStoryId ? imageOptions(imageStoryId).find((image) => !skippedImages.get(choiceKey(imageStoryId))?.includes(image.filePage)) : null;
+    const imageData = wire ? commons : story.image;
+    const imageUrl = wire ? commons?.url : safeImageUrl(imageData?.url) || localImage;
+    let wireFigure = null;
+    if (wire && !localizedEdition) {
+      article.classList.add("with-image");
+      wireFigure = element("figure", "", "story-media wire-thumbnail");
+      if (imageStoryId && !commonsSearches.get(imageStoryId)?.searched) {
+        wireFigure.dataset.storyId = imageStoryId;
+        suggestionObserver.observe(wireFigure);
+      }
+      article.append(wireFigure);
+    }
     if (imageUrl) {
-      const figure = element("figure", "", "story-media");
+      const figure = wireFigure || element("figure", "", "story-media");
       const image = element("img");
       image.alt = imageData?.alt || "";
-      image.width = 240;
-      image.height = 240;
+      image.width = wire ? 120 : 240;
+      image.height = wire ? 80 : 240;
       image.loading = index === 0 ? "eager" : "lazy";
       image.decoding = "async";
       image.referrerPolicy = "no-referrer";
       let triedLocal = imageUrl === localImage;
+      const photoCredit = triedLocal ? "" : story.image?.credit;
+      let caption;
+      if (commons) {
+        caption = thumbnailCredit(commons, commons.filePage !== selection?.winner?.filePage);
+      } else if (photoCredit) {
+        caption = element("figcaption", photoCredit, "image-credit-caption");
+        thumbnailCredits.set(caption, { key: url, credit: { title: story.title, credit: photoCredit } });
+      }
       image.addEventListener("error", () => {
+        caption?.remove();
         if (localImage && !triedLocal) {
           triedLocal = true;
           image.src = localImage;
+          return;
+        }
+        if (wire) {
+          const failed = image.closest("a") || image;
+          failed.replaceWith(element("span", "Image unavailable", "image-search-status"));
           return;
         }
         const placeholder = element("div", "", "story-placeholder");
@@ -1798,10 +2360,33 @@ function renderStories(target, stories, emptyMessage) {
         image.replaceWith(placeholder);
       });
       image.src = imageUrl;
-      figure.append(image);
-      if (imageData?.credit) figure.append(element("figcaption", imageData.credit));
+      if (wire && commons) {
+        figure.classList.add("wire-thumbnail");
+        const imageLink = element("a");
+        imageLink.href = url;
+        imageLink.target = "_blank";
+        imageLink.rel = "noopener noreferrer";
+        imageLink.setAttribute("aria-label", story.title);
+        if (trusted) {
+          imageLink.setAttribute("role", "button");
+          imageLink.setAttribute("aria-label", `Change image for ${story.title}`);
+          imageLink.addEventListener("click", (event) => {
+            event.preventDefault();
+            article.querySelector('[data-image-action$=":review"]').click();
+          });
+          imageLink.addEventListener("keydown", (event) => {
+            if (event.key === " ") {
+              event.preventDefault();
+              imageLink.click();
+            }
+          });
+        }
+        imageLink.append(image);
+        figure.append(imageLink);
+      } else figure.append(image);
+      if (caption) figure.append(caption);
       article.classList.add("with-image");
-      article.append(figure);
+      if (!wire) article.append(figure);
     } else if (usePlaceholder) {
       showPlaceholder();
     }
@@ -1844,6 +2429,19 @@ function renderStories(target, stories, emptyMessage) {
       meta.firstElementChild.after(separator);
     }
     body.append(meta);
+    if (imageStoryId && !commons) {
+      const state = commonsSearches.get(imageStoryId);
+      if (state?.error) wireFigure?.append(element("p", state.error, "warning"));
+      else if (state?.searched) {
+        const message = state.results.length ? "No more suggestions. Undo a skip or search again." : trusted ? "No reusable image found. Open image review to refine the search." : "No reusable image found for this headline.";
+        wireFigure?.append(element("p", message, "image-search-status"));
+      } else {
+        const placeholder = element("div", "", "story-placeholder");
+        placeholder.setAttribute("aria-hidden", "true");
+        wireFigure?.append(placeholder);
+      }
+    }
+    if (imageStoryId && trusted) wireFigure?.insertBefore(imageControls(imageStoryId, story.title, commons), wireFigure.querySelector("figcaption"));
     article.append(body);
     target.append(article);
   }
@@ -1938,7 +2536,13 @@ function renderStatuses() {
   summary.title = notes.join("\n");
 }
 function renderWorld() {
+  if (!snapshot) return;
+  const dialogScroll = [...document.querySelectorAll("dialog.image-review[open]")].map((dialog) => ({ id: dialog.id, top: dialog.scrollTop }));
+  const focused = document.activeElement;
+  const focusAction = focused?.dataset.imageAction;
+  const selectionRange = focused instanceof HTMLInputElement ? [focused.selectionStart, focused.selectionEnd] : null;
   const current = snapshot;
+  syncImages();
   const selected = selectedSources();
   const worldPaused = selected.length > 0 && selected.every((id) => current.sources[id].status === "paused");
   const allFailed = localizedEdition && selected.length > 0 && selected.every((id) => current.sources[id].status === "failure");
@@ -1969,6 +2573,17 @@ function renderWorld() {
   }
   renderStatuses();
   updateStoryVisibility();
+  queueMicrotask(() => {
+    for (const { id, top } of dialogScroll) {
+      const dialog = document.getElementById(id);
+      if (dialog) dialog.scrollTop = top;
+    }
+  });
+  if (focusAction) queueMicrotask(() => {
+    const next = [...document.querySelectorAll("[data-image-action]")].find((node) => node.dataset.imageAction === focusAction);
+    next?.focus({ preventScroll: true });
+    if (next instanceof HTMLInputElement && selectionRange) next.setSelectionRange(selectionRange[0], selectionRange[1]);
+  });
 }
 function render() {
   renderStories(requiredElement("#stringer-news"), shuffledStringerStories(displayedSnapshot().sources.stringer.stories), loading ? "" : t("Courageous stories are currently unavailable. Visit the Stringer collection below."));
@@ -1990,7 +2605,10 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=a269a7bb24820715");
+      const reader = await import("./relay-reader.js?v=51e885708a6ec97e");
+      ImageSessionClass = reader.ImageSession;
+      searchImages = reader.searchImages;
+      commonsSubject = reader.commonsSubject;
       if (!snapshot) {
         snapshot = reader.cachedRelaySnapshot(relayConfig);
         if (snapshot) render();
@@ -2024,7 +2642,7 @@ async function load() {
     retainedSources.clear();
     snapshot = next;
     render();
-    loadOutcome = "Loaded";
+    loadOutcome = Object.values(next.sources).some((source) => source.unavailable) ? "Partially loaded" : "Loaded";
     feedback.textContent = "";
   } catch (error) {
     loadOutcome = "Failed";
@@ -2061,7 +2679,7 @@ async function loadLocalized() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=a269a7bb24820715");
+    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=51e885708a6ec97e");
     if (!snapshot) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
@@ -2106,7 +2724,7 @@ async function loadLocalized() {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=a269a7bb24820715");
+            const relay = await import("./relay-reader.js?v=51e885708a6ec97e");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
@@ -2153,3 +2771,17 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden && Date.now() - lastAttempt >= interval) load();
 });
 load();
+export {
+  castImageVote,
+  connectNostr,
+  detectNostr,
+  findCommons,
+  imageOptions,
+  imageReview,
+  loadSuggestions,
+  publishCommons,
+  renderWorld,
+  skipImage,
+  syncImages,
+  undoImage
+};

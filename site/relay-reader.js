@@ -59,11 +59,11 @@ function bytesToHex(bytes) {
   abytes(bytes);
   if (hasHexBuiltin)
     return bytes.toHex();
-  let hex = "";
+  let hex2 = "";
   for (let i3 = 0; i3 < bytes.length; i3++) {
-    hex += hexes[bytes[i3]];
+    hex2 += hexes[bytes[i3]];
   }
-  return hex;
+  return hex2;
 }
 var asciis = { _0: 48, _9: 57, A: 65, F: 70, a: 97, f: 102 };
 function asciiToBase16(ch) {
@@ -75,21 +75,21 @@ function asciiToBase16(ch) {
     return ch - (asciis.a - 10);
   return;
 }
-function hexToBytes(hex) {
-  if (typeof hex !== "string")
-    throw new Error("hex string expected, got " + typeof hex);
+function hexToBytes(hex2) {
+  if (typeof hex2 !== "string")
+    throw new Error("hex string expected, got " + typeof hex2);
   if (hasHexBuiltin)
-    return Uint8Array.fromHex(hex);
-  const hl = hex.length;
+    return Uint8Array.fromHex(hex2);
+  const hl = hex2.length;
   const al = hl / 2;
   if (hl % 2)
     throw new Error("hex string expected, got unpadded hex of length " + hl);
   const array = new Uint8Array(al);
   for (let ai = 0, hi = 0; ai < al; ai++, hi += 2) {
-    const n1 = asciiToBase16(hex.charCodeAt(hi));
-    const n2 = asciiToBase16(hex.charCodeAt(hi + 1));
+    const n1 = asciiToBase16(hex2.charCodeAt(hi));
+    const n2 = asciiToBase16(hex2.charCodeAt(hi + 1));
     if (n1 === void 0 || n2 === void 0) {
-      const char = hex[hi] + hex[hi + 1];
+      const char = hex2[hi] + hex2[hi + 1];
       throw new Error('hex string expected, got non-hex character "' + char + '" at index ' + hi);
     }
     array[ai] = n1 * 16 + n2;
@@ -412,13 +412,13 @@ function abignumber(n) {
   return n;
 }
 function numberToHexUnpadded(num2) {
-  const hex = abignumber(num2).toString(16);
-  return hex.length & 1 ? "0" + hex : hex;
+  const hex2 = abignumber(num2).toString(16);
+  return hex2.length & 1 ? "0" + hex2 : hex2;
 }
-function hexToNumber(hex) {
-  if (typeof hex !== "string")
-    throw new Error("hex string expected, got " + typeof hex);
-  return hex === "" ? _0n : BigInt("0x" + hex);
+function hexToNumber(hex2) {
+  if (typeof hex2 !== "string")
+    throw new Error("hex string expected, got " + typeof hex2);
+  return hex2 === "" ? _0n : BigInt("0x" + hex2);
 }
 function bytesToNumberBE(bytes) {
   return hexToNumber(bytesToHex(bytes));
@@ -585,15 +585,15 @@ function invert(number, modulo) {
     throw new Error("invert: does not exist");
   return mod(x, modulo);
 }
-function assertIsSquare(Fp, root, n) {
-  if (!Fp.eql(Fp.sqr(root), n))
+function assertIsSquare(Fp, root2, n) {
+  if (!Fp.eql(Fp.sqr(root2), n))
     throw new Error("Cannot find square root");
 }
 function sqrt3mod4(Fp, n) {
   const p1div4 = (Fp.ORDER + _1n2) / _4n;
-  const root = Fp.pow(n, p1div4);
-  assertIsSquare(Fp, root, n);
-  return root;
+  const root2 = Fp.pow(n, p1div4);
+  assertIsSquare(Fp, root2, n);
+  return root2;
 }
 function sqrt5mod8(Fp, n) {
   const p5div8 = (Fp.ORDER - _5n) / _8n;
@@ -601,9 +601,9 @@ function sqrt5mod8(Fp, n) {
   const v = Fp.pow(n2, p5div8);
   const nv = Fp.mul(n, v);
   const i3 = Fp.mul(Fp.mul(nv, _2n), v);
-  const root = Fp.mul(nv, Fp.sub(i3, Fp.ONE));
-  assertIsSquare(Fp, root, n);
-  return root;
+  const root2 = Fp.mul(nv, Fp.sub(i3, Fp.ONE));
+  assertIsSquare(Fp, root2, n);
+  return root2;
 }
 function sqrt9mod16(P) {
   const Fp_ = Field(P);
@@ -622,9 +622,9 @@ function sqrt9mod16(P) {
     tv1 = Fp.cmov(tv1, tv2, e1);
     tv2 = Fp.cmov(tv4, tv3, e2);
     const e3 = Fp.eql(Fp.sqr(tv2), n);
-    const root = Fp.cmov(tv1, tv2, e3);
-    assertIsSquare(Fp, root, n);
-    return root;
+    const root2 = Fp.cmov(tv1, tv2, e3);
+    assertIsSquare(Fp, root2, n);
+    return root2;
   };
 }
 function tonelliShanks(P) {
@@ -1337,12 +1337,12 @@ var DER = {
       const { Err: E } = DER;
       if (num2 < _0n4)
         throw new E("integer: negative integers are not allowed");
-      let hex = numberToHexUnpadded(num2);
-      if (Number.parseInt(hex[0], 16) & 8)
-        hex = "00" + hex;
-      if (hex.length & 1)
+      let hex2 = numberToHexUnpadded(num2);
+      if (Number.parseInt(hex2[0], 16) & 8)
+        hex2 = "00" + hex2;
+      if (hex2.length & 1)
         throw new E("unexpected DER parsing assertion: unpadded hex");
-      return hex;
+      return hex2;
     },
     decode(data) {
       const { Err: E } = DER;
@@ -1557,8 +1557,8 @@ function weierstrass(params, extraOpts = {}) {
       P.assertValidity();
       return P;
     }
-    static fromHex(hex) {
-      return Point.fromBytes(hexToBytes(hex));
+    static fromHex(hex2) {
+      return Point.fromBytes(hexToBytes(hex2));
     }
     get x() {
       return this.toAffine().x;
@@ -1944,8 +1944,8 @@ function ecdsa(Point, hash, ecdsaOpts = {}) {
       const s = bytes.subarray(L, L * 2);
       return new Signature(Fn.fromBytes(r), Fn.fromBytes(s), recid);
     }
-    static fromHex(hex, format) {
-      return this.fromBytes(hexToBytes(hex), format);
+    static fromHex(hex2, format) {
+      return this.fromBytes(hexToBytes(hex2), format);
     }
     assertRecovery() {
       const { recovery } = this;
@@ -2140,10 +2140,10 @@ function sqrtMod(y) {
   const b223 = pow2(b220, _3n3, P) * b3 % P;
   const t1 = pow2(b223, _23n, P) * b22 % P;
   const t2 = pow2(t1, _6n, P) * b2 % P;
-  const root = pow2(t2, _2n3, P);
-  if (!Fpk1.eql(Fpk1.sqr(root), y))
+  const root2 = pow2(t2, _2n3, P);
+  if (!Fpk1.eql(Fpk1.sqr(root2), y))
     throw new Error("Cannot find square root");
-  return root;
+  return root2;
 }
 var Fpk1 = Field(secp256k1_CURVE.p, { sqrt: sqrtMod });
 var Pointk1 = /* @__PURE__ */ weierstrass(secp256k1_CURVE, {
@@ -2400,25 +2400,25 @@ function matchFilters(filters, event2) {
   }
   return false;
 }
-function getHex64(json, field) {
+function getHex64(json2, field) {
   let len = field.length + 3;
-  let idx = json.indexOf(`"${field}":`) + len;
-  let s = json.slice(idx).indexOf(`"`) + idx + 1;
-  return json.slice(s, s + 64);
+  let idx = json2.indexOf(`"${field}":`) + len;
+  let s = json2.slice(idx).indexOf(`"`) + idx + 1;
+  return json2.slice(s, s + 64);
 }
-function getSubscriptionId(json) {
-  let idx = json.slice(0, 22).indexOf(`"EVENT"`);
+function getSubscriptionId(json2) {
+  let idx = json2.slice(0, 22).indexOf(`"EVENT"`);
   if (idx === -1)
     return null;
-  let pstart = json.slice(idx + 7 + 1).indexOf(`"`);
+  let pstart = json2.slice(idx + 7 + 1).indexOf(`"`);
   if (pstart === -1)
     return null;
   let start = idx + 7 + 1 + pstart;
-  let pend = json.slice(start + 1, 80).indexOf(`"`);
+  let pend = json2.slice(start + 1, 80).indexOf(`"`);
   if (pend === -1)
     return null;
   let end = start + 1 + pend;
-  return json.slice(start + 1, end);
+  return json2.slice(start + 1, end);
 }
 function makeAuthEvent(relayURL, challenge2) {
   return {
@@ -2814,17 +2814,17 @@ var AbstractRelay = class {
     }
   }
   _onmessage(ev) {
-    const json = ev.data;
-    if (!json) {
+    const json2 = ev.data;
+    if (!json2) {
       return;
     }
-    const subid = getSubscriptionId(json);
+    const subid = getSubscriptionId(json2);
     if (subid) {
       const so = this.openSubs.get(subid);
       if (!so) {
         return;
       }
-      const id = getHex64(json, "id");
+      const id = getHex64(json2, "id");
       const alreadyHave = so.alreadyHaveEvent?.(id);
       so.receivedEvent?.(this, id);
       if (alreadyHave) {
@@ -2832,7 +2832,7 @@ var AbstractRelay = class {
       }
     }
     try {
-      let data = JSON.parse(json);
+      let data = JSON.parse(json2);
       switch (data[0]) {
         case "EVENT": {
           const so = this.openSubs.get(data[1]);
@@ -2848,10 +2848,10 @@ var AbstractRelay = class {
         }
         case "COUNT": {
           const id = data[1];
-          const payload = data[2];
+          const payload2 = data[2];
           const cr = this.openCountRequests.get(id);
           if (cr) {
-            cr.resolve(payload);
+            cr.resolve(payload2);
             this.openCountRequests.delete(id);
           }
           return;
@@ -2915,7 +2915,7 @@ var AbstractRelay = class {
       }
     } catch (err) {
       try {
-        const [_, __, event2] = JSON.parse(json);
+        const [_, __, event2] = JSON.parse(json2);
         console.warn(`[nostr] relay ${this.url} error processing message:`, err, event2);
       } catch (_) {
         console.warn(`[nostr] relay ${this.url} error processing message:`, err);
@@ -3014,23 +3014,23 @@ function getCountManyFilter(target, directive) {
 function newHll() {
   return new Uint8Array(M);
 }
-function hllDecode(hex) {
-  if (hex.length !== HLL_HEX_LENGTH || !/^[0-9a-f]+$/.test(hex))
+function hllDecode(hex2) {
+  if (hex2.length !== HLL_HEX_LENGTH || !/^[0-9a-f]+$/.test(hex2))
     return void 0;
   const registers = new Uint8Array(M);
   for (let i22 = 0; i22 < M; i22++) {
-    registers[i22] = parseInt(hex.slice(i22 * 2, i22 * 2 + 2), 16);
+    registers[i22] = parseInt(hex2.slice(i22 * 2, i22 * 2 + 2), 16);
   }
   return registers;
 }
 function hllEncode(registers) {
   if (registers.length !== M)
     throw new Error(`invalid number of registers ${registers.length}`);
-  let hex = "";
+  let hex2 = "";
   for (let i22 = 0; i22 < M; i22++) {
-    hex += registers[i22].toString(16).padStart(2, "0");
+    hex2 += registers[i22].toString(16).padStart(2, "0");
   }
-  return hex;
+  return hex2;
 }
 function mergeHll(target, source) {
   if (target.length === 0)
@@ -5519,41 +5519,41 @@ __export(fakejson_exports, {
   matchEventKind: () => matchEventKind,
   matchEventPubkey: () => matchEventPubkey
 });
-function getHex642(json, field) {
+function getHex642(json2, field) {
   let len = field.length + 3;
-  let idx = json.indexOf(`"${field}":`) + len;
-  let s = json.slice(idx).indexOf(`"`) + idx + 1;
-  return json.slice(s, s + 64);
+  let idx = json2.indexOf(`"${field}":`) + len;
+  let s = json2.slice(idx).indexOf(`"`) + idx + 1;
+  return json2.slice(s, s + 64);
 }
-function getInt(json, field) {
+function getInt(json2, field) {
   let len = field.length;
-  let idx = json.indexOf(`"${field}":`) + len + 3;
-  let sliced = json.slice(idx);
+  let idx = json2.indexOf(`"${field}":`) + len + 3;
+  let sliced = json2.slice(idx);
   let end = Math.min(sliced.indexOf(","), sliced.indexOf("}"));
   return parseInt(sliced.slice(0, end), 10);
 }
-function getSubscriptionId2(json) {
-  let idx = json.slice(0, 22).indexOf(`"EVENT"`);
+function getSubscriptionId2(json2) {
+  let idx = json2.slice(0, 22).indexOf(`"EVENT"`);
   if (idx === -1)
     return null;
-  let pstart = json.slice(idx + 7 + 1).indexOf(`"`);
+  let pstart = json2.slice(idx + 7 + 1).indexOf(`"`);
   if (pstart === -1)
     return null;
   let start = idx + 7 + 1 + pstart;
-  let pend = json.slice(start + 1, 80).indexOf(`"`);
+  let pend = json2.slice(start + 1, 80).indexOf(`"`);
   if (pend === -1)
     return null;
   let end = start + 1 + pend;
-  return json.slice(start + 1, end);
+  return json2.slice(start + 1, end);
 }
-function matchEventId(json, id) {
-  return id === getHex642(json, "id");
+function matchEventId(json2, id) {
+  return id === getHex642(json2, "id");
 }
-function matchEventPubkey(json, pubkey) {
-  return pubkey === getHex642(json, "pubkey");
+function matchEventPubkey(json2, pubkey) {
+  return pubkey === getHex642(json2, "pubkey");
 }
-function matchEventKind(json, kind) {
-  return kind === getInt(json, "kind");
+function matchEventKind(json2, kind) {
+  return kind === getInt(json2, "kind");
 }
 var nip42_exports = {};
 __export(nip42_exports, {
@@ -5715,11 +5715,11 @@ function parseTLV(data) {
 function nsecEncode(key) {
   return encodeBytes("nsec", key);
 }
-function npubEncode(hex) {
-  return encodeBytes("npub", hexToBytes(hex));
+function npubEncode(hex2) {
+  return encodeBytes("npub", hexToBytes(hex2));
 }
-function noteEncode(hex) {
-  return encodeBytes("note", hexToBytes(hex));
+function noteEncode(hex2) {
+  return encodeBytes("note", hexToBytes(hex2));
 }
 function encodeBech32(prefix, data) {
   let words = bech32.toWords(data);
@@ -5779,12 +5779,12 @@ __export(nip04_exports, {
   decrypt: () => decrypt2,
   encrypt: () => encrypt2
 });
-function encrypt2(secretKey, pubkey, text) {
+function encrypt2(secretKey, pubkey, text2) {
   const privkey = secretKey instanceof Uint8Array ? secretKey : hexToBytes(secretKey);
   const key = secp256k1.getSharedSecret(privkey, hexToBytes("02" + pubkey));
   const normalizedKey = getNormalizedX(key);
   let iv = Uint8Array.from(randomBytes(16));
-  let plaintext = utf8Encoder3.encode(text);
+  let plaintext = utf8Encoder3.encode(text2);
   let ciphertext = cbc(normalizedKey, iv).encrypt(plaintext);
   let ctb64 = base64.encode(new Uint8Array(ciphertext));
   let ivb64 = base64.encode(new Uint8Array(iv.buffer));
@@ -5830,8 +5830,8 @@ async function searchDomain(domain, query = "") {
     if (res.status !== 200) {
       throw Error("Wrong response code");
     }
-    const json = await res.json();
-    return json.names;
+    const json2 = await res.json();
+    return json2.names;
   } catch (_) {
     return {};
   }
@@ -5847,9 +5847,9 @@ async function queryProfile(fullname) {
     if (res.status !== 200) {
       throw Error("Wrong response code");
     }
-    const json = await res.json();
-    const pubkey = json.names[name];
-    return pubkey ? { pubkey, relays: json.relays?.[pubkey] } : null;
+    const json2 = await res.json();
+    const pubkey = json2.names[name];
+    return pubkey ? { pubkey, relays: json2.relays?.[pubkey] } : null;
   } catch (_e) {
     return null;
   }
@@ -5984,10 +5984,10 @@ __export(nip13_exports, {
   getPow: () => getPow,
   minePow: () => minePow
 });
-function getPow(hex) {
+function getPow(hex2) {
   let count = 0;
   for (let i22 = 0; i22 < 64; i22 += 8) {
-    const nibble = parseInt(hex.substring(i22, i22 + 8), 16);
+    const nibble = parseInt(hex2.substring(i22, i22 + 8), 16);
     if (nibble === 0) {
       count += 32;
     } else {
@@ -6130,17 +6130,17 @@ function hmacAad(key, message, aad) {
   const combined = concatBytes(aad, message);
   return hmac(sha256, key, combined);
 }
-function decodePayload(payload) {
-  if (typeof payload !== "string")
+function decodePayload(payload2) {
+  if (typeof payload2 !== "string")
     throw new Error("payload must be a valid string");
-  const plen = payload.length;
+  const plen = payload2.length;
   if (plen < 132)
     throw new Error("invalid payload length: " + plen);
-  if (payload[0] === "#")
+  if (payload2[0] === "#")
     throw new Error("unknown encryption version");
   let data;
   try {
-    data = base64.decode(payload);
+    data = base64.decode(payload2);
   } catch (error) {
     throw new Error("invalid base64: " + error.message);
   }
@@ -6163,8 +6163,8 @@ function encrypt22(plaintext, conversationKey, nonce = randomBytes(32)) {
   const mac = hmacAad(hmac_key, ciphertext, nonce);
   return base64.encode(concatBytes(new Uint8Array([2]), nonce, ciphertext, mac));
 }
-function decrypt22(payload, conversationKey) {
-  const { nonce, ciphertext, mac } = decodePayload(payload);
+function decrypt22(payload2, conversationKey) {
+  const { nonce, ciphertext, mac } = decodePayload(payload2);
   const { chacha_key, chacha_nonce, hmac_key } = getMessageKeys(conversationKey, nonce);
   const calculatedMac = hmacAad(hmac_key, ciphertext, nonce);
   if (!equalBytes(calculatedMac, mac))
@@ -7596,7 +7596,7 @@ __export(nip98_exports, {
   validateToken: () => validateToken
 });
 var _authorizationScheme = "Nostr ";
-async function getToken(loginUrl, httpMethod, sign, includeAuthorizationScheme = false, payload) {
+async function getToken(loginUrl, httpMethod, sign, includeAuthorizationScheme = false, payload2) {
   const event2 = {
     kind: HTTPAuth,
     tags: [
@@ -7606,8 +7606,8 @@ async function getToken(loginUrl, httpMethod, sign, includeAuthorizationScheme =
     created_at: Math.round((/* @__PURE__ */ new Date()).getTime() / 1e3),
     content: ""
   };
-  if (payload) {
-    event2.tags.push(["payload", hashPayload(payload)]);
+  if (payload2) {
+    event2.tags.push(["payload", hashPayload(payload2)]);
   }
   const signedEvent = await sign(event2);
   const authorizationScheme = includeAuthorizationScheme ? _authorizationScheme : "";
@@ -7657,16 +7657,16 @@ function validateEventMethodTag(event2, method) {
   }
   return methodTag.length > 0 && methodTag[1].toLowerCase() === method.toLowerCase();
 }
-function hashPayload(payload) {
-  const hash = sha256(utf8Encoder3.encode(JSON.stringify(payload)));
+function hashPayload(payload2) {
+  const hash = sha256(utf8Encoder3.encode(JSON.stringify(payload2)));
   return bytesToHex(hash);
 }
-function validateEventPayloadTag(event2, payload) {
+function validateEventPayloadTag(event2, payload2) {
   const payloadTag = event2.tags.find((t) => t[0] === "payload");
   if (!payloadTag) {
     return false;
   }
-  const payloadHash = hashPayload(payload);
+  const payloadHash = hashPayload(payload2);
   return payloadTag.length > 0 && payloadTag[1] === payloadHash;
 }
 async function validateEvent22(event2, url, method, body) {
@@ -7726,9 +7726,9 @@ function permittedStories(sourceId, stories, permissions = CONTENT_PERMISSIONS) 
   }));
 }
 function applyContentPermissions(snapshot, permissions = CONTENT_PERMISSIONS) {
-  const sources = normalizeSourceSet(snapshot.sources, snapshot.generatedAt);
+  const sources2 = normalizeSourceSet(snapshot.sources, snapshot.generatedAt);
   return { ...snapshot, sources: Object.fromEntries(SOURCES.map((source) => {
-    const entry = sources[source.id];
+    const entry = sources2[source.id];
     return [source.id, permissions[source.id]?.text === true ? { ...entry, stories: permittedStories(source.id, entry.stories, permissions) } : { ...entry, stories: [], status: "paused", lastSuccessAt: null, error: null }];
   })) };
 }
@@ -7749,12 +7749,12 @@ function safeImageUrl(value) {
 }
 var nonempty = (value) => typeof value === "string" && !!value.trim();
 var timestamp = (value) => typeof value === "string" && /^\d{4}-\d\d-\d\dT/.test(value) && Number.isFinite(Date.parse(value));
-function normalizeSourceSet(sources, generatedAt, relay = false) {
-  if (!sources || typeof sources !== "object" || Array.isArray(sources) || Object.keys(sources).some((id) => !SOURCES.some((source) => source.id === id)) || SOURCES.some((source) => source.id !== "cna" && !Object.hasOwn(sources, source.id))) {
+function normalizeSourceSet(sources2, generatedAt, relay = false) {
+  if (!sources2 || typeof sources2 !== "object" || Array.isArray(sources2) || Object.keys(sources2).some((id) => !SOURCES.some((source) => source.id === id)) || SOURCES.some((source) => source.id !== "cna" && !Object.hasOwn(sources2, source.id))) {
     throw new Error("Invalid source set");
   }
-  if (Object.hasOwn(sources, "cna")) return sources;
-  return { ...sources, cna: {
+  if (Object.hasOwn(sources2, "cna")) return sources2;
+  return { ...sources2, cna: {
     ...relay ? { ids: [] } : { stories: [] },
     attemptedAt: generatedAt,
     lastSuccessAt: null,
@@ -7766,8 +7766,8 @@ function validateSnapshot(input) {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Invalid news snapshot");
   let value = input;
   if (!value || ![1, 2].includes(value.schemaVersion) || !timestamp(value.generatedAt) || !value.sources) throw new Error("Invalid news snapshot");
-  const sources = normalizeSourceSet(value.sources, value.generatedAt);
-  if (sources !== value.sources) value = { ...value, sources };
+  const sources2 = normalizeSourceSet(value.sources, value.generatedAt);
+  if (sources2 !== value.sources) value = { ...value, sources: sources2 };
   for (const source of SOURCES) {
     const entry = value.sources[source.id];
     if (!entry || !Array.isArray(entry.stories) || !timestamp(entry.attemptedAt) || !["success", "failure", "paused"].includes(entry.status) || !(entry.lastSuccessAt === null || timestamp(entry.lastSuccessAt))) throw new Error(`Invalid ${source.id} metadata`);
@@ -7794,7 +7794,15 @@ var MANIFEST_KIND = 30078;
 var MANIFEST_KEY = "stringer-news-v1";
 var GROUP_MARKER = "stringer-group-v1";
 function checkedEvent(event2, pubkey, kind) {
-  if (JSON.stringify(event2).length > 5e5 || event2.pubkey !== pubkey || event2.kind !== kind || !verifyEvent2(event2) || event2.created_at > Date.now() / 1e3 + 60)
+  if (JSON.stringify(event2).length > 5e5 || event2.pubkey !== pubkey || event2.kind !== kind || !verifyEvent2({
+    id: event2.id,
+    pubkey: event2.pubkey,
+    sig: event2.sig,
+    kind: event2.kind,
+    created_at: event2.created_at,
+    content: event2.content,
+    tags: event2.tags
+  }) || event2.created_at > Date.now() / 1e3 + 60)
     throw new Error("Invalid relay event");
 }
 function readManifest(event2, pubkey) {
@@ -7811,6 +7819,10 @@ function readManifest(event2, pubkey) {
       throw new Error("Invalid story references");
     if (entry.pending !== void 0 && (!Number.isInteger(entry.pending) || entry.pending < 0 || entry.pending > 200))
       throw new Error("Invalid pending count");
+  }
+  if (value.imageCandidates !== void 0) {
+    const ids = SOURCES.filter((source) => source.id !== "stringer").flatMap((source) => value.sources[source.id].ids);
+    value.imageCandidates = value.imageCandidates && typeof value.imageCandidates === "object" && !Array.isArray(value.imageCandidates) ? Object.fromEntries(Object.entries(value.imageCandidates).filter(([note, candidates]) => ids.includes(note) && Array.isArray(candidates) && candidates.length > 0 && candidates.length <= 5 && new Set(candidates).size === candidates.length && candidates.every((id) => typeof id === "string" && /^[0-9a-f]{64}$/.test(id)))) : {};
   }
   if (value.groups !== void 0) {
     const ids = SOURCES.filter((source) => source.id !== "stringer").flatMap(
@@ -7844,7 +7856,7 @@ function readAssignment(event2, pubkey, noteId) {
 function assemble(manifestEvent, events, pubkey, allowPartial = false) {
   const manifest = readManifest(manifestEvent, pubkey);
   const byId = new Map(events.map((event2) => [event2.id, event2]));
-  const sources = {};
+  const sources2 = {};
   for (const source of SOURCES) {
     const entry = manifest.sources[source.id];
     const missing = entry.ids.filter((id) => !byId.has(id));
@@ -7869,7 +7881,7 @@ function assemble(manifestEvent, events, pubkey, allowPartial = false) {
       const { clusterId: ignoredCluster, noteId: ignoredNote, ...original } = story;
       return { ...original, noteId: id, ...clusterId ? { clusterId } : {} };
     });
-    sources[source.id] = {
+    sources2[source.id] = {
       ...entry,
       stories,
       ...missing.length && allowPartial ? { unavailable: missing.length } : {},
@@ -7880,18 +7892,19 @@ function assemble(manifestEvent, events, pubkey, allowPartial = false) {
       } : {}
     };
   }
-  if (allowPartial && !Object.values(sources).some((source) => source.stories.length) && Object.values(manifest.sources).some((source) => source.ids.length))
+  if (allowPartial && !Object.values(sources2).some((source) => source.stories.length) && Object.values(manifest.sources).some((source) => source.ids.length))
     throw new Error("No published stories available");
   const clean3 = applyContentPermissions(
-    validateSnapshot({ schemaVersion: 2, generatedAt: manifest.generatedAt, sources })
+    validateSnapshot({ schemaVersion: 2, generatedAt: manifest.generatedAt, sources: sources2 })
   );
   for (const source of SOURCES) {
     clean3.sources[source.id].stories.forEach((story, index) => {
-      const verified = sources[source.id].stories[index];
+      const verified = sources2[source.id].stories[index];
       story.noteId = verified.noteId;
       if (verified.clusterId) story.clusterId = verified.clusterId;
     });
   }
+  clean3.imageCandidates = manifest.imageCandidates || {};
   return clean3;
 }
 
@@ -7921,6 +7934,459 @@ function readCachedCollection(pubkey) {
   } catch {
     return null;
   }
+}
+
+// relay/images.ts
+var IMAGE_MARKER = "stringer-image-v1";
+var VOTE_MARKER = "stringer-image-vote-v1";
+var hex = (value) => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+var text = (value) => typeof value === "string" && !!value.trim() && value.length <= 2e3;
+var newest = (a, b) => b.created_at - a.created_at || a.id.localeCompare(b.id);
+function root(event2) {
+  const tags = event2.tags.filter((tag) => tag[0] === "e");
+  if (tags.length !== 1 || !hex(tags[0]?.[1]) || tags[0]?.[3] !== "root") throw new Error("Invalid image story reference");
+  return tags[0][1];
+}
+function payload(event2, marker) {
+  const tags = event2.tags.filter((tag) => tag[0] === marker);
+  if (tags.length !== 1 || tags[0]?.length !== 2) throw new Error("Invalid image metadata");
+  const value = JSON.parse(tags[0][1]);
+  if (!value || typeof value !== "object" || Array.isArray(value) || value.version !== 1)
+    throw new Error("Invalid image metadata version");
+  return value;
+}
+function https(value, allowQuery = false) {
+  if (typeof value !== "string") throw new Error("Invalid image URL");
+  const url = new URL(value);
+  if (url.protocol !== "https:" || url.username || url.password || url.port || url.hash || !allowQuery && url.search)
+    throw new Error("Invalid image URL");
+  return url;
+}
+function publicUrl(value) {
+  const url = https(value, true), host = url.hostname.replace(/\.$/, "");
+  if (!host.includes(".") || /[\[\]:]/.test(host) || /^\d+(?:\.\d+)*$/.test(host) || /\.(?:local|localhost|internal|test|invalid|lan|home)$/.test(host)) throw new Error("Invalid public image URL");
+  return url;
+}
+function readIllustration(data) {
+  if (data.version !== 1) throw new Error("Invalid image metadata version");
+  for (const field of ["title", "alt", "creator", "attribution", "license"]) if (!text(data[field])) throw new Error("Missing image attribution");
+  const external = data.source === "openverse" || data.source === "eu";
+  const image = external ? publicUrl(data.url) : https(data.url), page = external ? publicUrl(data.filePage) : https(data.filePage), license = https(data.licenseUrl);
+  if (!external) {
+    if (data.source !== void 0 || !["upload.wikimedia.org", "thumb.wikimedia.org"].includes(image.hostname) || !image.pathname.startsWith("/wikipedia/commons/") || page.hostname !== "commons.wikimedia.org" || !page.pathname.startsWith("/wiki/File:")) throw new Error("Not a Commons image");
+  } else {
+    if (!text(data.sourceName)) throw new Error("Missing image source");
+    const catalog = https(data.sourceUrl);
+    if (data.source === "openverse" && (catalog.hostname !== "api.openverse.org" || !/^\/v1\/images\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/$/.test(catalog.pathname))) throw new Error("Invalid Openverse provenance");
+    if (data.source === "eu" && (catalog.hostname !== "audiovisual.ec.europa.eu" || !/^\/en\/(?:media\/)?photo\/P-\d+(?:~2F|%2F)\d+-\d+$/i.test(catalog.pathname) || page.href !== catalog.href || image.hostname !== "ec.europa.eu" || !image.pathname.startsWith("/avservices/repository/photo/") || data.license !== "CC-BY-4.0")) throw new Error("Invalid EU photo provenance");
+  }
+  const cc = /^(CC-BY|CC-BY-SA)-(1\.0|2\.0|2\.5|3\.0|4\.0)$/.exec(String(data.license));
+  const licensePath = cc ? `/licenses/${cc[1] === "CC-BY" ? "by" : "by-sa"}/${cc[2]}/` : data.license === "CC0-1.0" ? "/publicdomain/zero/1.0/" : data.license === "PDM-1.0" ? "/publicdomain/mark/1.0/" : null;
+  if (license.hostname !== "creativecommons.org" || !licensePath || license.pathname !== licensePath) throw new Error("Unsupported image license");
+  return {
+    version: 1,
+    url: image.href,
+    filePage: page.href,
+    title: data.title,
+    alt: data.alt,
+    creator: data.creator,
+    attribution: data.attribution,
+    license: data.license,
+    licenseUrl: license.href,
+    ...external ? { source: data.source, sourceName: data.sourceName, sourceUrl: data.sourceUrl } : {}
+  };
+}
+function readCommonsImage(data) {
+  if (data.source !== void 0) throw new Error("Not a Commons image");
+  return readIllustration(data);
+}
+function readCandidate(event2, pubkey, refs, discover = false) {
+  checkedEvent(event2, pubkey, 1);
+  const storyId = root(event2);
+  const indexed = discover && Object.hasOwn(refs, storyId) && event2.tags.some((t) => t[0] === "t" && t[1] === IMAGE_MARKER);
+  if (!refs[storyId]?.includes(event2.id) && !indexed) throw new Error("Unlisted candidate");
+  return { ...readIllustration(payload(event2, IMAGE_MARKER)), id: event2.id, storyId };
+}
+function candidateTemplate(storyId, image) {
+  return {
+    kind: 1,
+    created_at: Math.floor(Date.now() / 1e3),
+    content: `Illustrative image: ${image.title}
+${image.filePage}`,
+    tags: [["e", storyId, "", "root"], ["t", IMAGE_MARKER], [IMAGE_MARKER, JSON.stringify(image)]]
+  };
+}
+function readVote(event2, refs) {
+  checkedEvent(event2, event2.pubkey, 1);
+  if (!event2.tags.some((tag) => tag[0] === "t" && tag[1] === VOTE_MARKER)) throw new Error("Not an image vote");
+  const storyId = root(event2), data = payload(event2, VOTE_MARKER);
+  if (!Object.hasOwn(refs, storyId) || data.candidateId !== null && !hex(data.candidateId))
+    throw new Error("Invalid image choice");
+  return { storyId, candidateId: data.candidateId };
+}
+function readFollows(event2, pubkey) {
+  checkedEvent(event2, pubkey, 3);
+  const follows = new Set(event2.tags.filter((tag) => tag[0] === "p" && hex(tag[1])).map((tag) => tag[1]));
+  return follows;
+}
+function selectImage(storyId, candidates, votes, follows, refs) {
+  const latest = /* @__PURE__ */ new Map();
+  for (const event2 of [...votes].sort(newest)) {
+    if (!follows.has(event2.pubkey) || latest.has(event2.pubkey) || !event2.tags.some((tag) => tag[0] === "e" && tag[1] === storyId)) continue;
+    try {
+      const vote = readVote(event2, refs);
+      if (vote.storyId === storyId) latest.set(event2.pubkey, { event: event2, vote });
+    } catch {
+    }
+  }
+  const scores = candidates.filter((c) => c.storyId === storyId).map((candidate) => {
+    const approvals = [...latest.values()].filter((v) => v.vote.candidateId === candidate.id);
+    return { candidate, count: approvals.length, first: Math.min(...approvals.map((v) => v.event.created_at)) };
+  }).sort((a, b) => b.count - a.count || a.first - b.first || a.candidate.id.localeCompare(b.candidate.id));
+  return { winner: scores[0]?.count ? scores[0].candidate : null, scores, latest };
+}
+function voteTemplate(storyId, candidateId, created_at = Math.floor(Date.now() / 1e3)) {
+  return {
+    kind: 1,
+    created_at,
+    content: candidateId ? "Approve this illustrative image." : "Withdraw my image approval.",
+    tags: [["e", storyId, "", "root"], ["t", VOTE_MARKER], [VOTE_MARKER, JSON.stringify({ version: 1, candidateId })]]
+  };
+}
+var ImageSession = class {
+  pool = new SimplePool();
+  closers = [];
+  voteClosers = [];
+  events = /* @__PURE__ */ new Map();
+  follow;
+  selections = /* @__PURE__ */ new Map();
+  stopped = false;
+  timer;
+  candidates = /* @__PURE__ */ new Map();
+  follows = /* @__PURE__ */ new Set();
+  trustLive = false;
+  cacheKey;
+  config;
+  refs;
+  changed;
+  constructor(config, refs, changed, storyIds = Object.keys(refs)) {
+    this.config = config;
+    this.refs = Object.fromEntries(storyIds.filter(hex).map((id) => [id, [...refs[id] || []]]));
+    this.changed = changed;
+    this.follows.add(config.pubkey);
+    this.cacheKey = `stringer-images:${config.pubkey}`;
+    try {
+      const cached = JSON.parse(localStorage.getItem(this.cacheKey) || "[]");
+      if (Array.isArray(cached)) {
+        const events = cached.slice(0, 2e4).sort(newest);
+        for (const event2 of events.filter((e) => e.kind === 3)) this.receive(event2, false);
+        for (const event2 of events.filter((e) => e.kind !== 3)) this.receive(event2, false);
+      }
+    } catch {
+    }
+    this.subscribe({ kinds: [3], authors: [config.pubkey], limit: 1 }, false, (event2) => {
+      try {
+        readFollows(event2, config.pubkey);
+        if (!this.follow || newest(event2, this.follow) <= 0) this.trustLive = true;
+        this.receive(event2, true);
+      } catch {
+      }
+    });
+    const ids = [...new Set(Object.values(refs).flat())];
+    for (let i3 = 0; i3 < ids.length; i3 += 20)
+      this.subscribe({ kinds: [1], authors: [config.pubkey], ids: ids.slice(i3, i3 + 20), limit: 20 }, false);
+    const stories = Object.keys(this.refs);
+    for (let i3 = 0; i3 < stories.length; i3 += 20)
+      this.subscribe({ kinds: [1], authors: [config.pubkey], "#e": stories.slice(i3, i3 + 20), "#t": [IMAGE_MARKER], limit: 20 }, false);
+    this.listenVotes();
+  }
+  canVote(pubkey) {
+    return pubkey === this.config.pubkey || this.trustLive && this.follows.has(pubkey);
+  }
+  subscribe(filter, vote = false, receive = (event2) => this.receive(event2, true)) {
+    const sub = this.pool.subscribeMany(this.config.relays, filter, { onevent: receive });
+    const close = async () => {
+      await sub.close();
+    };
+    (vote ? this.voteClosers : this.closers).push(close);
+  }
+  voteGeneration = 0;
+  listenVotes() {
+    this.voteClosers.splice(0).forEach((close) => close());
+    const generation = ++this.voteGeneration;
+    const authors = [...this.follows], stories = Object.keys(this.refs);
+    if (!authors.length || !stories.length) return;
+    for (let i3 = 0; i3 < stories.length; i3 += 20)
+      this.subscribe({ kinds: [1], "#e": stories.slice(i3, i3 + 20), "#t": [VOTE_MARKER], limit: 0 }, true);
+    const total = stories.length * authors.length;
+    let cursor = 0;
+    const worker = async () => {
+      while (!this.stopped && generation === this.voteGeneration) {
+        const index = cursor++, offset = Math.floor(index / this.config.relays.length) * 5;
+        if (offset >= total) return;
+        const filters = Array.from({ length: Math.min(5, total - offset) }, (_, n) => {
+          const pair = offset + n;
+          return { kinds: [1], authors: [authors[pair % authors.length]], "#e": [stories[Math.floor(pair / authors.length)]], "#t": [VOTE_MARKER], limit: 1 };
+        });
+        const job = { url: this.config.relays[index % this.config.relays.length], filters };
+        try {
+          const relay = await this.pool.ensureRelay(job.url, { connectionTimeout: 5e3 });
+          if (this.stopped || generation !== this.voteGeneration) return;
+          await new Promise((resolve) => {
+            let done = false;
+            const finish = () => {
+              if (done) return;
+              done = true;
+              clearTimeout(timer);
+              sub.close();
+              this.voteClosers = this.voteClosers.filter((close) => close !== finish);
+              resolve();
+            };
+            const timer = setTimeout(finish, 6e3);
+            const sub = relay.subscribe(job.filters, { onevent: (event2) => this.receive(event2, true), oneose: finish, onclose: finish });
+            this.voteClosers.push(finish);
+          });
+        } catch {
+        }
+      }
+    };
+    for (let i3 = 0; i3 < 3; i3++) void worker();
+  }
+  receive(event2, live) {
+    if (this.stopped) return;
+    try {
+      if (event2.kind === 3) {
+        const follows = readFollows(event2, this.config.pubkey);
+        if (this.follow && newest(this.follow, event2) <= 0) {
+          this.notify();
+          return;
+        }
+        this.follow = event2;
+        this.follows = /* @__PURE__ */ new Set([this.config.pubkey, ...follows]);
+        for (const [id, old] of this.events) if (old.kind === 3) this.events.delete(id);
+        if (live) this.listenVotes();
+      } else if (event2.tags.some((t) => t[0] === IMAGE_MARKER)) {
+        const candidate = readCandidate(event2, this.config.pubkey, this.refs, true);
+        if (!this.refs[candidate.storyId].includes(event2.id)) this.refs[candidate.storyId].push(event2.id);
+        this.candidates.set(event2.id, candidate);
+      } else {
+        if (!this.follows.has(event2.pubkey)) return;
+        const vote = readVote(event2, this.refs);
+        for (const [id, old] of this.events) {
+          if (old.kind !== 1 || old.pubkey !== event2.pubkey || !old.tags.some((t) => t[0] === VOTE_MARKER)) continue;
+          const prior = readVote(old, this.refs);
+          if (prior.storyId !== vote.storyId) continue;
+          if (newest(old, event2) <= 0) return;
+          this.events.delete(id);
+        }
+      }
+      this.events.set(event2.id, event2);
+      this.selections.clear();
+      this.notify();
+    } catch {
+    }
+  }
+  notify() {
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      if (this.stopped) return;
+      try {
+        const json2 = JSON.stringify([...this.events.values()]);
+        if (json2.length <= 5e6) localStorage.setItem(this.cacheKey, json2);
+        else localStorage.removeItem(this.cacheKey);
+      } catch {
+      }
+      this.changed();
+    }, 50);
+  }
+  selection(storyId) {
+    let result = this.selections.get(storyId);
+    if (!result) {
+      result = selectImage(storyId, [...this.candidates.values()], [...this.events.values()].filter((e) => e.kind === 1), this.follows, this.refs);
+      this.selections.set(storyId, result);
+    }
+    return result;
+  }
+  async vote(signer, pubkey, storyId, candidateId) {
+    if (!this.canVote(pubkey) || await signer.getPublicKey() !== pubkey) throw new Error("This account is not currently eligible to approve images.");
+    if (candidateId !== null && !this.candidates.has(candidateId)) throw new Error("Image candidate unavailable.");
+    const prior = this.selection(storyId).latest.get(pubkey)?.event;
+    if (prior && prior.created_at >= Math.floor(Date.now() / 1e3)) throw new Error("Please wait a second before changing your vote.");
+    const template = voteTemplate(storyId, candidateId);
+    const event2 = await signer.signEvent(structuredClone(template));
+    checkedEvent(event2, pubkey, 1);
+    if (JSON.stringify({ kind: event2.kind, created_at: event2.created_at, content: event2.content, tags: event2.tags }) !== JSON.stringify({ kind: template.kind, created_at: template.created_at, content: template.content, tags: template.tags })) throw new Error("Signer changed the requested vote.");
+    const choice = readVote(event2, this.refs);
+    if (choice.candidateId !== null && !this.refs[storyId]?.includes(choice.candidateId)) throw new Error("Image candidate unavailable.");
+    if (this.stopped || !this.canVote(pubkey)) throw new Error("Voting eligibility changed. Please reconnect.");
+    await this.publish(event2);
+  }
+  async propose(signer, pubkey, storyId, image) {
+    if (pubkey !== this.config.pubkey || await signer.getPublicKey() !== pubkey) throw new Error("Connect Stringer\u2019s account to publish image candidates.");
+    if (this.stopped || !Object.hasOwn(this.refs, storyId)) throw new Error("This headline is no longer available.");
+    const template = candidateTemplate(storyId, readIllustration(image));
+    const event2 = await signer.signEvent(structuredClone(template));
+    checkedEvent(event2, pubkey, 1);
+    if (event2.created_at !== template.created_at || event2.content !== template.content || JSON.stringify(event2.tags) !== JSON.stringify(template.tags)) throw new Error("Signer changed the requested image candidate.");
+    readCandidate(event2, pubkey, this.refs, true);
+    if (this.stopped) throw new Error("This headline is no longer available.");
+    await this.publish(event2);
+    return event2.id;
+  }
+  async publish(event2) {
+    let timeout;
+    try {
+      await Promise.race([Promise.any(this.pool.publish(this.config.relays, event2)), new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new Error("Relays did not acknowledge this event. Please retry.")), 6e3);
+      })]);
+    } catch {
+      throw new Error("Could not publish your vote. Please retry.");
+    } finally {
+      clearTimeout(timeout);
+    }
+    if (this.stopped) throw new Error("The news collection changed. Please reconnect.");
+    this.receive(event2, true);
+  }
+  close() {
+    this.stopped = true;
+    this.voteGeneration++;
+    clearTimeout(this.timer);
+    const closing = [...this.closers, ...this.voteClosers].map((close) => Promise.resolve(close()));
+    void Promise.allSettled(closing).then(() => this.pool.destroy());
+  }
+};
+
+// relay/commons.ts
+var places = {
+  Saudi: "Saudi Arabia",
+  British: "United Kingdom",
+  French: "France",
+  German: "Germany",
+  American: "United States",
+  Chinese: "China",
+  Indian: "India",
+  Pakistani: "Pakistan",
+  Russian: "Russia",
+  Ukrainian: "Ukraine",
+  Iranian: "Iran",
+  Israeli: "Israel",
+  Palestinian: "Palestine"
+};
+function commonsSubject(title) {
+  const names = [...title.matchAll(/\p{Lu}[\p{L}\p{M}'’.-]*(?:\s+(?:(?:de|del|der|van|von|le)\s+)*\p{Lu}[\p{L}\p{M}'’.-]*)*/gu)].map((match) => match[0].replace(/^(?:Ex-|Former\s+)/, "").split(/\s+(?:Prompt|Prompts|Says|Say|Hits|Warns|Faces|Under|Over|Will|Would|Could|May|Must|As|Has|Have|Is|Are|Was|Were|Sparks|Questions)\b/)[0]);
+  const subject = names.find((name) => !/^(The|A|An)\b/.test(name) && !/^(How|Why|What|After|Before|Flooding|Talks|Deaths|Death|New|Latest|Live|Breaking|Opinion|Analysis|Watch|Photos)$/.test(name));
+  return (places[subject || ""] || subject || title).trim().slice(0, 200);
+}
+function plain(value) {
+  if (typeof value !== "string") return "";
+  return new DOMParser().parseFromString(value, "text/html").body.textContent?.replace(/\s+/g, " ").trim().slice(0, 2e3) || "";
+}
+async function representativeImages(query, request) {
+  try {
+    const wiki = new URL("https://en.wikipedia.org/w/api.php");
+    wiki.search = new URLSearchParams({
+      action: "query",
+      format: "json",
+      formatversion: "2",
+      origin: "*",
+      generator: "search",
+      gsrnamespace: "0",
+      gsrlimit: "1",
+      gsrsearch: query,
+      prop: "pageimages|images",
+      piprop: "name",
+      pilicense: "free",
+      imlimit: "100"
+    }).toString();
+    const response = await request(wiki, { credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(8e3) });
+    if (!response.ok) return [];
+    const data = await response.json();
+    const page = data.query?.pages?.[0];
+    if (!page) return [];
+    const subject = page.title?.toLocaleLowerCase() || query.toLocaleLowerCase();
+    const maps = (page.images || []).map((image) => image.title || "").filter((title) => title.toLocaleLowerCase().includes(subject) && /map|orthographic|location/i.test(title));
+    const titles = [.../* @__PURE__ */ new Set([...page.pageimage ? [`File:${page.pageimage}`] : [], ...maps])].slice(0, 4);
+    if (!titles.length) return [];
+    const commons = new URL("https://commons.wikimedia.org/w/api.php");
+    commons.search = new URLSearchParams({
+      action: "query",
+      format: "json",
+      formatversion: "2",
+      origin: "*",
+      titles: titles.join("|"),
+      prop: "imageinfo",
+      iiprop: "url|extmetadata|mime",
+      iiurlwidth: "320"
+    }).toString();
+    const files = await request(commons, { credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(8e3) });
+    if (!files.ok) return [];
+    const result = await files.json();
+    for (const image of result.query?.pages || []) image.index = titles.findIndex((title) => title.replaceAll("_", " ") === image.title);
+    return readImages(result);
+  } catch {
+    return [];
+  }
+}
+async function searchCommons(query, request = fetch, suggest = false) {
+  if (!query.trim()) throw new Error("Enter a person, place or subject to search for.");
+  const preferred = suggest ? representativeImages(query.trim().slice(0, 200), request) : Promise.resolve([]);
+  const url = new URL("https://commons.wikimedia.org/w/api.php");
+  url.search = new URLSearchParams({
+    action: "query",
+    format: "json",
+    formatversion: "2",
+    origin: "*",
+    generator: "search",
+    gsrnamespace: "6",
+    gsrlimit: "10",
+    gsrsearch: `${query.trim().slice(0, 200)} filetype:bitmap`,
+    prop: "imageinfo",
+    iiprop: "url|extmetadata|mime",
+    iiurlwidth: "320"
+  }).toString();
+  const response = await request(url, { credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(12e3) });
+  if (!response.ok) throw new Error("Commons search is unavailable. Please retry.");
+  const data = await response.json();
+  if (data.error) throw new Error("Commons search is unavailable. Please retry.");
+  const normalize = (value) => value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  const words = normalize(query).split(" ");
+  const alternatives = readImages(data).filter((image) => !suggest || words.every((word) => normalize(`${image.title} ${decodeURIComponent(new URL(image.filePage).pathname)}`).split(" ").includes(word)));
+  const images = [...await preferred, ...alternatives];
+  return images.filter((image, index) => images.findIndex((other) => other.filePage === image.filePage) === index).slice(0, 5);
+}
+function readImages(data) {
+  if (data.error) return [];
+  const results = [];
+  for (const page of [...data.query?.pages || []].sort((a, b) => (a.index || 0) - (b.index || 0))) {
+    const info = page.imageinfo?.[0], meta = info?.extmetadata;
+    const rasterThumbnail = info?.mime === "image/svg+xml" && /\.png(?:\?|$)/.test(info.thumburl || "");
+    if (!info || !meta || !/^image\/(jpeg|png|webp)$/.test(info.mime || "") && !rasterThumbnail || plain(meta.Restrictions?.value)) continue;
+    const publicDomain = plain(meta.License?.value) === "pd" && plain(meta.Copyrighted?.value).toLowerCase() === "false" && plain(meta.UsageTerms?.value).toLowerCase() === "public domain";
+    const licenseUrl = (plain(meta.LicenseUrl?.value) || (publicDomain ? "https://creativecommons.org/publicdomain/mark/1.0/" : "")).replace(/^http:/, "https:").replace(/\/deed\.[a-z-]+$/, "/").replace(/\/?$/, "/");
+    const license = /^https:\/\/creativecommons\.org\/licenses\/(by|by-sa)\/(1\.0|2\.0|2\.5|3\.0|4\.0)\/$/.exec(licenseUrl);
+    const identifier = license ? `CC-${license[1].toUpperCase()}-${license[2]}` : licenseUrl === "https://creativecommons.org/publicdomain/zero/1.0/" ? "CC0-1.0" : licenseUrl === "https://creativecommons.org/publicdomain/mark/1.0/" ? "PDM-1.0" : "";
+    try {
+      const title = plain(meta.ObjectName?.value) || (page.title || "").replace(/^File:/, "");
+      const creator = plain(meta.Artist?.value);
+      const imageUrl = new URL(info.thumburl || info.url || "");
+      imageUrl.search = "";
+      imageUrl.hash = "";
+      results.push(readCommonsImage({
+        version: 1,
+        url: imageUrl.href,
+        filePage: info.descriptionurl,
+        title,
+        alt: plain(meta.ImageDescription?.value) || title,
+        creator,
+        attribution: plain(meta.Attribution?.value) || plain(meta.Credit?.value) || creator,
+        license: identifier,
+        licenseUrl
+      }));
+    } catch {
+    }
+    if (results.length >= 5) break;
+  }
+  return results;
 }
 
 // relay/reader.ts
@@ -7959,7 +8425,7 @@ async function readRelaySnapshot(config, report = () => {
         void subscription.close();
         resolve([...events.values()]);
       };
-      const timer = setTimeout(finish, Math.min(6e3, remaining));
+      const timer = setTimeout(finish, Math.ceil(Math.min(6e3, remaining)));
       const subscription = pool.subscribeMany(config.relays, filter, {
         maxWait: 5e3,
         abort: abort.signal,
@@ -8034,12 +8500,12 @@ async function readRelaySnapshot(config, report = () => {
         progressTimer = setTimeout(publishProgress, 100);
     };
     const batches = [];
-    for (let i3 = 0; i3 < requestedIds.length; i3 += 100)
+    for (let i3 = 0; i3 < requestedIds.length; i3 += 20)
       batches.push(query({
-        ids: requestedIds.slice(i3, i3 + 100),
+        ids: requestedIds.slice(i3, i3 + 20),
         authors: [config.pubkey],
         kinds: [1],
-        limit: 100
+        limit: 20
       }, receive));
     stories.push(...(await Promise.all(batches)).flat());
     const received = new Set(stories.map((story) => story.id));
@@ -8047,8 +8513,8 @@ async function readRelaySnapshot(config, report = () => {
     if (missing.length && performance.now() < deadline) {
       report(`Received ${received.size} published notes. Retrying ${missing.length} missing notes\u2026`);
       const retries = [];
-      for (let i3 = 0; i3 < missing.length; i3 += 100)
-        retries.push(query({ ids: missing.slice(i3, i3 + 100), authors: [config.pubkey], kinds: [1], limit: 100 }, receive));
+      for (let i3 = 0; i3 < missing.length; i3 += 20)
+        retries.push(query({ ids: missing.slice(i3, i3 + 20), authors: [config.pubkey], kinds: [1], limit: 20 }, receive));
       stories.push(...(await Promise.all(retries)).flat());
     }
     const cacheKey = `stringer-relay:${config.pubkey}`;
@@ -8062,6 +8528,8 @@ async function readRelaySnapshot(config, report = () => {
     }
     const snapshot = assemble(event2, stories, config.pubkey, true);
     updateTimings(true);
+    const unavailable = Object.values(snapshot.sources).reduce((count, source) => count + (source.unavailable || 0), 0);
+    report(unavailable ? `Finished loading available stories. ${unavailable} published notes are unavailable from the relays.` : "Finished loading published stories.");
     try {
       localStorage.setItem(cacheKey, JSON.stringify({ manifest: event2, stories }));
     } catch {
@@ -8075,9 +8543,241 @@ async function readRelaySnapshot(config, report = () => {
 function cachedRelaySnapshot(config) {
   return readCachedCollection(config.pubkey)?.snapshot ?? null;
 }
+
+// relay/open-images.ts
+var sources = { commons: "Wikimedia Commons", openverse: "Openverse", flickr: "Flickr via Openverse", eu: "EU audiovisual library", wellcome: "Wellcome Collection via Openverse", smithsonian: "Smithsonian via Openverse", europeana: "Europeana via Openverse" };
+var euEndpoint = "https://gfdwwnbuul.execute-api.eu-west-1.amazonaws.com/avsportal/avsportal";
+function plain2(value) {
+  if (typeof value !== "string") return "";
+  return new DOMParser().parseFromString(value, "text/html").body.textContent?.replace(/\s+/g, " ").trim().slice(0, 2e3) || "";
+}
+async function json(url, request, timeout = 12e3) {
+  const response = await request(url, { credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(timeout) });
+  if (!response.ok) throw new Error(response.status === 429 ? "Search limit reached. Please retry later." : "Search is unavailable. Please retry.");
+  return response.json();
+}
+async function searchOpenverse(query, request = fetch, provider = false) {
+  const url = new URL("https://api.openverse.org/v1/images/");
+  let filter = provider === true ? "flickr" : provider === "wellcome" ? "wellcome_collection" : provider === "europeana" ? "europeana" : "";
+  if (provider === "smithsonian") {
+    const stats = await json(new URL("https://api.openverse.org/v1/images/stats/"), request);
+    if (!Array.isArray(stats)) throw new Error("Invalid provider response.");
+    filter = stats.map((item) => item.source_name || "").filter((name) => /^smithsonian_[a-z_]+$/.test(name)).join(",");
+    if (!filter) throw new Error("Smithsonian search is unavailable.");
+  }
+  url.search = new URLSearchParams({
+    q: query.trim().slice(0, 200),
+    license: "by,by-sa,cc0,pdm",
+    page_size: "10",
+    mature: "false",
+    ...filter ? { source: filter } : { excluded_source: "wikimedia" }
+  }).toString();
+  const data = await json(url, request, 25e3);
+  if (!Array.isArray(data.results)) throw new Error("Invalid image search response.");
+  const images = [];
+  for (const item of data.results) {
+    if (item.mature || !plain2(item.source) || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(item.id || "") || item.source === "wikimedia" || filter && !filter.split(",").includes(item.source)) continue;
+    const license = item.license === "cc0" ? "CC0-1.0" : item.license === "pdm" ? "PDM-1.0" : ["by", "by-sa"].includes(item.license || "") ? `CC-${item.license.toUpperCase()}-${item.license_version}` : "";
+    try {
+      images.push(readIllustration({
+        version: 1,
+        source: "openverse",
+        sourceName: `${item.source?.startsWith("smithsonian_") ? "Smithsonian" : item.source === "wellcome_collection" ? "Wellcome Collection" : item.source === "europeana" ? "Europeana" : plain2(item.source)} via Openverse`,
+        sourceUrl: `https://api.openverse.org/v1/images/${item.id}/`,
+        url: item.url,
+        filePage: item.foreign_landing_url,
+        title: plain2(item.title),
+        alt: plain2(item.title),
+        creator: plain2(item.creator),
+        attribution: plain2(item.attribution),
+        license,
+        licenseUrl: item.license_url
+      }));
+    } catch {
+    }
+    if (images.length >= 5) break;
+  }
+  return images;
+}
+async function searchEuPhotos(query, request = fetch) {
+  const url = new URL(euEndpoint);
+  url.search = new URLSearchParams({
+    kwgg: query.trim().slice(0, 200),
+    type: "PHOTO",
+    hasMedia: "1",
+    wt: "json",
+    index: "1",
+    pagesize: "10",
+    fl: "ref,type,titles_json,summary_json,copyright_json,cc_by_json,cooperator_json,media_json"
+  }).toString();
+  const data = await json(url, request);
+  if (!Array.isArray(data.response?.docs)) throw new Error("Invalid EU photo search response.");
+  const images = [];
+  for (const item of data.response.docs) {
+    const holders = item.copyright_json?.holders?.EN, terms = item.cc_by_json;
+    if (item.type !== "PHOTO" || !/^P-\d+\/\d+-\d+$/.test(item.ref || "") || !holders?.length || !holders.every((holder) => ["European Union", "European Commission", "Commission of the European Communities"].includes(holder)) || !terms?.length || terms.some((term) => term.cc_by !== "0" || Object.keys(term.titles || {}).length || Object.keys(term.links || {}).length)) continue;
+    const path = item.media_json?.LOW?.PATH || item.media_json?.MED?.PATH;
+    if (!path || !/^\/\d+\/\d+\/\d+\/[\w-]+\.jpg$/.test(path) || !/^\d{4}$/.test(item.copyright_json?.year || "")) continue;
+    const creator = item.cooperator_json?.PHOTOGRAPHER?.EN?.coop?.map(plain2).filter(Boolean).join(", ");
+    if (!creator) continue;
+    const page = `https://audiovisual.ec.europa.eu/en/photo/${item.ref.replace("/", "~2F")}`;
+    const agencies = item.cooperator_json?.AGENCY?.EN?.coop?.map(plain2).filter(Boolean).join(", ");
+    try {
+      images.push(readIllustration({
+        version: 1,
+        source: "eu",
+        sourceName: "European Commission audiovisual library",
+        sourceUrl: page,
+        filePage: page,
+        url: `https://ec.europa.eu/avservices/repository/photo${path}`,
+        title: plain2(item.titles_json?.EN),
+        alt: plain2(item.summary_json?.EN) || plain2(item.titles_json?.EN),
+        creator,
+        attribution: `\xA9 European Union, ${item.copyright_json.year}${agencies ? ` \xB7 ${agencies}` : ""}. Thumbnail display.`,
+        license: "CC-BY-4.0",
+        licenseUrl: "https://creativecommons.org/licenses/by/4.0/"
+      }));
+    } catch {
+    }
+    if (images.length >= 5) break;
+  }
+  return images;
+}
+var cache = /* @__PURE__ */ new Map();
+async function searchImages(query, source = "all", suggest = false, request = fetch, onProgress) {
+  if (!query.trim()) throw new Error("Enter a person, place or subject to search for.");
+  const issues = [];
+  const completed = [];
+  const snapshot = () => {
+    const images = [];
+    for (const image of completed.flat()) {
+      if (!images.some((other) => other.filePage === image.filePage || other.url === image.url)) images.push(image);
+    }
+    return { images: images.slice(0, 30), issues: [...issues] };
+  };
+  const run = async (id) => {
+    const key = JSON.stringify([id, query.trim(), suggest]), cached = cache.get(key);
+    if (request === fetch && cached && cached.until > Date.now()) return cached.images;
+    try {
+      const images = id === "commons" ? await searchCommons(query, request, suggest) : id === "eu" ? await searchEuPhotos(query, request) : await searchOpenverse(query, request, id === "flickr" ? true : ["wellcome", "smithsonian", "europeana"].includes(id) ? id : false);
+      if (request === fetch) {
+        if (cache.size >= 200) cache.delete(cache.keys().next().value);
+        cache.set(key, { until: Date.now() + 10 * 60 * 1e3, images });
+      }
+      return images;
+    } catch (error) {
+      issues.push(`${sources[id]}: ${error instanceof Error ? error.message : "Search is unavailable. Please retry."}`);
+      return [];
+    }
+  };
+  const load = async (id) => {
+    completed.push(await run(id));
+    onProgress?.(snapshot());
+  };
+  if (source !== "all") {
+    await load(source);
+    return snapshot();
+  }
+  if (suggest) {
+    await load("commons");
+    if (snapshot().images.length) return snapshot();
+  }
+  await Promise.all((suggest ? ["openverse", "eu"] : ["commons", "openverse", "eu", "wellcome", "smithsonian", "europeana"]).map(load));
+  return snapshot();
+}
+
+// node_modules/.pnpm/nostr-tools@2.26.1_nostr-wasm@0.1.0_typescript@7.0.2/node_modules/nostr-tools/lib/esm/nip19.js
+var utf8Decoder3 = new TextDecoder("utf-8");
+var utf8Encoder4 = new TextEncoder();
+var Bech32MaxSize2 = 5e3;
+function npubEncode2(hex2) {
+  return encodeBytes2("npub", hexToBytes(hex2));
+}
+function encodeBech322(prefix, data) {
+  let words = bech32.toWords(data);
+  return bech32.encode(prefix, words, Bech32MaxSize2);
+}
+function encodeBytes2(prefix, bytes) {
+  return encodeBech322(prefix, bytes);
+}
+
+// relay/identity.ts
+function profileAddress(events, pubkey) {
+  const valid = events.filter((event2) => {
+    try {
+      checkedEvent(event2, pubkey, 0);
+      return true;
+    } catch {
+      return false;
+    }
+  }).sort(newest);
+  if (!valid[0]) return null;
+  try {
+    const metadata = JSON.parse(valid[0].content);
+    return typeof metadata.nip05 === "string" ? metadata.nip05 : null;
+  } catch {
+    return null;
+  }
+}
+function nip05Endpoint(address) {
+  const match = /^([a-z0-9._-]+)@([a-z0-9.-]+)$/i.exec(address);
+  if (!match) return null;
+  const name = match[1], domain = match[2].toLowerCase();
+  if (address.length > 320 || !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(domain) || /\.(local|localhost|internal|home|lan)$/.test(domain)) return null;
+  const url = new URL(`https://${domain}/.well-known/nostr.json`);
+  url.searchParams.set("name", name);
+  return { url: url.href, name, address: name === "_" ? domain : `${name}@${domain}` };
+}
+async function verifyAddress(address, pubkey, request = fetch) {
+  const endpoint = nip05Endpoint(address);
+  if (!endpoint) return null;
+  try {
+    const response = await request(endpoint.url, { credentials: "omit", referrerPolicy: "no-referrer", redirect: "error", signal: AbortSignal.timeout(5e3) });
+    if (!response.ok) return null;
+    const body = await response.json();
+    const names = body?.names;
+    return names && typeof names === "object" && !Array.isArray(names) && Object.hasOwn(names, endpoint.name) && names[endpoint.name] === pubkey ? endpoint.address : null;
+  } catch {
+    return null;
+  }
+}
+async function readIdentity(pubkey, relays, fallback) {
+  const pool = new SimplePool({ enableReconnect: false });
+  const events = [];
+  let timer;
+  let subscription;
+  try {
+    await new Promise((resolve) => {
+      timer = setTimeout(resolve, 4500);
+      subscription = pool.subscribeMany(relays, { kinds: [0], authors: [pubkey], limit: 3 }, {
+        maxWait: 3500,
+        onevent: (event2) => {
+          events.push(event2);
+        },
+        oneose: resolve,
+        onclose: () => resolve()
+      });
+    });
+  } finally {
+    clearTimeout(timer);
+    await subscription?.close();
+    pool.destroy();
+  }
+  const claimed = profileAddress(events, pubkey);
+  const verified = claimed ? await verifyAddress(claimed, pubkey) : null;
+  return verified || (fallback && fallback !== claimed ? await verifyAddress(fallback, pubkey) : null);
+}
 export {
+  ImageSession,
   cachedRelaySnapshot,
-  readRelaySnapshot
+  commonsSubject,
+  npubEncode2 as npubEncode,
+  readIdentity,
+  readRelaySnapshot,
+  searchCommons,
+  searchEuPhotos,
+  searchImages,
+  searchOpenverse
 };
 /*! Bundled license information:
 
