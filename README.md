@@ -81,6 +81,8 @@ Dependabot opens weekly pnpm and GitHub Action update pull requests. A weekly au
 
 ## Language editions
 
+On the public news homepage, the Cloudflare Worker opens the highest-ranked supported language edition from the browser’s preferences and defaults to English. The language picker remembers an explicit choice for one year in a browser cookie. Direct links to localized editions open the linked edition.
+
 The Pages build includes `/fr/` (French), `/es/` (Spanish), `/ar/` (Arabic), `/zh/` (Simplified Chinese), `/ru/` (Russian), `/nl/` (Dutch), and `/de/` (German). Each edition has its own pinned publisher catalogue in `sources/`; source selection is saved separately for each language. Arabic uses a right-to-left interface; story text keeps its original direction.
 
 It also includes `/br/` (Brazilian Portuguese) and `/pt/` (European Portuguese), sharing the pinned catalogue in `portuguese-sources.ts`. On the project site these resolve beneath `/stringer-news/`. The edition links and shared assets remain relative. The locale pages preserve the same UTC build stamp as the English reader.

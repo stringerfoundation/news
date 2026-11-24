@@ -53,6 +53,48 @@ test('edition redirects preserve query parameters and HEAD requests use the upst
   assert.equal(await response.text(), '');
   assert.equal(mock.mock.callCount(), 1);
 });
+test('homepage uses browser language order, quality and the configured editions', async t => {
+  t.mock.method(globalThis, 'fetch', async () => new Response(null, { headers: { 'content-type': 'text/html' } }));
+  for (const [language, path] of [
+    ['pt-PT,pt;q=0.9,en;q=0.8', '/pt/'],
+    ['pt-BR,pt;q=0.9', '/br/'],
+    ['fr-CA,es;q=0.8', '/fr/'],
+    ['es;q=0.4, de;q=0.9', '/de/'],
+    ['it-IT,zh-Hant;q=0.9,ru;q=0.9', '/zh/'],
+    ['ar;q=0,sw-KE;q=0.5', '/sw/'],
+    ['en-GB,fr;q=0.8', null],
+    ['it-IT,fr;q=0, *;q=0.8, ar;q=1.5', null],
+    ['', null],
+  ] as const) {
+    const response = await worker.fetch(new Request('https://example.org/?campaign=test&source=fixture', {
+      method: 'HEAD', headers: { 'Accept-Language': language },
+    }), environment);
+    assert.equal(response.status, path ? 302 : 200, language);
+    assert.equal(response.headers.get('location'), path ? path + '?campaign=test&source=fixture' : null, language);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.equal(response.headers.get('vary'), 'Accept-Language, Cookie');
+    assert.equal(response.headers.get('set-cookie'), null);
+  }
+});
+test('saved preference wins on the homepage while direct edition links keep their language', async t => {
+  const visited: string[] = [];
+  t.mock.method(globalThis, 'fetch', async (url: URL, options?: RequestInit) => {
+    visited.push(url.pathname + url.search);
+    assert.equal(new Headers(options?.headers).get('cookie'), null);
+    assert.equal(new Headers(options?.headers).get('accept-language'), null);
+    return new Response(null, { headers: { 'content-type': 'text/html' } });
+  });
+  const open = (path: string, cookie: string) => worker.fetch(new Request('https://example.org' + path, {
+    method: 'HEAD', headers: { Cookie: cookie, 'Accept-Language': 'fr' },
+  }), environment);
+  assert.equal((await open('/', 'other=value; stringer_edition=pt-PT')).headers.get('location'), '/pt/');
+  assert.equal((await open('/', 'stringer_edition=invalid')).headers.get('location'), '/fr/');
+  assert.equal((await open('/', 'stringer_edition=en-US')).status, 200);
+  assert.equal((await open('/de/', 'stringer_edition=pt-PT')).status, 200);
+  assert.equal((await open('/?edition=en-US&campaign=test', '')).status, 200);
+  assert.equal((await open('/?edition=de', '')).headers.get('location'), '/fr/');
+  assert.deepEqual(visited, ['/', '/de/', '/?campaign=test']);
+});
 test('donation links redirect GET and HEAD to the external page, preserving attribution', async t => {
   t.mock.method(globalThis, 'fetch', () => { throw new Error('Donation redirects must not reach an origin'); });
   for (const method of ['GET', 'HEAD']) {
