@@ -287,35 +287,89 @@ window.addEventListener('load', detectNostr);
 window.addEventListener('nostr:ready', detectNostr);
 detectNostr();
 
-function commonsCaption(candidate: CommonsImage) {
-  const caption = element('figcaption');
-  caption.append(document.createTextNode(`Illustrative image · ${candidate.creator} · ${candidate.attribution} · `));
-  for (const [label, url] of [[candidate.title, candidate.filePage], [candidate.license, candidate.licenseUrl]] as const) {
-    if (caption.lastChild?.nodeType === Node.ELEMENT_NODE) caption.append(document.createTextNode(' · '));
-    const link = element('a', label); link.href = url; link.target = '_blank'; link.rel = 'noopener noreferrer'; caption.append(link);
-  }
-  if (candidate.sourceName) caption.append(document.createTextNode(` · ${candidate.sourceName}`));
-  return caption;
+type ImageCredit = CommonsImage | { title: string; storyUrl: string; credit: string };
+
+function creditLink(label: string, url: string) {
+  const link = element('a', label);
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  return link;
 }
+
+function creditEntry(credit: ImageCredit) {
+  const entry = element('section', '', 'image-credit-entry');
+  entry.append(element('h3', credit.title));
+  if ('storyUrl' in credit) {
+    if (credit.credit) entry.append(element('p', credit.credit));
+    entry.append(creditLink(t('Original story'), credit.storyUrl));
+    return entry;
+  }
+  entry.prepend(element('p', t('Illustrative image'), 'image-credit-kind'));
+  entry.append(element('p', credit.creator));
+  const links = element('div', '', 'image-credit-links');
+  links.append(creditLink(credit.sourceName || 'Wikimedia Commons', credit.filePage),
+    creditLink(credit.license.replace(/^CC-BY(-SA)?-/, 'CC BY$1 '), credit.licenseUrl));
+  entry.append(links);
+  if (credit.attribution.trim() !== credit.creator.trim()) {
+    const details = element('details');
+    details.append(element('summary', t('Full attribution')), element('p', credit.attribution));
+    entry.append(details);
+  }
+  return entry;
+}
+
+const thumbnailCredits = new WeakMap<HTMLButtonElement, ImageCredit>();
 const creditDialog = element('dialog', '', 'image-credit-dialog');
-creditDialog.setAttribute('aria-label', 'Image credits');
-const closeCredit = element('button', 'Close');
+creditDialog.setAttribute('aria-labelledby', 'image-credit-title');
+const creditTitle = element('h2');
+creditTitle.id = 'image-credit-title';
+const closeCredit = element('button', t('Close'), 'image-credit-close');
 closeCredit.type = 'button';
 closeCredit.autofocus = true;
 closeCredit.addEventListener('click', () => creditDialog.close());
+const creditHeader = element('div', '', 'image-credit-header');
+creditHeader.append(creditTitle, closeCredit);
+const creditBody = element('div', '', 'image-credit-body');
+creditDialog.append(creditHeader, creditBody);
 document.body.append(creditDialog);
-function thumbnailCredit(candidate: CommonsImage, suggested: boolean) {
+
+function openCredits(credits: ImageCredit[]) {
+  creditTitle.textContent = t('Image credits');
+  creditBody.replaceChildren(...credits.map(creditEntry));
+  if (!credits.length) creditBody.append(element('p', t('No image credits to show yet.')));
+  creditDialog.showModal();
+  creditBody.scrollTop = 0;
+}
+
+const footerCredits = element('button', t('Credits'), 'footer-credits');
+footerCredits.type = 'button';
+footerCredits.setAttribute('aria-haspopup', 'dialog');
+footerCredits.addEventListener('click', () => {
+  const credits = new Map<string, ImageCredit>();
+  for (const button of document.querySelectorAll<HTMLButtonElement>('.story-media > figcaption > .image-credit-button')) {
+    const credit = thumbnailCredits.get(button)!;
+    const key = 'filePage' in credit ? credit.filePage : credit.storyUrl;
+    if (!credits.has(key)) credits.set(key, credit);
+  }
+  openCredits([...credits.values()]);
+});
+requiredElement('.footer-bottom').append(footerCredits);
+
+function thumbnailCredit(imageCredit: ImageCredit, suggested = false) {
   const caption = element('figcaption');
-  const credit = element('button', 'Image credits');
+  const credit = element('button', '', 'image-credit-button');
+  const licensed = 'licenseUrl' in imageCredit && new URL(imageCredit.licenseUrl).pathname.startsWith('/licenses/');
+  const icon = element('span', licensed ? '' : 'i', licensed ? 'image-credit-cc' : 'image-credit-info');
+  icon.setAttribute('aria-hidden', 'true');
+  credit.append(icon);
   credit.type = 'button';
+  credit.title = t('Image credits');
+  credit.setAttribute('aria-label', credit.title);
   credit.setAttribute('aria-haspopup', 'dialog');
   if (suggested) credit.setAttribute('aria-description', 'Automatically suggested image');
-  credit.addEventListener('click', () => {
-    const figure = element('figure');
-    figure.append(commonsCaption(candidate));
-    creditDialog.replaceChildren(figure, closeCredit);
-    creditDialog.showModal();
-  });
+  credit.addEventListener('click', () => openCredits([imageCredit]));
+  thumbnailCredits.set(credit, imageCredit);
   caption.append(credit);
   return caption;
 }
@@ -369,7 +423,7 @@ function imageReview(storyId: string, title: string) {
     const figure = element('figure');
     const img = element('img'); img.src = candidate.url; img.alt = candidate.alt;
     img.width = 120; img.height = 80; img.loading = 'lazy'; img.referrerPolicy = 'no-referrer';
-    figure.append(choiceButton(candidate, img), commonsCaption(candidate));
+    figure.append(choiceButton(candidate, img), thumbnailCredit(candidate));
     const selected = current === candidate.id;
     const button = element('button', selected ? 'Withdraw approval' : `Upvote image (${count})`);
     button.type = 'button'; button.disabled = voteBusy; button.setAttribute('aria-pressed', String(selected));
@@ -409,7 +463,7 @@ function imageReview(storyId: string, title: string) {
       const preview = element('img'); preview.src = image.url; preview.alt = image.alt; preview.width = 120; preview.height = 80; preview.loading = 'lazy'; preview.referrerPolicy = 'no-referrer';
       const publish = element('button', 'Publish and upvote image'); publish.type = 'button'; publish.disabled = voteBusy || voter !== relayConfig.pubkey;
       publish.addEventListener('click', () => void publishCommons(storyId, image));
-      figure.append(choiceButton(image, preview), commonsCaption(image), publish); grid.append(figure);
+      figure.append(choiceButton(image, preview), thumbnailCredit(image), publish); grid.append(figure);
     }
   }
   details.insertBefore(grid, details.querySelector('form'));
@@ -530,12 +584,20 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
       image.loading = index === 0 ? 'eager' : 'lazy';
       image.decoding = 'async'; image.referrerPolicy = 'no-referrer';
       let triedLocal = imageUrl === localImage;
+      const photoCredit = (credit = '') => thumbnailCredit({ title: story.title, storyUrl: url, credit });
+      let caption = commons
+        ? thumbnailCredit(commons, commons.filePage !== selection?.winner?.filePage)
+        : photoCredit(triedLocal ? undefined : story.image?.credit);
       image.addEventListener('error', () => {
         if (localImage && !triedLocal) {
           triedLocal = true;
+          const fallbackCaption = photoCredit();
+          caption.replaceWith(fallbackCaption);
+          caption = fallbackCaption;
           image.src = localImage;
           return;
         }
+        caption.remove();
         if (wire) {
           const failed = image.closest('a') || image;
           failed.replaceWith(element('span', 'Image unavailable', 'image-search-status'));
@@ -563,8 +625,7 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
         imageLink.append(image);
         figure.append(imageLink);
       } else figure.append(image);
-      if (commons) figure.append(thumbnailCredit(commons, commons.filePage !== selection?.winner?.filePage));
-      if (!wire && story.image?.credit) figure.append(element('figcaption', story.image.credit));
+      figure.append(caption);
       article.classList.add('with-image'); if (!wire) article.append(figure);
     } else if (usePlaceholder) {
       showPlaceholder();

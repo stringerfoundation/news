@@ -45,12 +45,19 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     const credit = caption.getByRole('button', { name: 'Image credits' });
     const image = page.locator('#world-news .wire-thumbnail > a > img');
     assert.ok((await credit.boundingBox())!.y >= (await image.boundingBox())!.y + (await image.boundingBox())!.height - 1);
-    assert.equal(await caption.innerText(), 'Image credits');
+    assert.ok((await credit.innerText()).length <= 1);
     await credit.click();
     const dialog = page.getByRole('dialog', { name: 'Image credits' });
-    assert.match(await dialog.innerText(), text);
+    assert.match((await dialog.innerText()).replaceAll(/\s+/g, ' '), text);
     assert.equal(await dialog.getByRole('link').count(), 2);
+    const attribution = dialog.locator('details').filter({ hasText: 'Example attribution' });
+    if (await attribution.count()) {
+      assert.equal(await attribution.locator('p').isVisible(), false);
+      await attribution.getByText('Full attribution', { exact: true }).click();
+      assert.equal(await attribution.locator('p').isVisible(), true);
+    }
     await dialog.getByRole('button', { name: 'Close' }).click();
+    assert.equal(await credit.evaluate(button => document.activeElement === button), true);
   }
   async function setup(page: Page, signer: boolean | 'owner', denied = false) {
     // tsx emits this helper for nested callbacks serialized into the browser.
@@ -106,7 +113,7 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
       const file = url.pathname.slice(1) || 'index.html';
       if (file === 'relay-config.js') { await route.fulfill({ contentType: 'text/javascript', body: `export default ${JSON.stringify({ enabled: true, pubkey, relays: ['wss://relay.test'] })}` }); return; }
       if (file !== 'index.html' && !isPublicAsset(file)) { await route.fulfill({ status: 404 }); return; }
-      await route.fulfill({ contentType: file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.png') ? 'image/png' : 'text/html', body: await readFile(file.endsWith('.js') ? `_site/${file}` : file) });
+      await route.fulfill({ contentType: file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.png') ? 'image/png' : file.endsWith('.svg') ? 'image/svg+xml' : 'text/html', body: await readFile(file.endsWith('.js') ? `_site/${file}` : file) });
     });
     await page.routeWebSocket('wss://relay.test/', socket => {
       if (offline) { socket.close(); return; }
@@ -189,6 +196,13 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     await reader.locator(`#world-news ${suggestedCredit}`).waitFor({state: 'detached'});
     await reader.locator('#world-news .wire-thumbnail > a > img').waitFor();
     await checkCredits(reader, /Illustrative image.*Example creator.*CC0-1.0/);
+    const footerCredits = reader.locator('footer').getByRole('button', { name: 'Credits', exact: true });
+    await footerCredits.click();
+    const credits = reader.getByRole('dialog', { name: 'Image credits' });
+    await credits.getByRole('heading', { name: 'Example Commons file' }).waitFor();
+    await reader.keyboard.press('Escape');
+    assert.equal(await credits.isVisible(), false);
+    assert.equal(await footerCredits.evaluate(button => document.activeElement === button), true);
     assert.equal(await reader.getByText('Review illustrative images', { exact: true }).count(), 0);
     assert.equal(await editor.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     offline = true;
@@ -201,6 +215,9 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     await reader.reload();
     await reader.getByRole('heading', { name: 'The Failures of Emmanuel Macron' }).waitFor();
     await reader.getByText('Image unavailable', {exact: true}).waitFor();
+    await footerCredits.click();
+    await credits.getByText('No image credits to show yet.').waitFor();
+    await credits.getByRole('button', { name: 'Close' }).click();
     brokenImage = false;
     await reader.reload();
     await reader.locator('#world-news .wire-thumbnail > a > img').waitFor();
@@ -270,6 +287,7 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
       await ownerPage.getByText('Image and approval published.', { exact: true }).waitFor();
       await reader.waitForFunction(expected => document.querySelector('#world-news .wire-thumbnail > a > img')?.getAttribute('alt')?.includes(expected), alt!);
       assert.equal(await reader.locator('#world-news .wire-thumbnail > a').getAttribute('href'), 'https://example.org/story');
+      assert.equal(await reader.locator('.wire-thumbnail .image-credit-cc').count(), 1);
       await checkCredits(reader, new RegExp(credit!));
     }
     const late = await browser.newPage();

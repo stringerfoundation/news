@@ -158,7 +158,10 @@ test('progress timings, partial updates and failures retain displayed stories', 
   assert.match((await page.locator('#relay-status-details').textContent()) ?? '', /stories received after/);
 });
 test('relay UI ignores unsafe links and retains image attribution', async (t) => {
-  const page = await setup(t, null, false);
+  const page = await setup(t);
+  await page.route('https://example.org/photo', async route => {
+    await route.fulfill({ contentType: 'image/png', body: await readFile('assets/favicon-16.png') });
+  });
   const value = snapshot();
   value.sources.stringer = {
     ...sourceState(value, 'stringer'),
@@ -174,7 +177,13 @@ test('relay UI ignores unsafe links and retains image attribution', async (t) =>
   };
   await page.evaluate((value) => window.readerCallbacks.partial(value), value);
   assert.equal(await page.locator('#stringer-news article').count(), 1);
-  assert.equal(await page.locator('figcaption').textContent(), 'Photographer');
+  await page.locator('figcaption').getByRole('button', { name: 'Image credits' }).click();
+  const credits = page.getByRole('dialog', { name: 'Image credits' });
+  await credits.getByText('Photographer', { exact: true }).waitFor();
+  assert.equal(await credits.getByRole('link', { name: 'Original story' }).getAttribute('href'), 'https://example.org/story');
+  await credits.getByRole('button', { name: 'Close' }).click();
+  await page.locator('footer').getByRole('button', { name: 'Credits', exact: true }).click();
+  await credits.getByText('Photographer', { exact: true }).waitFor();
   await page.evaluate((value) => window.finish(value), value);
 });
 test('older final snapshots are rejected and do not erase cached stories', async (t) => {
