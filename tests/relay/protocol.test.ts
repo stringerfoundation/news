@@ -45,3 +45,17 @@ test('signed story must match source and original HTTP(S) URL', () => {
   const manifest = finalizeEvent({ ...f.manifest, content: JSON.stringify(content) }, f.secret);
   assert.throws(() => assemble(manifest, [bad, f.events[1]!], f.pubkey));
 });
+test('candidate manifest references are optional, bounded and limited to current publisher notes', () => {
+  const f = fixture(), content = JSON.parse(f.manifest.content), publisher = content.sources.bbc.ids[0], stringer = content.sources.stringer.ids[0];
+  const id = 'c'.repeat(64);
+  content.imageCandidates = { [publisher]: [id], [stringer]: [id], ['d'.repeat(64)]: [id] };
+  const sign = () => finalizeEvent({ ...f.manifest, content: JSON.stringify(content) }, f.secret);
+  assert.deepEqual(readManifest(sign(), f.pubkey).imageCandidates, { [publisher]: [id] });
+  assert.deepEqual(assemble(sign(), f.events, f.pubkey).imageCandidates, { [publisher]: [id] });
+  for (const invalid of [[id, id], [], ['not-an-id'], Array.from({ length: 6 }, (_, i) => String(i).repeat(64))]) {
+    content.imageCandidates = { [publisher]: invalid };
+    assert.deepEqual(readManifest(sign(), f.pubkey).imageCandidates, {});
+  }
+  content.imageCandidates = null;
+  assert.deepEqual(readManifest(sign(), f.pubkey).imageCandidates, {});
+});

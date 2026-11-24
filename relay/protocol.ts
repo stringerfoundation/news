@@ -5,6 +5,7 @@ export const MANIFEST_KIND = 30078;
 export const MANIFEST_KEY = 'stringer-news-v1';
 export const GROUP_MARKER = 'stringer-group-v1';
 export interface Manifest {
+  imageCandidates?: Record<string, string[]>;
   groups?: Record<string, string>;
   assignments?: Record<string, string>;
   version: 1;
@@ -26,7 +27,8 @@ export function checkedEvent(event: Event, pubkey: string, kind: number): void {
     JSON.stringify(event).length > 500_000 ||
     event.pubkey !== pubkey ||
     event.kind !== kind ||
-    !verifyEvent(event) ||
+    !verifyEvent({ id: event.id, pubkey: event.pubkey, sig: event.sig,
+      kind: event.kind, created_at: event.created_at, content: event.content, tags: event.tags }) ||
     event.created_at > Date.now() / 1000 + 60
   )
     throw new Error('Invalid relay event');
@@ -63,6 +65,14 @@ export function readManifest(event: Event, pubkey: string): Manifest {
       (!Number.isInteger(entry.pending) || entry.pending < 0 || entry.pending > 200)
     )
       throw new Error('Invalid pending count');
+  }
+  if (value.imageCandidates !== undefined) {
+    const ids = SOURCES.filter(source => source.id !== 'stringer').flatMap(source => value.sources[source.id]!.ids);
+    value.imageCandidates = value.imageCandidates && typeof value.imageCandidates === 'object' && !Array.isArray(value.imageCandidates)
+      ? Object.fromEntries(Object.entries(value.imageCandidates).filter(([note, candidates]) =>
+          ids.includes(note) && Array.isArray(candidates) && candidates.length > 0 && candidates.length <= 5 &&
+          new Set(candidates).size === candidates.length && candidates.every(id => typeof id === 'string' && /^[0-9a-f]{64}$/.test(id))))
+      : {};
   }
   if (value.groups !== undefined) {
     const ids = SOURCES.filter((source) => source.id !== 'stringer').flatMap(
@@ -180,5 +190,6 @@ export function assemble(
       if (verified.clusterId) story.clusterId = verified.clusterId;
     });
   }
+  clean.imageCandidates = manifest.imageCandidates || {};
   return clean;
 }
