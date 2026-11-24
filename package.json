@@ -24,12 +24,12 @@
   "dependencies": {
     "cheerio": "1.2.0",
     "fast-xml-parser": "5.12.1",
-    "nostr-tools": "2.26.0"
+    "nostr-tools": "2.26.1"
   },
   "devDependencies": {
     "@babel/eslint-parser": "8.1.2",
     "@babel/plugin-syntax-typescript": "8.0.3",
-    "@cloudflare/workers-types": "5.20261114.1",
+    "@cloudflare/workers-types": "5.20261121.1",
     "@playwright/test": "1.65.1",
     "@types/node": "26.6.6",
     "esbuild": "0.28.2",
