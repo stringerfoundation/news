@@ -1680,9 +1680,9 @@ var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
 ));
 
 // app.ts
-import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=004ad00de736d1db";
-import relayConfig from "./relay-config.js?v=004ad00de736d1db";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=004ad00de736d1db";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=87341f6f6ed4f3dc";
+import relayConfig from "./relay-config.js?v=87341f6f6ed4f3dc";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=87341f6f6ed4f3dc";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1774,6 +1774,7 @@ function displayedSnapshot() {
   return { ...snapshot, sources: Object.fromEntries(Object.entries(snapshot.sources).map(([id, source]) => [id, retainedSources.get(id) ?? source])) };
 }
 var loading = false;
+var showingEmbeddedStringer = false;
 var lastAttempt = 0;
 var loadStarted = 0;
 var loadDuration = 0;
@@ -1922,7 +1923,7 @@ async function connectNostr() {
       })
     ]).finally(() => clearTimeout(timer));
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=004ad00de736d1db");
+    const identity = await import("./relay-reader.js?v=87341f6f6ed4f3dc");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -2652,7 +2653,10 @@ function renderStatuses() {
         if ((entry.pending ?? 0) > 0) counts.push(t("{count} queued", { count: entry.pending }));
         if (counts.length) notes.push(`${source.name} \xB7 ${counts.join(" \xB7 ")}`);
       }
-      if (entry.status === "failure" && !(loading && entry.unavailable)) target.append(element("p", t("{source}: refresh unavailable.{retained}", { source: source.name, retained: t(retained?.stories.length || entry.stories.length ? " Showing previously collected stories." : " No stories available.") }), "warning"));
+      if (entry.status === "failure" && !(loading && entry.unavailable)) {
+        const hasStories = retained?.stories.length || entry.stories.length || source.id === "stringer" && showingEmbeddedStringer;
+        target.append(element("p", t("{source}: refresh unavailable.{retained}", { source: source.name, retained: t(hasStories ? " Showing previously collected stories." : " No stories available.") }), "warning"));
+      }
     }
   }
   if (localizedEdition) {
@@ -2718,7 +2722,9 @@ function renderWorld() {
   });
 }
 function render() {
-  renderStories(requiredElement("#stringer-news"), shuffledStringerStories(displayedSnapshot().sources.stringer.stories), loading ? "" : t("Courageous stories are currently unavailable. Visit the Stringer collection below."));
+  const source = displayedSnapshot().sources.stringer;
+  if (!loading && (source.status === "success" || source.status === "paused")) showingEmbeddedStringer = false;
+  if (!showingEmbeddedStringer) renderStories(requiredElement("#stringer-news"), shuffledStringerStories(source.stories), loading ? "" : t("Courageous stories are currently unavailable. Visit the Stringer collection below."));
   renderWorld();
 }
 async function load() {
@@ -2737,7 +2743,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=004ad00de736d1db");
+      const reader = await import("./relay-reader.js?v=87341f6f6ed4f3dc");
       ImageSessionClass = reader.ImageSession;
       searchImages = reader.searchImages;
       commonsSubject = reader.commonsSubject;
@@ -2782,7 +2788,7 @@ async function load() {
     feedback.textContent = t(snapshot ? "Could not check for updates. Keeping the previously loaded collection." : "The news collection is unavailable. We\u2019ll retry automatically.");
     if (!snapshot) {
       requiredElement("#world-status").textContent = t("Headlines unavailable.");
-      requiredElement("#stringer-status").textContent = t("Courageous stories unavailable. You can still visit the Stringer collection below.");
+      if (!showingEmbeddedStringer) requiredElement("#stringer-status").textContent = t("Courageous stories unavailable. You can still visit the Stringer collection below.");
     }
   } finally {
     loadDuration = performance.now() - loadStarted;
@@ -2811,7 +2817,7 @@ async function loadLocalized() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=004ad00de736d1db");
+    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=87341f6f6ed4f3dc");
     if (!snapshot) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
@@ -2856,7 +2862,7 @@ async function loadLocalized() {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=004ad00de736d1db");
+            const relay = await import("./relay-reader.js?v=87341f6f6ed4f3dc");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
@@ -2902,10 +2908,16 @@ setInterval(() => {
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && Date.now() - lastAttempt >= interval) load();
 });
-if (localizedEdition) void import("./relay-reader.js?v=004ad00de736d1db").then((reader) => {
+if (localizedEdition) void import("./relay-reader.js?v=87341f6f6ed4f3dc").then((reader) => {
   searchImages = reader.searchImages;
   loadSuggestions();
 }, () => suggestionQueue.clear());
+var embeddedStringer = JSON.parse(document.getElementById("stringer-stories")?.textContent || "[]");
+if (embeddedStringer.length) {
+  showingEmbeddedStringer = true;
+  renderStories(requiredElement("#stringer-news"), shuffledStringerStories(embeddedStringer), "");
+  updateStoryVisibility();
+}
 load();
 export {
   castImageVote,
