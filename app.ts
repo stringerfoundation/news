@@ -984,7 +984,7 @@ async function load() {
     }
     clearInterval(loadTimer);
     loading = false;
-    document.querySelectorAll('.story-list').forEach(list => list.setAttribute('aria-busy', 'false'));
+    finishStoryListLoad();
     if (snapshot) render(); else renderStatuses();
   }
 }
@@ -1070,8 +1070,12 @@ async function loadLocalized() {
     loadDuration = performance.now() - loadStarted;
     loading = false;
     if (snapshot) render(); else renderStatuses();
-    document.querySelectorAll('.story-list').forEach(list => list.setAttribute('aria-busy', 'false'));
+    finishStoryListLoad();
   }
+}
+function finishStoryListLoad() {
+  document.querySelectorAll('.story-list').forEach(list => list.setAttribute('aria-busy', 'false'));
+  requiredElement('#world-news').removeAttribute('data-initial-load');
 }
 const layoutObserver = new ResizeObserver(updateStoryVisibility);
 layoutObserver.observe(requiredElement('#stringer-news'));

@@ -339,6 +339,36 @@ test('mobile previews five stories per section and preserves independent choices
   await page.close();
 });
 
+test('mobile reserves the newswire preview before the first headlines arrive', async () => {
+  const page = await browser.newPage({ viewport: { width: 375, height: 844 } });
+  let releaseFeed!: () => void;
+  const pendingFeed = new Promise<void>(resolve => { releaseFeed = resolve; });
+  try {
+    await mockStoryImages(page);
+    await page.route('**/data/news.json', async route => {
+      await pendingFeed;
+      await route.fulfill({ json: snapshot });
+    });
+    await page.goto(base);
+    const world = page.locator('#world-news');
+    const sectionTop = () => page.locator('#courageous-stories')
+      .evaluate(section => section.getBoundingClientRect().top + window.scrollY);
+    const before = await sectionTop();
+    assert.equal(await world.locator('article').count(), 0);
+    assert.equal(await page.locator('#world-more').isVisible(), false);
+
+    releaseFeed();
+    await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
+    assert.equal(await world.locator('article:visible').count(), 5);
+    assert.equal(await world.getAttribute('data-initial-load'), null);
+    const shift = Math.abs(await sectionTop() - before);
+    assert.ok(shift <= 4, `Courageous Stories moved ${shift}px when headlines arrived`);
+  } finally {
+    releaseFeed();
+    await page.close();
+  }
+});
+
 test('mobile controls disappear for short or empty collections and failures retain expanded stories', async () => {
   const page = await pageAt('/', 375);
   await page.locator('#world-more').click();

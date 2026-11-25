@@ -321,7 +321,14 @@ dialog.image-review::backdrop { background: #0003; }
 dialog.image-review h3 { font-size: 18px; margin: 12px 0; }
 dialog.image-review img { width: 160px; height: 110px; aspect-ratio: auto; object-fit: contain; }
 @media (max-width: 767px) {
-  .desk #global-newswire .story.with-image { min-height: 132px; }
+  #global-newswire { --wire-row-height: 141px; }
+  /* Reserve the five-card preview through the initial feed response. */
+  #world-news[data-initial-load] { min-block-size: calc(5 * var(--wire-row-height)); }
+  #global-newswire:has(#world-news[data-initial-load]) #world-more[hidden] {
+    display: block;
+    visibility: hidden;
+  }
+  .desk #global-newswire .story.with-image { min-height: var(--wire-row-height); }
   .desk #global-newswire .wire-thumbnail { display: grid; grid-column: 2; grid-row: 1; grid-template-rows: 48px 24px 48px; height: 120px; }
   .desk #global-newswire .wire-thumbnail > a { grid-column: 1; grid-row: 1; }
   .image-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
