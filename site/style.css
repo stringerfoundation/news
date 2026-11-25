@@ -137,8 +137,11 @@ html[data-shuffling-stringer] #stringer-news { visibility: hidden; }
   text-transform: uppercase;
 }
 .page-intro .eyebrow { color: var(--muted); }
-.page-intro .intro-summary { max-width: 68ch; margin-inline: auto; line-height: 1.45; }
+.page-intro .intro-summary { margin-block-end: 14px; line-height: 1.45; }
 .intro-summary a { text-underline-offset: .15em; }
+@media (max-width: 480px) {
+  .page-intro .intro-summary { margin-inline: -10px; letter-spacing: normal; }
+}
 .desk { border-top: 2px solid var(--accent); }
 
 .column-heading { padding-bottom: 20px; }
@@ -174,7 +177,6 @@ html[data-shuffling-stringer] #stringer-news { visibility: hidden; }
 }
 /* Keep more reporting visible on desktop without changing mobile cards. */
 @media (min-width: 768px) {
-  .page-intro .eyebrow { margin-bottom: 6px; }
   .column, .column+.column { padding-top: 16px; }
   .column-heading { min-height: 76px; padding-bottom: 12px; }
   .column-heading .eyebrow { margin-bottom: 6px; }
@@ -191,7 +193,6 @@ html[data-shuffling-stringer] #stringer-news { visibility: hidden; }
   /* System fonts retain reliable weights when downloaded fonts are restricted. */
   h1, h2, h3 { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; font-synthesis: weight; }
   .page-intro { padding-top: 12px; padding-bottom: 14px; }
-  .page-intro .eyebrow { margin-bottom: 6px; }
   .jump-links { gap: 16px; padding-bottom: 12px; font-size: 11px; }
   .column { padding-top: 12px; }
   .column+.column { padding-top: 12px; margin-top: 12px; }
