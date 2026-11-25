@@ -502,6 +502,48 @@ test('failed browser refresh retains displayed stories; first-load failure is vi
   assert.equal(await page.locator('#stringer-news article').count(),24);assert.equal(await page.locator('#world-news').getAttribute('aria-busy'),'false');
   await page.reload();await page.waitForFunction(()=>document.querySelector<HTMLElement>('#world-status')!.textContent==='Headlines unavailable.');assert.equal(await page.locator('#world-news article').count(),0);await page.close();
 });
+test('the reader recovers from an invalid first response and applies later updates without replacing unchanged stories', async () => {
+  const page = await browser.newPage();
+  try {
+    await mockStoryImages(page);
+    await page.clock.install();
+    let response: { body?: string; json?: FixtureSnapshot } = { body: '{"schemaVersion":' };
+    await page.route('**/data/news.json', route => route.fulfill(response));
+    await page.goto(base);
+    const world = page.locator('#world-news');
+    await page.locator('#world-status').getByText('Headlines unavailable.').waitFor();
+    assert.equal(await world.locator('article').count(), 0);
+    assert.equal(await world.getAttribute('aria-busy'), 'false');
+
+    response = { json: snapshot };
+    await poll(page);
+    const previous = worldStories(snapshot);
+    assert.equal(await world.locator('article').count(), previous.length);
+    assert.equal(await page.locator('#refresh-status').textContent(), '');
+    assert.equal(await page.locator('#world-status').textContent(), '');
+    const unchanged = await world.locator('article .story-body > a').first().elementHandle();
+    await unchanged.focus();
+
+    const updated = structuredClone(snapshot);
+    updated.generatedAt = new Date(Date.parse(snapshot.generatedAt) + 60_000).toISOString();
+    const title = 'A new report after recovery';
+    const retired = updated.sources.bbc.stories.pop()!;
+    updated.sources.bbc.stories.push({
+      title, url: 'https://example.org/after-recovery', publishedAt: updated.generatedAt, summary: '', image: null,
+    });
+    updated.sources.bbc.attemptedAt = updated.generatedAt;
+    updated.sources.bbc.lastSuccessAt = updated.generatedAt;
+    response = { json: updated };
+    await poll(page);
+    assert.equal(await world.locator('h3').first().textContent(), title);
+    assert.equal(await world.locator('article').count(), previous.length);
+    assert.ok(!(await world.locator('article .story-body > a').evaluateAll(links =>
+      links.map(link => (link as HTMLAnchorElement).href))).includes(retired.url));
+    assert.equal(await unchanged.evaluate(link => document.activeElement === link), true);
+  } finally {
+    await page.close();
+  }
+});
 test('partial relay refresh preserves displayed stories and keeps source failures visible', async () => {
   const cached = structuredClone(snapshot);
   const partial = structuredClone(snapshot);
