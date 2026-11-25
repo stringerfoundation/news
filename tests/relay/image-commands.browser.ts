@@ -105,7 +105,9 @@ test('image commands reject stale actions, recover from signer/search failures, 
       outcomes.push(!!document.querySelector(`${thumbnailSelector} > .story-placeholder[aria-label="Image unavailable"]`));
       win.eligible = false; c.renderWorld();
       const failedThumbnail = document.querySelector(thumbnailSelector);
-      outcomes.push(failedThumbnail?.children.length === 1 && failedThumbnail.firstElementChild?.matches('.story-placeholder') && !failedThumbnail.textContent?.includes(euError));
+      outcomes.push(failedThumbnail?.childElementCount === 1
+        && failedThumbnail.firstElementChild?.matches('.story-placeholder') === true
+        && failedThumbnail.textContent === '');
       win.eligible = true;
       win.searchTask = async () => ({images: [], issues: []});
       await c.findCommons(storyId, 'No matches');
