@@ -8,6 +8,24 @@ import { parseStringer, type TextRequest } from './collect.ts';
 
 const collection = SOURCES.find(source => source.id === 'stringer')!;
 
+// Hide the list while the parser streams the cards. A synchronous script then
+// shuffles the existing nodes before the list becomes visible.
+const startShuffle = '<script>document.documentElement.setAttribute("data-shuffling-stringer", "");</script>';
+const finishShuffle = `<script>
+(() => {
+  const list = document.getElementById("stringer-news");
+  const cards = Array.from(list.children);
+  for (let index = cards.length - 1; index > 0; index--) {
+    const chosen = Math.floor(Math.random() * (index + 1));
+    [cards[index], cards[chosen]] = [cards[chosen], cards[index]];
+  }
+  const firstImage = cards[0]?.querySelector("img");
+  if (firstImage) firstImage.loading = "eager";
+  list.append(...cards);
+  document.documentElement.removeAttribute("data-shuffling-stringer");
+})();
+</script>`;
+
 export async function embedStringerStories(site: string, request: TextRequest) {
   let stories: Story[];
   try {
@@ -22,15 +40,16 @@ export async function embedStringerStories(site: string, request: TextRequest) {
     const file = path ? `${site}/${path}/index.html` : `${site}/index.html`;
     const $ = load(await readFile(file, 'utf8'));
     const list = $('#stringer-news').attr({ 'data-prerendered': '', 'aria-busy': 'false' }).empty();
+    list.before(startShuffle).after(finishShuffle);
     const t = translator(locale);
-    for (const [index, story] of stories.entries()) {
+    for (const story of stories) {
       const media = STRINGER_MEDIA.get(story.url);
       const figure = $('<figure class="story-media"></figure>');
       if (media) {
         figure.append($('<img>').attr({
           src: path ? `.${media.image}` : media.image,
           alt: '', width: '240', height: '240', decoding: 'async',
-          loading: index === 0 ? 'eager' : 'lazy',
+          loading: 'lazy',
         }));
       } else {
         figure.append($('<div class="story-placeholder" aria-hidden="true"></div>'));

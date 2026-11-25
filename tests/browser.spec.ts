@@ -8,6 +8,7 @@ import type { Snapshot, SourceState } from '../relay/types.ts';
 import type { SourceId } from '../news-model.ts';
 import { createServer } from 'node:http';
 import { readFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { load } from 'cheerio';
 import { launchBrowser } from '../scripts/browser.ts';
 import { SOURCES, worldStories } from '../news-model.ts';
 import { collect, snapshotUrl } from '../scripts/collect.ts';
@@ -60,7 +61,7 @@ async function poll(page: Page) {
   await response;
   await page.waitForFunction(()=>document.querySelector<HTMLElement>('#world-news')!.getAttribute('aria-busy')==='false');
 }
-test('Courageous Stories are visible before JavaScript and survive a failed refresh', async () => {
+test('Courageous Stories shuffle before the reader bundle and keep their order through live refreshes', async () => {
   const site = await mkdtemp('.test-output/embedded-stringer-');
   const page = await browser.newPage({viewport: {width: 375, height: 844}});
   try {
@@ -88,6 +89,33 @@ test('Courageous Stories are visible before JavaScript and survive a failed refr
     const html = await readFile(`${site}/index.html`, 'utf8');
     assert.match(html, /summary containing &lt;\/script&gt;/);
     assert.match(await readFile(`${site}/fr/index.html`, 'utf8'), /src="\.\.\/assets\/stringer-thumbnails\//);
+    const storyUrls = (reader: Page) => reader.locator('#stringer-news article a')
+      .evaluateAll(links => links.map(link => (link as HTMLAnchorElement).href));
+    const secondVisit = await browser.newPage({ viewport: { width: 375, height: 844 } });
+    let finishParsing!: () => void;
+    const pausedParsing = new Promise<void>(resolve => { finishParsing = resolve; });
+    try {
+      const $ = load(html);
+      $('#stringer-news + script').before('<script src="/test-before-shuffle.js"></script>');
+      await secondVisit.addInitScript(() => { Math.random = () => 0.99; });
+      await secondVisit.route(base + '/', route => route.fulfill({ contentType: 'text/html', body: $.html() }));
+      await secondVisit.route('**/test-before-shuffle.js', async route => {
+        await pausedParsing;
+        await route.fulfill({ contentType: 'text/javascript', body: '' });
+      });
+      await secondVisit.route('**/app.js', route => route.abort());
+      await secondVisit.goto(base, { waitUntil: 'commit' });
+      const firstCard = secondVisit.locator('#stringer-news article').first();
+      await firstCard.waitFor({ state: 'attached' });
+      assert.equal(await firstCard.isVisible(), false, 'Unshuffled cards stay hidden while parsing is paused');
+      finishParsing();
+      await firstCard.waitFor();
+      assert.deepEqual(await storyUrls(secondVisit), [approvedUrl, dateOnlyUrl, 'https://example.org/report']);
+    } finally {
+      finishParsing();
+      await secondVisit.close();
+    }
+    await page.addInitScript(() => { Math.random = () => 0; });
     await mockStoryImages(page);
     await page.clock.install();
     await page.route(base + '/', route => route.fulfill({contentType: 'text/html', body: html}));
@@ -95,31 +123,37 @@ test('Courageous Stories are visible before JavaScript and survive a failed refr
     const pendingScript = new Promise<void>(resolve => { releaseScript = resolve; });
     await page.route('**/app.js', async route => {
       await pendingScript;
-      await route.continue();
+      await route.fulfill({ contentType: 'text/javascript', body: await readFile('_site/app.js') });
     });
     let releaseFeed!: () => void;
     const pendingFeed = new Promise<void>(resolve => { releaseFeed = resolve; });
     const failed = structuredClone(snapshot);
     failed.sources.stringer = {...failed.sources.stringer, status: 'failure', stories: [], lastSuccessAt: null, error: 'Unavailable'};
+    let healthy = snapshot;
     let calls = 0;
     await page.route('**/data/news.json', async route => {
       if (++calls === 1) {
         await pendingFeed;
         await route.fulfill({status: 503});
       } else {
-        await route.fulfill({json: calls === 2 ? failed : snapshot});
+        await route.fulfill({json: calls === 2 ? failed : healthy});
       }
     });
     await page.goto(base, {waitUntil: 'commit'});
     const story = page.getByRole('heading', {name: title});
+    const expectedOrder = [dateOnlyUrl, 'https://example.org/report', approvedUrl];
     try {
       await story.waitFor();
+      assert.deepEqual(await storyUrls(page), expectedOrder);
+      assert.equal(await page.locator('html').getAttribute('data-shuffling-stringer'), null);
       assert.equal(await page.locator('#stringer-news article').count(), 3);
       assert.equal(await page.locator('#stringer-news .credits').first().textContent(), 'Example Reporter');
       assert.equal(await page.locator('#stringer-news img[loading="eager"]').count(), 1);
       assert.equal(await page.locator('#stringer-news img[loading="lazy"]').count(), 1);
       assert.ok(await page.locator('.site-footer').evaluate(footer => footer.getBoundingClientRect().top >= innerHeight));
       assert.equal(await page.locator('#world-news article').count(), 0);
+      await page.waitForFunction(() => document.querySelector<HTMLImageElement>('#stringer-news img[loading="eager"]')?.naturalWidth);
+      await page.locator('#stringer-news img[loading="eager"]').evaluate(image => { image.dataset.preloadedTest = ''; });
       releaseScript();
       await page.waitForFunction(() => !document.querySelector('#stringer-news')?.hasAttribute('data-prerendered'));
       assert.equal(await story.isVisible(), true);
@@ -132,10 +166,18 @@ test('Courageous Stories are visible before JavaScript and survive a failed refr
     await poll(page);
     assert.match(await page.locator('#stringer-status').innerText(), /Showing previously collected stories/);
     assert.equal(await story.isVisible(), true);
+    assert.deepEqual(await storyUrls(page), expectedOrder);
     await poll(page);
     assert.equal(await story.count(), 0);
     assert.equal(await page.locator('#stringer-news article').count(), snapshot.sources.stringer.stories.length);
-    assert.equal(await page.locator('#stringer-news article a').first().getAttribute('href'), approvedUrl);
+    const liveOrder = await storyUrls(page);
+    assert.deepEqual(liveOrder.slice(0, 2), [dateOnlyUrl, approvedUrl]);
+    assert.equal(await page.locator('#stringer-news article').first().locator('img[data-preloaded-test]').count(), 1);
+    healthy = structuredClone(snapshot);
+    healthy.sources.stringer.stories.reverse();
+    await poll(page);
+    assert.deepEqual(await storyUrls(page), liveOrder);
+    assert.equal(await page.locator('#stringer-news article').first().locator('img[data-preloaded-test]').count(), 1);
   } finally {
     await page.close();
     await rm(site, {recursive: true, force: true});

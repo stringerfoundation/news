@@ -559,13 +559,18 @@ window.addEventListener('pagehide', () => imageSession?.close());
 window.addEventListener('pageshow', event => { if (event.persisted && snapshot) { imageRefsKey = ''; renderWorld(); } });
 const stringerList = requiredElement('#stringer-news');
 // Keep the order already painted in the HTML when live results arrive.
-const stringerOrder = new Map(Array.from(stringerList.querySelectorAll<HTMLAnchorElement>('article .story-body > a'),
-  (link, index) => [link.href, index] as const));
+const preloadedStringer = Array.from(stringerList.querySelectorAll<HTMLAnchorElement>('article .story-body > a'));
+const stringerOrder = new Map(preloadedStringer.map((link, index) => [link.href, index] as const));
+const preloadedStringerImages = new Map(Array.from(stringerList.querySelectorAll<HTMLImageElement>('article figure img'),
+  image => [image.closest('article')!.querySelector('a')!.href, image] as const));
 const initialStringerCount = stringerOrder.size;
 function shuffledStringerStories(stories: DisplayStory[]) {
-  for (const story of stories) {
-    if (!stringerOrder.has(story.url)) stringerOrder.set(story.url, initialStringerCount + Math.random());
+  const unseen = [...new Set(stories.map(story => story.url))].filter(url => !stringerOrder.has(url));
+  for (let index = unseen.length - 1; index > 0; index--) {
+    const chosen = Math.floor(Math.random() * (index + 1));
+    [unseen[index], unseen[chosen]] = [unseen[chosen]!, unseen[index]!];
   }
+  for (const url of unseen) stringerOrder.set(url, stringerOrder.size);
   return [...stories].sort((a, b) => stringerOrder.get(a.url)! - stringerOrder.get(b.url)!);
 }
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, className?: string): HTMLElementTagNameMap[K] {
@@ -667,7 +672,11 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
       }
       article.append(wireFigure);
     }
-    if (imageUrl) {
+    const preloadedImage = usePlaceholder ? preloadedStringerImages.get(url) : undefined;
+    if (preloadedImage?.naturalWidth) {
+      article.classList.add('with-image');
+      article.append(preloadedImage.closest('figure')!);
+    } else if (imageUrl) {
       const figure = wireFigure || element('figure', '', 'story-media');
       const placeholder = storyPlaceholder();
       figure.classList.add('image-loading');
@@ -926,7 +935,10 @@ function renderWorld() {
 function render() {
   const source = displayedSnapshot().sources.stringer!;
   if (!loading && (source.status === 'success' || source.status === 'paused')) showingEmbeddedStringer = false;
-  if (!showingEmbeddedStringer) renderStories(requiredElement('#stringer-news'), shuffledStringerStories(source.stories), loading ? '' : t('Courageous stories are currently unavailable. Visit the Stringer collection below.'));
+  if (!showingEmbeddedStringer) {
+    renderStories(stringerList, shuffledStringerStories(source.stories), loading ? '' : t('Courageous stories are currently unavailable. Visit the Stringer collection below.'));
+    preloadedStringerImages.clear();
+  }
   renderWorld();
 }
 async function load() {

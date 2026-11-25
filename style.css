@@ -90,6 +90,7 @@
 .footer-utilities { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 20px; margin-top: 8px; }
 .footer-notes { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; color: var(--muted); }
 #main { min-block-size: 100svh; }
+html[data-shuffling-stringer] #stringer-news { visibility: hidden; }
 @media (max-width: 767px) {
   .site-footer { margin-top: 32px; }
   #stringer-news[data-prerendered] > article:nth-of-type(n + 6) { display: none; }
