@@ -78,6 +78,14 @@ var french = {
   "Image credits": "Cr\xE9dits de l\u2019image",
   "Image unavailable": "Image indisponible",
   "Automatically suggested image": "Image sugg\xE9r\xE9e automatiquement",
+  "Headline images": "Images des titres",
+  "Publisher photos require reuse permission. We look for reusable illustrations.": "La r\xE9utilisation des photos des \xE9diteurs n\xE9cessite une autorisation. Nous recherchons des illustrations r\xE9utilisables.",
+  "The image could not be loaded.": "Impossible de charger l\u2019image.",
+  "The image is waiting to load.": "L\u2019image est en attente de chargement.",
+  "Image lookup is unavailable for this headline.": "La recherche d\u2019images est indisponible pour ce titre.",
+  "Available image suggestions were skipped.": "Les suggestions d\u2019images disponibles ont \xE9t\xE9 ignor\xE9es.",
+  "Image search failed. {details}": "La recherche d\u2019images a \xE9chou\xE9. {details}",
+  "Image search is pending.": "La recherche d\u2019images est en attente.",
   "No reusable image found for this headline.": "Aucune image r\xE9utilisable trouv\xE9e pour ce titre.",
   "Feed status": "\xC9tat des flux",
   "Unavailable sources ({count})": "Sources indisponibles ({count})",
@@ -197,6 +205,14 @@ var spanish = {
   "Image credits": "Cr\xE9ditos de la imagen",
   "Image unavailable": "Imagen no disponible",
   "Automatically suggested image": "Imagen sugerida autom\xE1ticamente",
+  "Headline images": "Im\xE1genes de los titulares",
+  "Publisher photos require reuse permission. We look for reusable illustrations.": "Las fotos de los editores requieren permiso de reutilizaci\xF3n. Buscamos ilustraciones reutilizables.",
+  "The image could not be loaded.": "No se pudo cargar la imagen.",
+  "The image is waiting to load.": "La imagen est\xE1 pendiente de carga.",
+  "Image lookup is unavailable for this headline.": "La b\xFAsqueda de im\xE1genes no est\xE1 disponible para este titular.",
+  "Available image suggestions were skipped.": "Se omitieron las sugerencias de im\xE1genes disponibles.",
+  "Image search failed. {details}": "La b\xFAsqueda de im\xE1genes fall\xF3. {details}",
+  "Image search is pending.": "La b\xFAsqueda de im\xE1genes est\xE1 pendiente.",
   "No reusable image found for this headline.": "No se encontr\xF3 ninguna imagen reutilizable para este titular.",
   "Feed status": "Estado de los canales",
   "Unavailable sources ({count})": "Fuentes no disponibles ({count})",
@@ -312,6 +328,14 @@ var arabic = {
   "Image credits": "\u062D\u0642\u0648\u0642 \u0627\u0644\u0635\u0648\u0631\u0629",
   "Image unavailable": "\u0627\u0644\u0635\u0648\u0631\u0629 \u063A\u064A\u0631 \u0645\u062A\u0627\u062D\u0629",
   "Automatically suggested image": "\u0635\u0648\u0631\u0629 \u0645\u0642\u062A\u0631\u062D\u0629 \u062A\u0644\u0642\u0627\u0626\u064A\u064B\u0627",
+  "Headline images": "\u0635\u0648\u0631 \u0627\u0644\u0639\u0646\u0627\u0648\u064A\u0646",
+  "Publisher photos require reuse permission. We look for reusable illustrations.": "\u062A\u062A\u0637\u0644\u0628 \u0625\u0639\u0627\u062F\u0629 \u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0635\u0648\u0631 \u0627\u0644\u0646\u0627\u0634\u0631\u064A\u0646 \u0625\u0630\u0646\u064B\u0627. \u0646\u0628\u062D\u062B \u0639\u0646 \u0635\u0648\u0631 \u062A\u0648\u0636\u064A\u062D\u064A\u0629 \u064A\u0645\u0643\u0646 \u0625\u0639\u0627\u062F\u0629 \u0627\u0633\u062A\u062E\u062F\u0627\u0645\u0647\u0627.",
+  "The image could not be loaded.": "\u062A\u0639\u0630\u0651\u0631 \u062A\u062D\u0645\u064A\u0644 \u0627\u0644\u0635\u0648\u0631\u0629.",
+  "The image is waiting to load.": "\u0627\u0644\u0635\u0648\u0631\u0629 \u0641\u064A \u0627\u0646\u062A\u0638\u0627\u0631 \u0627\u0644\u062A\u062D\u0645\u064A\u0644.",
+  "Image lookup is unavailable for this headline.": "\u0627\u0644\u0628\u062D\u062B \u0639\u0646 \u0627\u0644\u0635\u0648\u0631 \u063A\u064A\u0631 \u0645\u062A\u0627\u062D \u0644\u0647\u0630\u0627 \u0627\u0644\u0639\u0646\u0648\u0627\u0646.",
+  "Available image suggestions were skipped.": "\u062A\u0645 \u062A\u062C\u0627\u0648\u0632 \u0627\u0644\u0635\u0648\u0631 \u0627\u0644\u0645\u0642\u062A\u0631\u062D\u0629 \u0627\u0644\u0645\u062A\u0627\u062D\u0629.",
+  "Image search failed. {details}": "\u062A\u0639\u0630\u0651\u0631 \u0627\u0644\u0628\u062D\u062B \u0639\u0646 \u0627\u0644\u0635\u0648\u0631. {details}",
+  "Image search is pending.": "\u0627\u0644\u0628\u062D\u062B \u0639\u0646 \u0627\u0644\u0635\u0648\u0631 \u0642\u064A\u062F \u0627\u0644\u0627\u0646\u062A\u0638\u0627\u0631.",
   "No reusable image found for this headline.": "\u0644\u0645 \u064A\u064F\u0639\u062B\u0631 \u0639\u0644\u0649 \u0635\u0648\u0631\u0629 \u0642\u0627\u0628\u0644\u0629 \u0644\u0625\u0639\u0627\u062F\u0629 \u0627\u0644\u0627\u0633\u062A\u062E\u062F\u0627\u0645 \u0644\u0647\u0630\u0627 \u0627\u0644\u0639\u0646\u0648\u0627\u0646.",
   "Feed status": "\u062D\u0627\u0644\u0629 \u0627\u0644\u062E\u0644\u0627\u0635\u0627\u062A",
   "Unavailable sources ({count})": "\u0627\u0644\u0645\u0635\u0627\u062F\u0631 \u063A\u064A\u0631 \u0627\u0644\u0645\u062A\u0627\u062D\u0629 ({count})",
@@ -431,6 +455,14 @@ var chinese = {
   "Image credits": "\u56FE\u7247\u6765\u6E90",
   "Image unavailable": "\u56FE\u7247\u6682\u4E0D\u53EF\u7528",
   "Automatically suggested image": "\u81EA\u52A8\u63A8\u8350\u7684\u56FE\u7247",
+  "Headline images": "\u65B0\u95FB\u6807\u9898\u914D\u56FE",
+  "Publisher photos require reuse permission. We look for reusable illustrations.": "\u4F7F\u7528\u53D1\u5E03\u8005\u7684\u7167\u7247\u9700\u8981\u83B7\u5F97\u518D\u5229\u7528\u8BB8\u53EF\u3002\u6211\u4EEC\u4F1A\u5BFB\u627E\u53EF\u518D\u5229\u7528\u7684\u914D\u56FE\u3002",
+  "The image could not be loaded.": "\u65E0\u6CD5\u52A0\u8F7D\u56FE\u7247\u3002",
+  "The image is waiting to load.": "\u56FE\u7247\u6B63\u5728\u7B49\u5F85\u52A0\u8F7D\u3002",
+  "Image lookup is unavailable for this headline.": "\u65E0\u6CD5\u4E3A\u6B64\u6807\u9898\u641C\u7D22\u56FE\u7247\u3002",
+  "Available image suggestions were skipped.": "\u5DF2\u8DF3\u8FC7\u53EF\u7528\u7684\u63A8\u8350\u56FE\u7247\u3002",
+  "Image search failed. {details}": "\u56FE\u7247\u641C\u7D22\u5931\u8D25\u3002{details}",
+  "Image search is pending.": "\u56FE\u7247\u641C\u7D22\u5C1A\u672A\u5B8C\u6210\u3002",
   "No reusable image found for this headline.": "\u672A\u627E\u5230\u53EF\u7528\u4E8E\u8FD9\u6761\u65B0\u95FB\u6807\u9898\u7684\u56FE\u7247\u3002",
   "Feed status": "\u4FE1\u606F\u6E90\u72B6\u6001",
   "Unavailable sources ({count})": "\u65E0\u6CD5\u83B7\u53D6\u7684\u6765\u6E90\uFF08{count}\uFF09",
@@ -550,6 +582,14 @@ var russian = {
   "Image credits": "\u0421\u0432\u0435\u0434\u0435\u043D\u0438\u044F \u043E\u0431 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0438",
   "Image unavailable": "\u0418\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u043E",
   "Automatically suggested image": "\u0410\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438 \u043F\u0440\u0435\u0434\u043B\u043E\u0436\u0435\u043D\u043D\u043E\u0435 \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435",
+  "Headline images": "\u0418\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u044F \u043A \u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043A\u0430\u043C",
+  "Publisher photos require reuse permission. We look for reusable illustrations.": "\u0414\u043B\u044F \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u044F \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0439 \u0438\u0437\u0434\u0430\u0442\u0435\u043B\u0435\u0439 \u043D\u0443\u0436\u043D\u043E \u0440\u0430\u0437\u0440\u0435\u0448\u0435\u043D\u0438\u0435. \u041C\u044B \u0438\u0449\u0435\u043C \u0438\u043B\u043B\u044E\u0441\u0442\u0440\u0430\u0446\u0438\u0438, \u0440\u0430\u0437\u0440\u0435\u0448\u0451\u043D\u043D\u044B\u0435 \u0434\u043B\u044F \u043F\u043E\u0432\u0442\u043E\u0440\u043D\u043E\u0433\u043E \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u044F.",
+  "The image could not be loaded.": "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435.",
+  "The image is waiting to load.": "\u0418\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u043E\u0436\u0438\u0434\u0430\u0435\u0442 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438.",
+  "Image lookup is unavailable for this headline.": "\u041F\u043E\u0438\u0441\u043A \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439 \u0434\u043B\u044F \u044D\u0442\u043E\u0433\u043E \u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043A\u0430 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D.",
+  "Available image suggestions were skipped.": "\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u044B\u0435 \u0432\u0430\u0440\u0438\u0430\u043D\u0442\u044B \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439 \u0431\u044B\u043B\u0438 \u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u044B.",
+  "Image search failed. {details}": "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0432\u044B\u043F\u043E\u043B\u043D\u0438\u0442\u044C \u043F\u043E\u0438\u0441\u043A \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439. {details}",
+  "Image search is pending.": "\u041F\u043E\u0438\u0441\u043A \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0439 \u0435\u0449\u0451 \u043D\u0435 \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043D.",
   "No reusable image found for this headline.": "\u041F\u043E\u0434\u0445\u043E\u0434\u044F\u0449\u0435\u0435 \u0434\u043B\u044F \u043F\u043E\u0432\u0442\u043E\u0440\u043D\u043E\u0433\u043E \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u043D\u0438\u044F \u0438\u0437\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u043E.",
   "Feed status": "\u0421\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u0435 \u043B\u0435\u043D\u0442\u044B",
   "Unavailable sources ({count})": "\u041D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u043D\u044B\u0435 \u0438\u0441\u0442\u043E\u0447\u043D\u0438\u043A\u0438 ({count})",
@@ -673,6 +713,14 @@ var dutch = {
   "Image credits": "Beeldcredits",
   "Image unavailable": "Afbeelding niet beschikbaar",
   "Automatically suggested image": "Automatisch voorgestelde afbeelding",
+  "Headline images": "Afbeeldingen bij koppen",
+  "Publisher photos require reuse permission. We look for reusable illustrations.": "Voor hergebruik van foto\u2019s van uitgevers is toestemming nodig. We zoeken naar herbruikbare illustraties.",
+  "The image could not be loaded.": "De afbeelding kon niet worden geladen.",
+  "The image is waiting to load.": "De afbeelding wacht om te worden geladen.",
+  "Image lookup is unavailable for this headline.": "Zoeken naar afbeeldingen is voor deze kop niet beschikbaar.",
+  "Available image suggestions were skipped.": "De beschikbare afbeeldingssuggesties zijn overgeslagen.",
+  "Image search failed. {details}": "De zoekopdracht naar afbeeldingen is mislukt. {details}",
+  "Image search is pending.": "De zoekopdracht naar afbeeldingen is nog niet afgerond.",
   "No reusable image found for this headline.": "Geen herbruikbare afbeelding gevonden voor deze kop.",
   "Feed status": "Feedstatus",
   "Unavailable sources ({count})": "Niet-beschikbare bronnen ({count})",
@@ -788,6 +836,14 @@ var german = {
   "Image credits": "Bildnachweis",
   "Image unavailable": "Bild nicht verf\xFCgbar",
   "Automatically suggested image": "Automatisch vorgeschlagenes Bild",
+  "Headline images": "Bilder zu Schlagzeilen",
+  "Publisher photos require reuse permission. We look for reusable illustrations.": "Die Wiederverwendung von Verlagsfotos erfordert eine Genehmigung. Wir suchen nach wiederverwendbaren Illustrationen.",
+  "The image could not be loaded.": "Das Bild konnte nicht geladen werden.",
+  "The image is waiting to load.": "Das Bild wartet auf den Ladevorgang.",
+  "Image lookup is unavailable for this headline.": "F\xFCr diese Schlagzeile ist keine Bildsuche verf\xFCgbar.",
+  "Available image suggestions were skipped.": "Die verf\xFCgbaren Bildvorschl\xE4ge wurden \xFCbersprungen.",
+  "Image search failed. {details}": "Die Bildsuche ist fehlgeschlagen. {details}",
+  "Image search is pending.": "Die Bildsuche steht noch aus.",
   "No reusable image found for this headline.": "F\xFCr diese Schlagzeile wurde kein wiederverwendbares Bild gefunden.",
   "Feed status": "Feed-Status",
   "Unavailable sources ({count})": "Nicht verf\xFCgbare Quellen ({count})",
@@ -911,6 +967,14 @@ var swahili = {
   "Image credits": "Sifa za picha",
   "Image unavailable": "Picha haipatikani",
   "Automatically suggested image": "Picha iliyopendekezwa kiotomatiki",
+  "Headline images": "Picha za vichwa vya habari",
+  "Publisher photos require reuse permission. We look for reusable illustrations.": "Picha za wachapishaji zinahitaji ruhusa ili zitumike tena. Tunatafuta vielelezo vinavyoweza kutumiwa tena.",
+  "The image could not be loaded.": "Picha haikuweza kupakiwa.",
+  "The image is waiting to load.": "Picha inasubiri kupakiwa.",
+  "Image lookup is unavailable for this headline.": "Utafutaji wa picha haupatikani kwa kichwa hiki.",
+  "Available image suggestions were skipped.": "Mapendekezo ya picha yaliyopatikana yamerukwa.",
+  "Image search failed. {details}": "Utafutaji wa picha umeshindwa. {details}",
+  "Image search is pending.": "Utafutaji wa picha bado haujakamilika.",
   "No reusable image found for this headline.": "Hakuna picha inayoweza kutumiwa tena iliyopatikana kwa kichwa hiki.",
   "Feed status": "Hali ya vyanzo",
   "Unavailable sources ({count})": "Vyanzo visivyopatikana ({count})",
@@ -1057,6 +1121,14 @@ var portuguese = {
   "Image credits": "Cr\xE9ditos da imagem",
   "Image unavailable": "Imagem indispon\xEDvel",
   "Automatically suggested image": "Imagem sugerida automaticamente",
+  "Headline images": "Imagens das manchetes",
+  "Publisher photos require reuse permission. We look for reusable illustrations.": "Fotos das fontes exigem permiss\xE3o de reutiliza\xE7\xE3o. Buscamos ilustra\xE7\xF5es reutiliz\xE1veis.",
+  "The image could not be loaded.": "N\xE3o foi poss\xEDvel carregar a imagem.",
+  "The image is waiting to load.": "A imagem est\xE1 aguardando carregamento.",
+  "Image lookup is unavailable for this headline.": "A busca de imagens est\xE1 indispon\xEDvel para esta manchete.",
+  "Available image suggestions were skipped.": "As sugest\xF5es de imagem dispon\xEDveis foram ignoradas.",
+  "Image search failed. {details}": "A busca de imagens falhou. {details}",
+  "Image search is pending.": "A busca de imagens est\xE1 pendente.",
   "No reusable image found for this headline.": "Nenhuma imagem reutiliz\xE1vel foi encontrada para esta manchete.",
   "Feed status": "Estado das fontes",
   "Unavailable sources ({count})": "Fontes indispon\xEDveis ({count})",
@@ -1680,7 +1752,7 @@ var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
 ));
 
 // english-atomstr.ts
-import { articleLink, NEWSWIRE_LIMIT, urlIdentity } from "./news-model.js?v=860f22bbb9883706";
+import { articleLink, NEWSWIRE_LIMIT, urlIdentity } from "./news-model.js?v=f068a803b54ca1d3";
 var ENGLISH_ATOMSTR_SOURCES = [
   { id: "aljazeera", name: "Al Jazeera", feeds: [{
     url: "https://www.aljazeera.com/xml/rss/all.xml",
@@ -1730,9 +1802,9 @@ function withEnglishAtomstrFallback(displayed, live, embedded, now = Date.now())
 }
 
 // app.ts
-import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink as articleLink2, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=860f22bbb9883706";
-import relayConfig from "./relay-config.js?v=860f22bbb9883706";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=860f22bbb9883706";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink as articleLink2, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=f068a803b54ca1d3";
+import relayConfig from "./relay-config.js?v=f068a803b54ca1d3";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=f068a803b54ca1d3";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1985,7 +2057,7 @@ async function connectNostr() {
       })
     ]).finally(() => clearTimeout(timer));
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=860f22bbb9883706");
+    const identity = await import("./relay-reader.js?v=f068a803b54ca1d3");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -2108,10 +2180,15 @@ document.body.append(creditDialog);
 var relayStatus = requiredElement("#relay-status");
 var feedStatusDialog = requiredElement("#feed-status-dialog");
 var closeFeedStatus = requiredElement("#feed-status-dialog .reader-dialog-close");
+var headlineImageStatus = requiredElement("#headline-image-status");
+var headlineImageReasons = requiredElement("#headline-image-status ul");
 relayStatus.textContent = t("Feed status");
 requiredElement("#feed-status-title").textContent = relayStatus.textContent;
 closeFeedStatus.textContent = t("Close");
-relayStatus.addEventListener("click", () => feedStatusDialog.showModal());
+relayStatus.addEventListener("click", () => {
+  feedStatusDialog.showModal();
+  renderHeadlineImageStatus();
+});
 closeFeedStatus.addEventListener("click", () => feedStatusDialog.close());
 function openCredits(credits, includeSources = false) {
   creditTitle.textContent = t(includeSources ? "Credits" : "Image credits");
@@ -2546,6 +2623,7 @@ function renderStories(target, stories, emptyMessage) {
         const reveal = () => {
           placeholder.hidden = true;
           figure.classList.remove("image-loading");
+          renderHeadlineImageStatus();
         };
         void image.decode().then(reveal, reveal);
       });
@@ -2562,6 +2640,8 @@ function renderStories(target, stories, emptyMessage) {
         (image.closest("a") || image).remove();
         placeholder.replaceWith(storyPlaceholder(t("Image unavailable")));
         figure.classList.remove("image-loading");
+        figure.classList.add("image-load-failed");
+        renderHeadlineImageStatus();
       });
       image.src = imageUrl;
       if (wire && commons) {
@@ -2666,6 +2746,33 @@ var sections = [
   { list: requiredElement("#world-news"), button: requiredElement("#world-more"), more: "Show more headlines", fewer: "Show fewer headlines", expanded: false },
   { list: requiredElement("#stringer-news"), button: requiredElement("#stringer-more"), more: "Show more courageous stories", fewer: "Show fewer courageous stories", expanded: false }
 ];
+function headlineImageReason(figure) {
+  if (figure.classList.contains("image-load-failed")) return t("The image could not be loaded.");
+  if (figure.classList.contains("image-loading")) return t("The image is waiting to load.");
+  if (figure.querySelector(":scope > a > img")) return null;
+  const id = figure.dataset.storyId;
+  if (!id) return t("Image lookup is unavailable for this headline.");
+  if (!localizedEdition && skippedImages.get(choiceKey(id))?.length && imageOptions(id).length)
+    return t("Available image suggestions were skipped.");
+  const search = commonsSearches.get(id);
+  if (search.error) return t("Image search failed. {details}", { details: search.error });
+  return search.searched ? t("No reusable image found for this headline.") : t("Image search is pending.");
+}
+function renderHeadlineImageStatus() {
+  if (!feedStatusDialog.open) return;
+  const entries = [];
+  for (const figure of document.querySelectorAll("#world-news article:not([hidden]) > .wire-thumbnail")) {
+    const reason = headlineImageReason(figure);
+    if (!reason) continue;
+    const title = element("strong", figure.closest("article").querySelector(".story-body h3").textContent);
+    title.dir = "auto";
+    const entry = element("li");
+    entry.append(title, reason);
+    entries.push(entry);
+  }
+  headlineImageReasons.replaceChildren(...entries);
+  headlineImageStatus.hidden = !entries.length;
+}
 function updateStoryVisibility() {
   for (const section of sections) {
     const cards = [...section.list.querySelectorAll("article")];
@@ -2677,16 +2784,15 @@ function updateStoryVisibility() {
     section.button.textContent = t(section.expanded ? section.fewer : section.more);
     section.button.setAttribute("aria-label", section.button.textContent);
   }
-  if (!mobileLayout.matches) {
-    const stringer = requiredElement("#stringer-news");
-    if (!stringer.querySelector("article")) return;
-    const bottom = stringer.getBoundingClientRect().bottom;
+  if (!mobileLayout.matches && stringerList.querySelector("article")) {
+    const bottom = stringerList.getBoundingClientRect().bottom;
     let reachedEnd = false;
     for (const card of requiredElement("#world-news").querySelectorAll("article")) {
       card.hidden = reachedEnd;
       if (!reachedEnd && card.getBoundingClientRect().bottom >= bottom) reachedEnd = true;
     }
   }
+  renderHeadlineImageStatus();
 }
 for (const section of sections) {
   section.button.addEventListener("click", () => {
@@ -2826,7 +2932,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=860f22bbb9883706");
+      const reader = await import("./relay-reader.js?v=f068a803b54ca1d3");
       ImageSessionClass = reader.ImageSession;
       searchImages = reader.searchImages;
       commonsSubject = reader.commonsSubject;
@@ -2904,7 +3010,7 @@ async function loadLocalized() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=860f22bbb9883706");
+    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=f068a803b54ca1d3");
     if (!snapshot) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
@@ -2947,7 +3053,7 @@ async function loadLocalized() {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=860f22bbb9883706");
+            const relay = await import("./relay-reader.js?v=f068a803b54ca1d3");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
@@ -2997,7 +3103,7 @@ setInterval(() => {
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && Date.now() - lastAttempt >= interval) load();
 });
-if (localizedEdition) void import("./relay-reader.js?v=860f22bbb9883706").then((reader) => {
+if (localizedEdition) void import("./relay-reader.js?v=f068a803b54ca1d3").then((reader) => {
   searchImages = reader.searchImages;
   loadSuggestions();
 }, () => suggestionQueue.clear());
