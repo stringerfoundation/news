@@ -65,13 +65,14 @@ test('image commands reject stale actions, recover from signer/search failures, 
     await page.getByRole('status').filter({ hasText: 'Signer declined while news loaded' }).waitFor();
     allowReader();
     await page.waitForFunction(() => typeof (window as unknown as {finish?: unknown}).finish === 'function');
-    const snapshot = {schemaVersion: 2, generatedAt: new Date().toISOString(), sources: Object.fromEntries(SOURCES.map(source => [source.id, {stories: source.id === 'bbc' ? [{ title: 'Example', url: 'https://example.org/story', publishedAt: null, image: null, summary: '', noteId: storyId }] : [], attemptedAt: null, lastSuccessAt: null, status: source.id === 'bbc' ? 'success' : 'paused', error: null}]))};
+    const snapshot = {schemaVersion: 2, generatedAt: new Date().toISOString(), sources: Object.fromEntries(SOURCES.map(source => [source.id, {stories: source.id === 'bbc' ? [{ title: 'Example', url: 'https://example.org/story', publishedAt: null, image: null, summary: '', noteId: storyId as string | undefined }] : [], attemptedAt: null, lastSuccessAt: null, status: source.id === 'bbc' ? 'success' : 'paused', error: null}]))};
     // Fixture controls model failures at the transport boundary. The actual app
     // module and every UI command run unchanged, with no production source edits.
     await page.evaluate(async ({snapshot, key}) => {
       const win = window as unknown as Record<string, any>;
       win.partial(snapshot);
-      const complete = structuredClone(snapshot); complete.sources.bbc!.stories.push({...complete.sources.bbc!.stories[0]!, noteId: '3'.repeat(64), url: 'https://example.org/second'});
+      const complete = structuredClone(snapshot); complete.sources.bbc!.stories.push({...complete.sources.bbc!.stories[0]!, title: 'Second headline', noteId: '3'.repeat(64), url: 'https://example.org/second'});
+      complete.sources.bbc!.stories.push({...complete.sources.bbc!.stories[0]!, title: 'No image lookup', noteId: undefined, url: 'https://example.org/third'});
       Object.assign(complete.sources.bbc!, {unavailable: 1, status: 'failure'});
       win.partial(complete);
       win.finish(complete);
@@ -101,6 +102,13 @@ test('image commands reject stale actions, recover from signer/search failures, 
       const euError = 'EU audiovisual library: Invalid EU photo search response.';
       win.searchTask = async () => ({images: [], issues: [euError]});
       await c.findCommons(storyId, 'Unavailable');
+      const feedStatus = document.querySelector<HTMLButtonElement>('#relay-status')!;
+      const feedDialog = document.querySelector<HTMLDialogElement>('#feed-status-dialog')!;
+      const imageStatus = document.querySelector<HTMLElement>('#headline-image-status')!;
+      feedStatus.click();
+      outcomes.push(feedDialog.open && !imageStatus.hidden);
+      outcomes.push([...imageStatus.querySelectorAll('li')].some(row => row.querySelector('strong')?.textContent === 'Example' && row.textContent?.includes(`Image search failed. ${euError}`)));
+      outcomes.push([...imageStatus.querySelectorAll('li')].some(row => row.querySelector('strong')?.textContent === 'No image lookup' && row.textContent?.includes('Image lookup is unavailable for this headline.')));
       const thumbnailSelector = `.wire-thumbnail[data-story-id="${storyId}"]`;
       outcomes.push(!!document.querySelector(`${thumbnailSelector} > .story-placeholder[aria-label="Image unavailable"]`));
       win.eligible = false; c.renderWorld();
@@ -116,13 +124,24 @@ test('image commands reject stale actions, recover from signer/search failures, 
       const placeholder = document.querySelector<HTMLElement>('.wire-thumbnail > .story-placeholder');
       const noImage = 'No reusable image found for this headline.';
       outcomes.push(placeholder?.title === noImage && placeholder.getAttribute('aria-label') === noImage);
+      outcomes.push(imageStatus.textContent!.includes(noImage) && !imageStatus.textContent!.includes(euError));
       win.eligible = true;
       win.searchTask = async () => ({images: [photo], issues: []});
       await c.findCommons('2'.repeat(64), 'New search');
-      await c.findCommons(storyId, 'Example');
+      const lookup = c.findCommons(storyId, 'Example');
+      outcomes.push(imageStatus.textContent!.includes('Image search is pending.'));
+      await lookup;
+      outcomes.push(imageStatus.textContent!.includes('The image is waiting to load.'));
+      const preview = document.querySelector<HTMLImageElement>(`${thumbnailSelector} > a img`)!;
+      preview.decode = async () => {};
+      preview.dispatchEvent(new Event('load'));
+      await Promise.resolve();
+      outcomes.push(![...imageStatus.querySelectorAll('strong')].some(title => title.textContent === 'Example'));
       c.skipImage(storyId, photo);
       outcomes.push(document.body.textContent!.includes('No more suggestions.'));
+      outcomes.push(imageStatus.textContent!.includes('Available image suggestions were skipped.'));
       await c.undoImage(storyId);
+      feedDialog.close();
       win.voteTask = async () => { throw 'offline'; };
       outcomes.push(!await c.castImageVote(storyId, null));
       outcomes.push(document.body.textContent!.includes('Could not publish your vote. Please retry.'));
@@ -220,6 +239,9 @@ test('image commands reject stale actions, recover from signer/search failures, 
       const img = document.querySelector('#world-news .wire-thumbnail > a > img') as HTMLImageElement;
       img.closest('a')!.replaceWith(img); img.dispatchEvent(new Event('error'));
       outcomes.push(!!document.querySelector('.wire-thumbnail > .story-placeholder[aria-label="Image unavailable"]'));
+      feedStatus.click();
+      outcomes.push(imageStatus.textContent!.includes('The image could not be loaded.'));
+      feedDialog.close();
       let finishProposal!: () => void;
       win.proposeTask = () => new Promise<string>(resolve => {finishProposal = () => resolve('candidate');});
       win.voteTask = async () => {};

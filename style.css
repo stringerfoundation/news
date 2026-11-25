@@ -122,6 +122,12 @@ html[data-shuffling-stringer] #stringer-news { visibility: hidden; }
 .build-repository:hover { color: var(--ink); }
 #relay-status-details { padding-block: 12px; font-size: 13px; line-height: 1.5; }
 #relay-status-details p { margin: 4px 0; }
+#headline-image-status { padding-block: 12px; border-bottom: 1px solid var(--line); font-size: 13px; line-height: 1.5; }
+#headline-image-status h3 { font-size: 15px; }
+#headline-image-status p { margin: 4px 0; }
+#headline-image-status ul { margin: 8px 0 0; padding-inline-start: 20px; }
+#headline-image-status li + li { margin-top: 8px; }
+#headline-image-status strong { display: block; }
 .page-intro {
   display: block;
   padding-block: 28px 24px;
