@@ -1680,9 +1680,9 @@ var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
 ));
 
 // app.ts
-import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=821b0389e55f36ca";
-import relayConfig from "./relay-config.js?v=821b0389e55f36ca";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=821b0389e55f36ca";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=ebb04bed125a5386";
+import relayConfig from "./relay-config.js?v=ebb04bed125a5386";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=ebb04bed125a5386";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1923,7 +1923,7 @@ async function connectNostr() {
       })
     ]).finally(() => clearTimeout(timer));
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=821b0389e55f36ca");
+    const identity = await import("./relay-reader.js?v=ebb04bed125a5386");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -2098,7 +2098,7 @@ function thumbnailCredit(imageCredit) {
 }
 function prepareImageSearch(storyId, title) {
   if (!commonsSearches.has(storyId)) {
-    commonsSearches.set(storyId, { query: localizedEdition ? title.trim().slice(0, 200) : commonsSubject(title), source: "all", issues: [], loading: false, results: [], error: "", searched: false });
+    commonsSearches.set(storyId, { query: localizedEdition ? title.trim().slice(0, 200) : commonsSubject(title), source: localizedEdition ? "commons" : "all", issues: [], loading: false, results: [], error: "", searched: false });
   }
 }
 function imageReview(storyId, title) {
@@ -2748,7 +2748,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=821b0389e55f36ca");
+      const reader = await import("./relay-reader.js?v=ebb04bed125a5386");
       ImageSessionClass = reader.ImageSession;
       searchImages = reader.searchImages;
       commonsSubject = reader.commonsSubject;
@@ -2822,7 +2822,7 @@ async function loadLocalized() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=821b0389e55f36ca");
+    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=ebb04bed125a5386");
     if (!snapshot) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
@@ -2867,7 +2867,7 @@ async function loadLocalized() {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=821b0389e55f36ca");
+            const relay = await import("./relay-reader.js?v=ebb04bed125a5386");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
@@ -2913,7 +2913,7 @@ setInterval(() => {
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && Date.now() - lastAttempt >= interval) load();
 });
-if (localizedEdition) void import("./relay-reader.js?v=821b0389e55f36ca").then((reader) => {
+if (localizedEdition) void import("./relay-reader.js?v=ebb04bed125a5386").then((reader) => {
   searchImages = reader.searchImages;
   loadSuggestions();
 }, () => suggestionQueue.clear());
