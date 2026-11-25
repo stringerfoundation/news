@@ -60,7 +60,7 @@ async function poll(page: Page) {
   await response;
   await page.waitForFunction(()=>document.querySelector<HTMLElement>('#world-news')!.getAttribute('aria-busy')==='false');
 }
-test('embedded Courageous Stories render before the feed and survive a failed refresh', async () => {
+test('Courageous Stories are visible before JavaScript and survive a failed refresh', async () => {
   const site = await mkdtemp('.test-output/embedded-stringer-');
   const page = await browser.newPage({viewport: {width: 375, height: 844}});
   try {
@@ -74,20 +74,29 @@ test('embedded Courageous Stories render before the feed and survive a failed re
     assert.equal(await readFile(`${site}/index.html`, 'utf8'), template);
     const title = 'An embedded report';
     const approvedUrl = snapshot.sources.stringer.stories[0]!.url;
+    const dateOnlyUrl = snapshot.sources.stringer.stories[1]!.url;
     await embedStringerStories(site, async (url, options) => {
       assert.equal(url, 'https://stringerjournalism.org/courageous-stories');
       assert.deepEqual(options?.allowedHosts, ['stringerjournalism.org']);
       return `<section><div class="text-box"><h1>Courageous Stories</h1></div>
         <div class="text-box"><p>Example Reporter</p><p><a href="${approvedUrl}">${title}</a> A summary containing &lt;/script&gt; as text.</p></div>
         <div class="text-box"><p>Example Reporter</p><p><a href="${approvedUrl}">Duplicate report</a> Another summary.</p></div>
+        <div class="text-box"><p>Example Reporter</p><p><a href="${dateOnlyUrl}">A report with a publication date</a> A summary.</p></div>
+        <div class="text-box"><p>Example Reporter</p><p><a href="https://example.org/report">Another report</a> A summary.</p></div>
         </section>`;
     });
     const html = await readFile(`${site}/index.html`, 'utf8');
-    assert.match(html, /summary containing \\u003c\/script>/);
-    assert.match(await readFile(`${site}/fr/index.html`, 'utf8'), /id="stringer-stories"/);
+    assert.match(html, /summary containing &lt;\/script&gt;/);
+    assert.match(await readFile(`${site}/fr/index.html`, 'utf8'), /src="\.\.\/assets\/stringer-thumbnails\//);
     await mockStoryImages(page);
     await page.clock.install();
     await page.route(base + '/', route => route.fulfill({contentType: 'text/html', body: html}));
+    let releaseScript!: () => void;
+    const pendingScript = new Promise<void>(resolve => { releaseScript = resolve; });
+    await page.route('**/app.js', async route => {
+      await pendingScript;
+      await route.continue();
+    });
     let releaseFeed!: () => void;
     const pendingFeed = new Promise<void>(resolve => { releaseFeed = resolve; });
     const failed = structuredClone(snapshot);
@@ -101,15 +110,21 @@ test('embedded Courageous Stories render before the feed and survive a failed re
         await route.fulfill({json: calls === 2 ? failed : snapshot});
       }
     });
-    await page.goto(base);
+    await page.goto(base, {waitUntil: 'commit'});
     const story = page.getByRole('heading', {name: title});
     try {
       await story.waitFor();
-      assert.equal(await page.locator('#stringer-news article').count(), 1);
-      assert.equal(await page.locator('#stringer-news .credits').textContent(), 'Example Reporter');
-      await page.locator('#stringer-news img').waitFor({state: 'attached'});
+      assert.equal(await page.locator('#stringer-news article').count(), 3);
+      assert.equal(await page.locator('#stringer-news .credits').first().textContent(), 'Example Reporter');
+      assert.equal(await page.locator('#stringer-news img[loading="eager"]').count(), 1);
+      assert.equal(await page.locator('#stringer-news img[loading="lazy"]').count(), 1);
+      assert.ok(await page.locator('.site-footer').evaluate(footer => footer.getBoundingClientRect().top >= innerHeight));
       assert.equal(await page.locator('#world-news article').count(), 0);
+      releaseScript();
+      await page.waitForFunction(() => !document.querySelector('#stringer-news')?.hasAttribute('data-prerendered'));
+      assert.equal(await story.isVisible(), true);
     } finally {
+      releaseScript();
       releaseFeed();
     }
     await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
@@ -120,6 +135,7 @@ test('embedded Courageous Stories render before the feed and survive a failed re
     await poll(page);
     assert.equal(await story.count(), 0);
     assert.equal(await page.locator('#stringer-news article').count(), snapshot.sources.stringer.stories.length);
+    assert.equal(await page.locator('#stringer-news article a').first().getAttribute('href'), approvedUrl);
   } finally {
     await page.close();
     await rm(site, {recursive: true, force: true});
@@ -321,6 +337,36 @@ test('mobile previews five stories per section and preserves independent choices
   await page.locator('#global-newswire').scrollIntoViewIfNeeded();
   await page.screenshot({ path: '.test-output/mobile-reader.png' });
   await page.close();
+});
+
+test('mobile reserves the newswire preview before the first headlines arrive', async () => {
+  const page = await browser.newPage({ viewport: { width: 375, height: 844 } });
+  let releaseFeed!: () => void;
+  const pendingFeed = new Promise<void>(resolve => { releaseFeed = resolve; });
+  try {
+    await mockStoryImages(page);
+    await page.route('**/data/news.json', async route => {
+      await pendingFeed;
+      await route.fulfill({ json: snapshot });
+    });
+    await page.goto(base);
+    const world = page.locator('#world-news');
+    const sectionTop = () => page.locator('#courageous-stories')
+      .evaluate(section => section.getBoundingClientRect().top + window.scrollY);
+    const before = await sectionTop();
+    assert.equal(await world.locator('article').count(), 0);
+    assert.equal(await page.locator('#world-more').isVisible(), false);
+
+    releaseFeed();
+    await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
+    assert.equal(await world.locator('article:visible').count(), 5);
+    assert.equal(await world.getAttribute('data-initial-load'), null);
+    const shift = Math.abs(await sectionTop() - before);
+    assert.ok(shift <= 4, `Courageous Stories moved ${shift}px when headlines arrived`);
+  } finally {
+    releaseFeed();
+    await page.close();
+  }
 });
 
 test('mobile controls disappear for short or empty collections and failures retain expanded stories', async () => {

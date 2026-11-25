@@ -159,7 +159,7 @@ jobs:
           await embedAtomstrHeadlines('_site', sources => readAtomstrSources({sources, previous: {}}));"
       - name: Embed Courageous Stories in the reader pages
         run: >-
-          node --input-type=module -e
+          node --import tsx --input-type=module -e
           "import { embedStringerStories } from './scripts/collect-stringer.ts';
           import { fetchText } from './scripts/collect.ts';
           await embedStringerStories('_site', fetchText);"
