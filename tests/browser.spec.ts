@@ -369,6 +369,83 @@ test('mobile reserves the newswire preview before the first headlines arrive', a
   }
 });
 
+test('the initial reservation is mobile-only and clears after short, empty, or failed feeds', async t => {
+  for (const count of [3, 0, null]) {
+    await t.test(count === null ? 'failed feed' : `${count} headlines`, async () => {
+      const page = await browser.newPage({ viewport: { width: 768, height: 844 } });
+      let releaseFeed!: () => void;
+      const pendingFeed = new Promise<void>(resolve => { releaseFeed = resolve; });
+      try {
+        const data = structuredClone(snapshot);
+        for (const source of SOURCES) {
+          if (source.id !== 'stringer') data.sources[source.id].stories = source.id === 'bbc'
+            ? data.sources.bbc.stories.slice(0, count ?? 0) : [];
+        }
+        await mockStoryImages(page);
+        await page.route('**/data/news.json', async route => {
+          await pendingFeed;
+          if (count === null) await route.fulfill({ status: 503 });
+          else await route.fulfill({ json: data });
+        });
+        await page.goto(base);
+        const world = page.locator('#world-news');
+        const height = () => world.evaluate(list => list.getBoundingClientRect().height);
+        assert.equal(await height(), 0, 'desktop has no reserved preview');
+
+        await page.setViewportSize({ width: 767, height: 844 });
+        const reserved = await height();
+        assert.ok(reserved > 600, 'mobile reserves the preview while waiting');
+        releaseFeed();
+        await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
+        assert.equal(await world.getAttribute('data-initial-load'), null);
+        assert.equal(await world.locator('article:visible').count(), count ?? 0);
+        assert.ok(await height() < reserved, 'the unused preview space is released');
+        assert.equal(await page.locator('#world-more').isVisible(), false);
+        if (count === null) assert.match(await page.locator('#world-status').innerText(), /Headlines unavailable/);
+        if (count === 0) assert.match(await world.innerText(), /No headlines available/);
+      } finally {
+        releaseFeed();
+        await page.close();
+      }
+    });
+  }
+});
+
+test('a background refresh does not reserve extra space after a short mobile feed', async () => {
+  const page = await browser.newPage({ viewport: { width: 375, height: 844 } });
+  let releaseRefresh!: () => void;
+  const pendingRefresh = new Promise<void>(resolve => { releaseRefresh = resolve; });
+  try {
+    const data = structuredClone(snapshot);
+    for (const source of SOURCES) {
+      if (source.id !== 'stringer') data.sources[source.id].stories = source.id === 'bbc'
+        ? data.sources.bbc.stories.slice(0, 1) : [];
+    }
+    await mockStoryImages(page);
+    await page.clock.install();
+    let requests = 0;
+    await page.route('**/data/news.json', async route => {
+      if (++requests > 1) await pendingRefresh;
+      await route.fulfill({ json: data });
+    });
+    await page.goto(base);
+    const world = page.locator('#world-news');
+    await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
+    const height = () => world.evaluate(list => list.getBoundingClientRect().height);
+    const initialHeight = await height();
+    const refresh = page.waitForRequest('**/data/news.json');
+    await page.clock.fastForward(300_000);
+    await refresh;
+    assert.equal(await world.getAttribute('aria-busy'), 'true');
+    assert.equal(await world.getAttribute('data-initial-load'), null);
+    assert.equal(await height(), initialHeight);
+    assert.equal(await world.locator('article:visible').count(), 1);
+  } finally {
+    releaseRefresh();
+    await page.close();
+  }
+});
+
 test('mobile controls disappear for short or empty collections and failures retain expanded stories', async () => {
   const page = await pageAt('/', 375);
   await page.locator('#world-more').click();
