@@ -9,6 +9,7 @@ import { sourcesForLocale } from './edition-sources.ts';
 import { refreshSwahiliSource, swahiliPublisher } from './sources/sw.ts';
 import { collectedSwahiliPublishers } from './swahili-publishers.ts';
 import { ATOMSTR_MAX_AGE_MS } from './atomstr-config.ts';
+import { withEnglishAtomstrFallback, type EmbeddedAtomstr } from './english-atomstr.ts';
 import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from './news-model.js';
 import relayConfig from './relay-config.js';
 import { STRINGER_MEDIA } from './stringer-media.js';
@@ -21,6 +22,14 @@ const locale = localeForLanguage(document.documentElement.lang);
 const mirrorSources = sourcesForLocale(locale);
 const swahiliEdition = locale === 'sw';
 const localizedEdition = swahiliEdition || mirrorSources.length > 0;
+function readEmbeddedAtomstr(): EmbeddedAtomstr {
+  try {
+    return JSON.parse(document.getElementById('atomstr-headlines')?.textContent || '{}') as EmbeddedAtomstr;
+  } catch {
+    return {};
+  }
+}
+const embeddedAtomstr = readEmbeddedAtomstr();
 const t = translator(locale);
 const menuToggle = requiredElement('.header-menu-toggle');
 const headerMenu = requiredElement('#header-menu');
@@ -92,6 +101,10 @@ const retainedSources = new Map<string, SourceState>();
 function displayedSnapshot(): Snapshot {
   return { ...snapshot!, sources: Object.fromEntries(Object.entries(snapshot!.sources).map(([id, source]) =>
     [id, retainedSources.get(id) ?? source])) };
+}
+function displayedWorldSources(): Snapshot['sources'] {
+  const displayed = displayedSnapshot().sources;
+  return localizedEdition ? displayed : withEnglishAtomstrFallback(displayed, snapshot!.sources, embeddedAtomstr);
 }
 let loading = false;
 let showingEmbeddedStringer = false;
@@ -733,6 +746,7 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
     }
     meta.append(sourceLabel);
     if (story.mirroredVia) meta.append(element('span', t('via {network} / Atomstr', {network: story.mirroredVia}), 'mirror-provenance'));
+    else if (story.atomstr && !localizedEdition) meta.append(element('span', 'via Atomstr', 'mirror-provenance'));
     const publishedAt = story.publishedAt || approvedMedia?.publishedAt;
     if (publishedAt) {
       const time = element('time', formatLocalDateTime(publishedAt, locale));
@@ -835,16 +849,19 @@ function renderStatuses() {
       notes.push(`${source.name} · ${description}`);
     }
   }
-  if (snapshot) for (const group of ['world', 'stringer']) {
+  const displayed = snapshot ? displayedWorldSources() : null;
+  if (displayed) for (const group of ['world', 'stringer']) {
     const target = requiredElement(`#${group}-status`); target.replaceChildren();
     const sources = group === 'stringer' ? SOURCES.filter(s => s.id === 'stringer') : publisherSources.filter(s => !disabledSources.has(s.id));
     for (const source of sources) {
-      const entry = snapshot.sources[source.id]!;
+      const entry = snapshot!.sources[source.id]!;
       if (entry.status === 'paused') continue;
       if (collectedSwahiliPublishers.some(publisher => publisher.id === source.id) && entry.lastSuccessAt)
         notes.push(t('{source}: fetched for this build at {time}.', {source: source.name, time: formatLocalDateTime(entry.lastSuccessAt, locale)}));
       const retained = retainedSources.get(source.id);
       if (retained) notes.push(`${source.name} · Showing ${retained.stories.length} previously collected stories${retained.lastSuccessAt ? ` from ${formatLocalDateTime(retained.lastSuccessAt)}` : ''}.`);
+      const fallbackCount = displayed[source.id]!.stories.length - (retained ?? entry).stories.length;
+      if (fallbackCount > 0) notes.push(`${source.name} · ${fallbackCount} from cached Atomstr`);
       if (relayConfig.enabled) {
         const counts = [];
         if ((entry.unavailable ?? 0) > 0 && !loading) counts.push(t('{count} unavailable', {count: entry.unavailable!}));
@@ -852,7 +869,7 @@ function renderStatuses() {
         if (counts.length) notes.push(`${source.name} · ${counts.join(' · ')}`);
       }
       if (entry.status === 'failure' && !(loading && entry.unavailable)) {
-        const hasStories = retained?.stories.length || entry.stories.length || (source.id === 'stringer' && showingEmbeddedStringer);
+        const hasStories = displayed[source.id]!.stories.length || entry.stories.length || (source.id === 'stringer' && showingEmbeddedStringer);
         target.append(element('p', t('{source}: refresh unavailable.{retained}', {source: source.name, retained: t(hasStories ? ' Showing previously collected stories.' : ' No stories available.')}), 'warning'));
       }
     }
@@ -881,7 +898,7 @@ function renderWorld() {
   const worldPaused = selected.length > 0 && selected.every(id => current.sources[id]!.status === 'paused');
   const allFailed = localizedEdition && selected.length > 0 && selected.every(id => current.sources[id]!.status === 'failure');
   const list = requiredElement('#world-news');
-  const stories = worldStories(displayedSnapshot(), selected, publisherSources);
+  const stories = worldStories({ sources: displayedWorldSources() }, selected, publisherSources);
   renderStories(list, localizedEdition ? stories.slice(0, 300) : stories,
     !selected.length ? t('No sources selected.') : loading ? '' : worldPaused || allFailed ? t('Global headlines are currently unavailable.') : t('No headlines available in this collection.'));
   if (!selected.length) {
@@ -971,7 +988,11 @@ async function load() {
     console.error('[Stringer reader] Collection refresh failed:', error);
     feedback.textContent = t(snapshot ? 'Could not check for updates. Keeping the previously loaded collection.' : 'The news collection is unavailable. We’ll retry automatically.');
     if (!snapshot) {
-      requiredElement('#world-status').textContent = t('Headlines unavailable.');
+      const sources = withEnglishAtomstrFallback({}, {}, embeddedAtomstr);
+      const stories = worldStories({ sources }, Object.keys(sources), publisherSources);
+      renderStories(requiredElement('#world-news'), stories, '');
+      updateStoryVisibility();
+      requiredElement('#world-status').textContent = stories.length ? 'Live headlines unavailable. Showing cached headlines.' : t('Headlines unavailable.');
       if (!showingEmbeddedStringer) requiredElement('#stringer-status').textContent = t('Courageous stories unavailable. You can still visit the Stringer collection below.');
     }
   } finally {
@@ -1012,11 +1033,9 @@ async function loadLocalized() {
           sources[source.id] = collected[source.id] ?? {...initialSource, status: 'failure', error: 'Publisher feed unavailable'};
         }
       } else {
-        const data = document.querySelector<HTMLScriptElement>('#atomstr-headlines');
-        const collected = JSON.parse(data?.textContent || '{}') as Record<string, Pick<SourceState, 'stories' | 'lastSuccessAt'>>;
         const cutoff = Date.now() - ATOMSTR_MAX_AGE_MS;
         for (const [id, cached] of Object.entries(sources)) {
-          const entry = collected[id];
+          const entry = embeddedAtomstr[id];
           if (!entry?.lastSuccessAt || entry.lastSuccessAt <= (cached.lastSuccessAt ?? '')) continue;
           const stories = entry.stories.filter(story => Date.parse(story.publishedAt ?? '') >= cutoff);
           if (stories.length) sources[id] = {...cached, stories, lastSuccessAt: entry.lastSuccessAt};

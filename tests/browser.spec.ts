@@ -607,6 +607,73 @@ test('oversized snapshot responses preserve the last displayed collection', asyn
   assert.deepEqual(await page.locator('#world-news h3').allTextContents(), previous);
   await page.close();
 });
+test('English Atomstr cache fills unavailable headlines and yields to a healthy primary feed', async () => {
+  const page = await browser.newPage();
+  try {
+    await mockStoryImages(page);
+    await page.clock.install();
+    const aljazeera = snapshot.sources.aljazeera.stories[0]!;
+    const now = new Date().toISOString();
+    const newer = { title: 'An Al Jazeera report from the cache', url: 'https://www.aljazeera.com/news/cache-example',
+      publishedAt: now, atomstr: true, summary: '', image: null };
+    const cached = { aljazeera: { lastSuccessAt: now, stories: [
+      { ...newer, url: aljazeera.url, title: 'Duplicate from the cache' }, newer,
+      { ...newer, url: 'https://www.aljazeera.com/news/another-example', title: 'Another cached report' },
+    ] } };
+    const html = (await readFile('index.html', 'utf8')).replace('</body>',
+      () => `<script id="atomstr-headlines" type="application/json">${JSON.stringify(cached)}</script></body>`);
+    await page.route(base + '/', route => route.fulfill({ contentType: 'text/html', body: html }));
+    await page.route('**/app.js', async route => route.fulfill({ contentType: 'text/javascript',
+      body: await readFile('_site/app.js') }));
+    let response: { status?: number; json?: FixtureSnapshot } = { status: 503 };
+    await page.route('**/data/news.json', route => route.fulfill(response));
+    await page.goto(base);
+    const world = page.locator('#world-news');
+    const backup = world.getByRole('heading', { name: newer.title, exact: true });
+    await backup.waitFor();
+    assert.match(await page.locator('#world-status').innerText(), /Showing cached headlines/);
+    const cachedArticle = world.locator('article').filter({ has: page.getByRole('heading', { name: newer.title, exact: true }) });
+    assert.equal(await cachedArticle.locator('.mirror-provenance').innerText(), 'via Atomstr');
+    assert.match(await cachedArticle.locator('time').getAttribute('title') ?? '', /Atomstr mirror timestamp/);
+
+    const partial = structuredClone(snapshot);
+    partial.sources.aljazeera.unavailable = 1;
+    response = { json: partial };
+    await poll(page);
+    assert.equal(await world.getByRole('heading', { name: aljazeera.title, exact: true }).count(), 1);
+    assert.equal(await world.getByText('Duplicate from the cache').count(), 0);
+    assert.equal(await world.getByText('Another cached report').count(), 0);
+    assert.equal(await backup.count(), 1);
+    assert.match(await page.locator('#relay-status-details').textContent() ?? '', /Latest feed load: Partially loaded/);
+    assert.match(await page.locator('#relay-status-details').textContent() ?? '', /Al Jazeera · 1 from cached Atomstr/);
+
+    response = { json: snapshot };
+    await poll(page);
+    assert.equal(await backup.count(), 0);
+    assert.equal(await world.getByRole('heading', { name: aljazeera.title, exact: true }).count(), 1);
+
+  } finally {
+    await page.close();
+  }
+});
+
+test('an invalid embedded Atomstr cache leaves the English feed available', async () => {
+  const page = await browser.newPage();
+  try {
+    await mockStoryImages(page);
+    await page.route(base + '/', async route => route.fulfill({ contentType: 'text/html',
+      body: (await readFile('index.html', 'utf8')).replace('</body>',
+        '<script id="atomstr-headlines" type="application/json">{</script></body>') }));
+    await page.goto(base);
+    const world = page.locator('#world-news');
+    await world.locator('article').first().waitFor();
+    assert.equal(await world.locator('article').count(), worldStories(snapshot).length);
+    assert.equal(await world.locator('.mirror-provenance').count(), 0);
+  } finally {
+    await page.close();
+  }
+});
+
 test('malicious snapshot is rejected and remote markup is rendered as text',async()=>{
   const page=await pageAt();const bad=structuredClone(snapshot);bad.sources.stringer.stories[0]!.url='javascript:alert(1)';await page.route('**/data/news.json',route=>route.fulfill({json:bad}));await poll(page);await page.waitForFunction(()=>document.querySelector<HTMLElement>('#refresh-status')!.textContent.includes('Could not check'));assert.equal(await page.locator('#stringer-news article').count(),24);
   bad.sources.stringer.stories[0]!.url='https://example.org/story';bad.sources.stringer.stories[0]!.publicationSource='https://example.org/story';bad.sources.stringer.stories[0]!.title='<img src=x onerror=alert(1)>';await poll(page);await page.waitForFunction(()=>[...document.querySelectorAll<HTMLElement>('#stringer-news h3')].some(el=>el.textContent.startsWith('<img')));

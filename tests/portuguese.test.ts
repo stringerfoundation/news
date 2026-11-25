@@ -8,6 +8,7 @@ import { parseAtomstrEvent, readAtomstrSources, cachedAtomstrSources } from '../
 import { EDITIONS, translator, localeForLanguage } from '../reader-locales.ts';
 import { EDITION_SOURCES } from '../edition-sources.ts';
 import { embedAtomstrHeadlines } from '../scripts/collect-atomstr.ts';
+import { ENGLISH_ATOMSTR_SOURCES } from '../english-atomstr.ts';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -44,15 +45,16 @@ test('fallback embeds headline-only data for each Atomstr edition and collects P
         ...(sources[2] ? {[sources[2].id]: {...successful, stories: []}} : {}),
       };
     });
-    assert.equal(queries.length, 8);
+    assert.equal(queries.length, 9);
     for (const {path, locale} of EDITIONS) {
       const html = await readFile(join(site, path, 'index.html'), 'utf8');
       const data = load(html)('#atomstr-headlines').text();
-      if (!EDITION_SOURCES[locale]) { assert.equal(data, ''); continue; }
+      const sources = path ? EDITION_SOURCES[locale] : ENGLISH_ATOMSTR_SOURCES;
+      if (!sources) { assert.equal(data, ''); continue; }
       assert.equal(html.includes(title), false);
       assert.equal(html.includes('Do not publish this summary'), false);
       assert.equal(html.includes('photo.jpg'), false);
-      assert.deepEqual(JSON.parse(data), {[EDITION_SOURCES[locale][0]!.id]: {
+      assert.deepEqual(JSON.parse(data), {[sources[0]!.id]: {
         lastSuccessAt: stamp, stories: [{title, url: story.url, publishedAt: stamp, atomstr: true, image: null, summary: ''}],
       }});
     }

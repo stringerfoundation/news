@@ -36,7 +36,7 @@ test('build rejects unexpected thumbnail files before publication', async (t) =>
   for (const name of [
     'relay',
     'relay-reader.ts', 'atomstr-reader.ts', 'atomstr-config.ts', 'response.ts', 'public-assets.ts', 'publications.ts',
-    'news-model.ts',
+    'news-model.ts', 'english-atomstr.ts',
     'reader-locales.ts', 'edition-sources.ts', 'portuguese-sources.ts', 'swahili-publishers.ts',
     'locales', 'sources',
     'index.html',
