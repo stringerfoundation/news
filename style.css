@@ -137,7 +137,7 @@ html[data-shuffling-stringer] #stringer-news { visibility: hidden; }
   text-transform: uppercase;
 }
 .page-intro .eyebrow { color: var(--muted); }
-.page-intro .intro-summary { max-width: 68ch; margin-inline: auto; font-size: clamp(.8125rem, 1.4vw, .9375rem); font-weight: 400; line-height: 1.45; letter-spacing: normal; text-transform: none; }
+.page-intro .intro-summary { max-width: 68ch; margin-inline: auto; line-height: 1.45; }
 .intro-summary a { text-underline-offset: .15em; }
 .desk { border-top: 2px solid var(--accent); }
 
