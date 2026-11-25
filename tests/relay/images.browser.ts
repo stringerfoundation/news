@@ -268,10 +268,12 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     const noImages = finalizeEvent({ ...batch.manifest, content: JSON.stringify({ ...manifest, imageCandidates: {} }), created_at: batch.manifest.created_at + 1 }, owner);
     broadcast(noImages);
     await reader.reload();
-    // A reload can restore the scroll position from the footer credits.
+    // Wait for the refreshed manifest before scrolling back from the footer.
+    // The cached manifest can still show the old candidate during startup.
+    await reader.locator('#world-news[aria-busy="false"]').waitFor({state: 'attached'});
     await reader.evaluate(() => window.scrollTo(0, 0));
-    await reader.getByRole('heading', { name: 'The Failures of Emmanuel Macron' }).waitFor();
-    await reader.locator(`#world-news ${suggestedImage}`).waitFor();
+    const readerSuggestion = reader.locator(`#world-news ${suggestedImage}`).and(reader.getByAltText(/^Representative/));
+    await readerSuggestion.waitFor();
     assert.equal(await reader.locator('.image-toolbar').isVisible(), false);
     // Reproduce the live preview: no manifest candidates and no self-follow.
     const ownerPage = await browser.newPage({ viewport: { width: 375, height: 1000 } });
@@ -290,7 +292,7 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     assert.equal(await ownerPage.locator('#world-news .wire-thumbnail > a > img').isVisible(), true);
     await ownerPage.locator(suggestedImage).waitFor();
     assert.equal(await ownerPage.locator('input[type="search"]').inputValue(), 'Emmanuel Macron');
-    await reader.locator(`#world-news ${suggestedImage}`).waitFor();
+    assert.equal(await readerSuggestion.isVisible(), true);
     await ownerPage.getByRole('button', { name: 'Review illustrative images', exact: true }).click();
     await ownerPage.getByRole('button', { name: 'Choose image: Emmanuel Macron portrait.jpg', exact: true }).click();
     await ownerPage.getByRole('button', { name: 'Publish and upvote image', exact: true }).click();
