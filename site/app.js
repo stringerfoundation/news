@@ -1680,7 +1680,7 @@ var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
 ));
 
 // english-atomstr.ts
-import { articleLink, NEWSWIRE_LIMIT, urlIdentity } from "./news-model.js?v=04402fd00f042710";
+import { articleLink, NEWSWIRE_LIMIT, urlIdentity } from "./news-model.js?v=860f22bbb9883706";
 var ENGLISH_ATOMSTR_SOURCES = [
   { id: "aljazeera", name: "Al Jazeera", feeds: [{
     url: "https://www.aljazeera.com/xml/rss/all.xml",
@@ -1692,6 +1692,11 @@ var ENGLISH_ATOMSTR_SOURCES = [
   }] }
 ];
 var maxAge = 36 * 60 * 60 * 1e3;
+function fallbackArticleIdentity(value) {
+  const url = new URL(articleLink(value));
+  const dwArticle = /^(?:www\.)?dw\.com$/.test(url.hostname) && url.pathname.match(/\/a-(\d+)\/?$/);
+  return dwArticle ? `dw:${dwArticle[1]}` : urlIdentity(url.href);
+}
 function withEnglishAtomstrFallback(displayed, live, embedded, now = Date.now()) {
   const sources = { ...displayed };
   for (const { id } of ENGLISH_ATOMSTR_SOURCES) {
@@ -1704,14 +1709,14 @@ function withEnglishAtomstrFallback(displayed, live, embedded, now = Date.now())
     const missing = primary?.status === "success" ? primary.unavailable ?? 0 : NEWSWIRE_LIMIT;
     const limit = Math.min(missing, NEWSWIRE_LIMIT - previous.length);
     if (limit <= 0) continue;
-    const known = new Set(previous.map((story) => urlIdentity(articleLink(story.url))));
+    const known = new Set(previous.map((story) => fallbackArticleIdentity(story.url)));
     const additions = [];
     for (const story of cached.stories) {
       const time = Date.parse(story.publishedAt ?? "");
       if (!(time >= now - maxAge && time <= now)) continue;
-      const url = urlIdentity(articleLink(story.url));
-      if (known.has(url)) continue;
-      known.add(url);
+      const identity = fallbackArticleIdentity(story.url);
+      if (known.has(identity)) continue;
+      known.add(identity);
       additions.push(story);
       if (additions.length >= limit) break;
     }
@@ -1725,9 +1730,9 @@ function withEnglishAtomstrFallback(displayed, live, embedded, now = Date.now())
 }
 
 // app.ts
-import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink as articleLink2, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=04402fd00f042710";
-import relayConfig from "./relay-config.js?v=04402fd00f042710";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=04402fd00f042710";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink as articleLink2, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=860f22bbb9883706";
+import relayConfig from "./relay-config.js?v=860f22bbb9883706";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=860f22bbb9883706";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1980,7 +1985,7 @@ async function connectNostr() {
       })
     ]).finally(() => clearTimeout(timer));
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=04402fd00f042710");
+    const identity = await import("./relay-reader.js?v=860f22bbb9883706");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -2821,7 +2826,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=04402fd00f042710");
+      const reader = await import("./relay-reader.js?v=860f22bbb9883706");
       ImageSessionClass = reader.ImageSession;
       searchImages = reader.searchImages;
       commonsSubject = reader.commonsSubject;
@@ -2899,7 +2904,7 @@ async function loadLocalized() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=04402fd00f042710");
+    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=860f22bbb9883706");
     if (!snapshot) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
@@ -2942,7 +2947,7 @@ async function loadLocalized() {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=04402fd00f042710");
+            const relay = await import("./relay-reader.js?v=860f22bbb9883706");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
@@ -2992,7 +2997,7 @@ setInterval(() => {
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && Date.now() - lastAttempt >= interval) load();
 });
-if (localizedEdition) void import("./relay-reader.js?v=04402fd00f042710").then((reader) => {
+if (localizedEdition) void import("./relay-reader.js?v=860f22bbb9883706").then((reader) => {
   searchImages = reader.searchImages;
   loadSuggestions();
 }, () => suggestionQueue.clear());
