@@ -1679,10 +1679,55 @@ var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
   collectedSwahiliPublishers.map((source) => [source.id, Object.freeze({ text: true, summaries: false, images: false })])
 ));
 
+// english-atomstr.ts
+import { articleLink, NEWSWIRE_LIMIT, urlIdentity } from "./news-model.js?v=a06c540e9211790c";
+var ENGLISH_ATOMSTR_SOURCES = [
+  { id: "aljazeera", name: "Al Jazeera", feeds: [{
+    url: "https://www.aljazeera.com/xml/rss/all.xml",
+    pubkey: "da135401b0d0ecee2c78c6c74244328ce271faf57ec202b1d21d5e9885646170"
+  }] },
+  { id: "dw", name: "DW", feeds: [{
+    url: "https://rss.dw.com/rdf/rss-en-all",
+    pubkey: "4b639d18916a8f4e15f50f8d01a81ab39ffbfded36d4a2a664d04fbba7b15079"
+  }] }
+];
+var maxAge = 36 * 60 * 60 * 1e3;
+function withEnglishAtomstrFallback(displayed, live, embedded, now = Date.now()) {
+  const sources = { ...displayed };
+  for (const { id } of ENGLISH_ATOMSTR_SOURCES) {
+    const cached = embedded[id];
+    const collected = Date.parse(cached?.lastSuccessAt ?? "");
+    if (!cached || !(collected >= now - maxAge && collected <= now)) continue;
+    const primary = live[id];
+    if (primary?.status === "paused" || primary?.status === "loading") continue;
+    const previous = displayed[id]?.stories ?? [];
+    const missing = primary?.status === "success" ? primary.unavailable ?? 0 : NEWSWIRE_LIMIT;
+    const limit = Math.min(missing, NEWSWIRE_LIMIT - previous.length);
+    if (limit <= 0) continue;
+    const known = new Set(previous.map((story) => urlIdentity(articleLink(story.url))));
+    const additions = [];
+    for (const story of cached.stories) {
+      const time = Date.parse(story.publishedAt ?? "");
+      if (!(time >= now - maxAge && time <= now)) continue;
+      const url = urlIdentity(articleLink(story.url));
+      if (known.has(url)) continue;
+      known.add(url);
+      additions.push(story);
+      if (additions.length >= limit) break;
+    }
+    if (!additions.length) continue;
+    sources[id] = {
+      ...displayed[id] ?? { status: "failure", error: "Primary feed unavailable", attemptedAt: new Date(now).toISOString(), lastSuccessAt: null },
+      stories: [...previous, ...additions]
+    };
+  }
+  return sources;
+}
+
 // app.ts
-import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=8ba66e89cbcfc121";
-import relayConfig from "./relay-config.js?v=8ba66e89cbcfc121";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=8ba66e89cbcfc121";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink as articleLink2, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=a06c540e9211790c";
+import relayConfig from "./relay-config.js?v=a06c540e9211790c";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=a06c540e9211790c";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1692,6 +1737,14 @@ var locale = localeForLanguage(document.documentElement.lang);
 var mirrorSources = sourcesForLocale(locale);
 var swahiliEdition = locale === "sw";
 var localizedEdition = swahiliEdition || mirrorSources.length > 0;
+function readEmbeddedAtomstr() {
+  try {
+    return JSON.parse(document.getElementById("atomstr-headlines")?.textContent || "{}");
+  } catch {
+    return {};
+  }
+}
+var embeddedAtomstr = readEmbeddedAtomstr();
 var t = translator(locale);
 var menuToggle = requiredElement(".header-menu-toggle");
 var headerMenu = requiredElement("#header-menu");
@@ -1772,6 +1825,10 @@ var snapshot = null;
 var retainedSources = /* @__PURE__ */ new Map();
 function displayedSnapshot() {
   return { ...snapshot, sources: Object.fromEntries(Object.entries(snapshot.sources).map(([id, source]) => [id, retainedSources.get(id) ?? source])) };
+}
+function displayedWorldSources() {
+  const displayed = displayedSnapshot().sources;
+  return localizedEdition ? displayed : withEnglishAtomstrFallback(displayed, snapshot.sources, embeddedAtomstr);
 }
 var loading = false;
 var showingEmbeddedStringer = false;
@@ -1923,7 +1980,7 @@ async function connectNostr() {
       })
     ]).finally(() => clearTimeout(timer));
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=8ba66e89cbcfc121");
+    const identity = await import("./relay-reader.js?v=a06c540e9211790c");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -2524,7 +2581,7 @@ function renderStories(target, stories, emptyMessage) {
       showPlaceholder();
     }
     const link = element("a");
-    link.href = articleLink(url);
+    link.href = articleLink2(url);
     link.target = "_blank";
     link.rel = "noopener noreferrer";
     link.append(element("h3", story.title));
@@ -2541,6 +2598,7 @@ function renderStories(target, stories, emptyMessage) {
     }
     meta.append(sourceLabel);
     if (story.mirroredVia) meta.append(element("span", t("via {network} / Atomstr", { network: story.mirroredVia }), "mirror-provenance"));
+    else if (story.atomstr && !localizedEdition) meta.append(element("span", "via Atomstr", "mirror-provenance"));
     const publishedAt = story.publishedAt || approvedMedia?.publishedAt;
     if (publishedAt) {
       const time = element("time", formatLocalDateTime(publishedAt, locale));
@@ -2641,7 +2699,8 @@ function renderStatuses() {
       notes.push(`${source.name} \xB7 ${description}`);
     }
   }
-  if (snapshot) for (const group of ["world", "stringer"]) {
+  const displayed = snapshot ? displayedWorldSources() : null;
+  if (displayed) for (const group of ["world", "stringer"]) {
     const target = requiredElement(`#${group}-status`);
     target.replaceChildren();
     const sources = group === "stringer" ? SOURCES2.filter((s) => s.id === "stringer") : publisherSources.filter((s) => !disabledSources.has(s.id));
@@ -2652,6 +2711,8 @@ function renderStatuses() {
         notes.push(t("{source}: fetched for this build at {time}.", { source: source.name, time: formatLocalDateTime(entry.lastSuccessAt, locale) }));
       const retained = retainedSources.get(source.id);
       if (retained) notes.push(`${source.name} \xB7 Showing ${retained.stories.length} previously collected stories${retained.lastSuccessAt ? ` from ${formatLocalDateTime(retained.lastSuccessAt)}` : ""}.`);
+      const fallbackCount = displayed[source.id].stories.length - (retained ?? entry).stories.length;
+      if (fallbackCount > 0) notes.push(`${source.name} \xB7 ${fallbackCount} from cached Atomstr`);
       if (relayConfig.enabled) {
         const counts = [];
         if ((entry.unavailable ?? 0) > 0 && !loading) counts.push(t("{count} unavailable", { count: entry.unavailable }));
@@ -2659,7 +2720,7 @@ function renderStatuses() {
         if (counts.length) notes.push(`${source.name} \xB7 ${counts.join(" \xB7 ")}`);
       }
       if (entry.status === "failure" && !(loading && entry.unavailable)) {
-        const hasStories = retained?.stories.length || entry.stories.length || source.id === "stringer" && showingEmbeddedStringer;
+        const hasStories = displayed[source.id].stories.length || entry.stories.length || source.id === "stringer" && showingEmbeddedStringer;
         target.append(element("p", t("{source}: refresh unavailable.{retained}", { source: source.name, retained: t(hasStories ? " Showing previously collected stories." : " No stories available.") }), "warning"));
       }
     }
@@ -2688,7 +2749,7 @@ function renderWorld() {
   const worldPaused = selected.length > 0 && selected.every((id) => current.sources[id].status === "paused");
   const allFailed = localizedEdition && selected.length > 0 && selected.every((id) => current.sources[id].status === "failure");
   const list = requiredElement("#world-news");
-  const stories = worldStories(displayedSnapshot(), selected, publisherSources);
+  const stories = worldStories({ sources: displayedWorldSources() }, selected, publisherSources);
   renderStories(
     list,
     localizedEdition ? stories.slice(0, 300) : stories,
@@ -2748,7 +2809,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=8ba66e89cbcfc121");
+      const reader = await import("./relay-reader.js?v=a06c540e9211790c");
       ImageSessionClass = reader.ImageSession;
       searchImages = reader.searchImages;
       commonsSubject = reader.commonsSubject;
@@ -2792,7 +2853,11 @@ async function load() {
     console.error("[Stringer reader] Collection refresh failed:", error);
     feedback.textContent = t(snapshot ? "Could not check for updates. Keeping the previously loaded collection." : "The news collection is unavailable. We\u2019ll retry automatically.");
     if (!snapshot) {
-      requiredElement("#world-status").textContent = t("Headlines unavailable.");
+      const sources = withEnglishAtomstrFallback({}, {}, embeddedAtomstr);
+      const stories = worldStories({ sources }, Object.keys(sources), publisherSources);
+      renderStories(requiredElement("#world-news"), stories, "");
+      updateStoryVisibility();
+      requiredElement("#world-status").textContent = stories.length ? "Live headlines unavailable. Showing cached headlines." : t("Headlines unavailable.");
       if (!showingEmbeddedStringer) requiredElement("#stringer-status").textContent = t("Courageous stories unavailable. You can still visit the Stringer collection below.");
     }
   } finally {
@@ -2822,7 +2887,7 @@ async function loadLocalized() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=8ba66e89cbcfc121");
+    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=a06c540e9211790c");
     if (!snapshot) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
@@ -2835,11 +2900,9 @@ async function loadLocalized() {
           sources[source.id] = collected[source.id] ?? { ...initialSource, status: "failure", error: "Publisher feed unavailable" };
         }
       } else {
-        const data = document.querySelector("#atomstr-headlines");
-        const collected = JSON.parse(data?.textContent || "{}");
         const cutoff = Date.now() - ATOMSTR_MAX_AGE_MS;
         for (const [id, cached] of Object.entries(sources)) {
-          const entry = collected[id];
+          const entry = embeddedAtomstr[id];
           if (!entry?.lastSuccessAt || entry.lastSuccessAt <= (cached.lastSuccessAt ?? "")) continue;
           const stories = entry.stories.filter((story) => Date.parse(story.publishedAt ?? "") >= cutoff);
           if (stories.length) sources[id] = { ...cached, stories, lastSuccessAt: entry.lastSuccessAt };
@@ -2867,7 +2930,7 @@ async function loadLocalized() {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=8ba66e89cbcfc121");
+            const relay = await import("./relay-reader.js?v=a06c540e9211790c");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
@@ -2917,7 +2980,7 @@ setInterval(() => {
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && Date.now() - lastAttempt >= interval) load();
 });
-if (localizedEdition) void import("./relay-reader.js?v=8ba66e89cbcfc121").then((reader) => {
+if (localizedEdition) void import("./relay-reader.js?v=a06c540e9211790c").then((reader) => {
   searchImages = reader.searchImages;
   loadSuggestions();
 }, () => suggestionQueue.clear());
