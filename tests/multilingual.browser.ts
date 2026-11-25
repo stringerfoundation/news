@@ -266,8 +266,14 @@ test('localized reader shows loading and first-load failure, then retains a coll
     await first.page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'true');
     await first.page.waitForFunction(() => document.querySelector<HTMLElement>('#relay-status')?.hidden === false);
     assert.ok((await first.page.locator('#relay-status-details').textContent())?.includes(chinese['Loading news…']!), 'Loading progress uses the selected locale');
+    const world = first.page.locator('#world-news');
+    const height = () => world.evaluate(list => list.getBoundingClientRect().height);
+    const reserved = await height();
+    assert.ok(reserved > 600, 'a localized mobile edition reserves its initial newswire');
     first.releaseData();
     await first.page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
+    assert.equal(await world.getAttribute('data-initial-load'), null);
+    assert.ok(await height() < reserved);
     assert.equal(await first.page.locator('#global-newswire article').count(), 1);
     assert.equal(await first.page.locator('#global-newswire h3').first().textContent(), publisherHeadline);
     assert.equal(await first.page.locator('#stringer-news article').count(), 1);
@@ -284,6 +290,7 @@ test('localized reader shows loading and first-load failure, then retains a coll
 
     const failed = await openEdition(browser, '/stringer-news/', 'ar', {unavailable: true});
     await failed.page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
+    assert.equal(await failed.page.locator('#world-news').getAttribute('data-initial-load'), null);
     assert.equal(await failed.page.locator('#global-newswire article').count(), 0);
     assert.equal(await failed.page.locator('#world-news .empty').textContent(), arabic['Global headlines are currently unavailable.']);
     assert.equal(await failed.page.locator('#stringer-news article').count(), 0);
