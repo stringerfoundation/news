@@ -141,7 +141,14 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
       <h2 id="feed-status-title">Feed status</h2>
       <button class="reader-dialog-close" type="button" autofocus>Close</button>
     </div>
-    <div id="relay-status-details" class="reader-dialog-body"></div>
+    <div class="reader-dialog-body">
+      <section id="headline-image-status" aria-labelledby="headline-image-status-title" hidden>
+        <h3 id="headline-image-status-title">Headline images</h3>
+        <p>Publisher photos require reuse permission. We look for reusable illustrations.</p>
+        <ul></ul>
+      </section>
+      <div id="relay-status-details"></div>
+    </div>
   </dialog>
   <script type="module" src="./app.js"></script>
 </body>

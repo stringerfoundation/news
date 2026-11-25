@@ -354,10 +354,15 @@ document.body.append(creditDialog);
 const relayStatus = requiredElement<HTMLButtonElement>('#relay-status');
 const feedStatusDialog = requiredElement<HTMLDialogElement>('#feed-status-dialog');
 const closeFeedStatus = requiredElement('#feed-status-dialog .reader-dialog-close');
+const headlineImageStatus = requiredElement('#headline-image-status');
+const headlineImageReasons = requiredElement('#headline-image-status ul');
 relayStatus.textContent = t('Feed status');
 requiredElement('#feed-status-title').textContent = relayStatus.textContent;
 closeFeedStatus.textContent = t('Close');
-relayStatus.addEventListener('click', () => feedStatusDialog.showModal());
+relayStatus.addEventListener('click', () => {
+  feedStatusDialog.showModal();
+  renderHeadlineImageStatus();
+});
 closeFeedStatus.addEventListener('click', () => feedStatusDialog.close());
 
 function openCredits(credits: ImageCredit[], includeSources = false) {
@@ -700,6 +705,7 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
         const reveal = () => {
           placeholder.hidden = true;
           figure.classList.remove('image-loading');
+          renderHeadlineImageStatus();
         };
         void image.decode().then(reveal, reveal);
       });
@@ -717,6 +723,8 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
         (image.closest('a') || image).remove();
         placeholder.replaceWith(storyPlaceholder(t('Image unavailable')));
         figure.classList.remove('image-loading');
+        figure.classList.add('image-load-failed');
+        renderHeadlineImageStatus();
       });
       image.src = imageUrl;
       if (wire && commons) {
@@ -807,6 +815,33 @@ const sections = [
   { list: requiredElement('#world-news'), button: requiredElement('#world-more'), more: 'Show more headlines', fewer: 'Show fewer headlines', expanded: false },
   { list: requiredElement('#stringer-news'), button: requiredElement('#stringer-more'), more: 'Show more courageous stories', fewer: 'Show fewer courageous stories', expanded: false },
 ];
+function headlineImageReason(figure: HTMLElement) {
+  if (figure.classList.contains('image-load-failed')) return t('The image could not be loaded.');
+  if (figure.classList.contains('image-loading')) return t('The image is waiting to load.');
+  if (figure.querySelector(':scope > a > img')) return null;
+  const id = figure.dataset.storyId;
+  if (!id) return t('Image lookup is unavailable for this headline.');
+  if (!localizedEdition && skippedImages.get(choiceKey(id))?.length && imageOptions(id).length)
+    return t('Available image suggestions were skipped.');
+  const search = commonsSearches.get(id)!;
+  if (search.error) return t('Image search failed. {details}', {details: search.error});
+  return search.searched ? t('No reusable image found for this headline.') : t('Image search is pending.');
+}
+function renderHeadlineImageStatus() {
+  if (!feedStatusDialog.open) return;
+  const entries = [];
+  for (const figure of document.querySelectorAll<HTMLElement>('#world-news article:not([hidden]) > .wire-thumbnail')) {
+    const reason = headlineImageReason(figure);
+    if (!reason) continue;
+    const title = element('strong', figure.closest('article')!.querySelector('.story-body h3')!.textContent);
+    title.dir = 'auto';
+    const entry = element('li');
+    entry.append(title, reason);
+    entries.push(entry);
+  }
+  headlineImageReasons.replaceChildren(...entries);
+  headlineImageStatus.hidden = !entries.length;
+}
 function updateStoryVisibility() {
   for (const section of sections) {
     const cards = [...section.list.querySelectorAll('article')];
@@ -816,10 +851,8 @@ function updateStoryVisibility() {
     section.button.textContent = t(section.expanded ? section.fewer : section.more);
     section.button.setAttribute('aria-label', section.button.textContent);
   }
-  if (!mobileLayout.matches) {
-    const stringer = requiredElement('#stringer-news');
-    if (!stringer.querySelector('article')) return;
-    const bottom = stringer.getBoundingClientRect().bottom;
+  if (!mobileLayout.matches && stringerList.querySelector('article')) {
+    const bottom = stringerList.getBoundingClientRect().bottom;
     let reachedEnd = false;
     // Keep complete headlines through the end of the Courageous Stories column.
     for (const card of requiredElement('#world-news').querySelectorAll('article')) {
@@ -827,6 +860,7 @@ function updateStoryVisibility() {
       if (!reachedEnd && card.getBoundingClientRect().bottom >= bottom) reachedEnd = true;
     }
   }
+  renderHeadlineImageStatus();
 }
 for (const section of sections) {
   section.button.addEventListener('click', () => {
