@@ -18,7 +18,7 @@ The reader attempts NIP-07 connection once when the signer is detected, includin
 
 Automatic suggestions prefer the subject’s free representative image from Wikipedia, then a subject location map, with file metadata fetched and validated directly from Commons. The reader can show that image as soon as its metadata passes validation while the broader Commons search continues. Commons search supplies alternatives and remains available if the optional subject lookup fails. SVG source files are supported only through Commons-generated PNG thumbnails. Public-domain files without a `LicenseUrl` require all three explicit metadata values: `License=pd`, `Copyrighted=False`, and `UsageTerms=Public domain`; these use the canonical `PDM-1.0` link. Files with restrictions or missing attribution remain excluded. Search loading, empty and failure states appear beside the headline.
 
-Translated editions use Wikimedia Commons for automatic illustrations. A Wikipedia result can supply an image when its subject is named in the headline. Stories without a suitable match keep their placeholder.
+Translated editions use Wikimedia Commons for automatic illustrations. The reader looks up names from the headline directly in the edition's Wikipedia, then falls back to a headline search. The selected subject must be named in the headline. Stories without a suitable match keep their placeholder.
 
 ## Publisher contract (version 1)
 
