@@ -153,11 +153,15 @@ test('relay reader verifies complete collections, preserves order, caches offlin
       assert.equal(await collectionLink.isVisible(), false, 'The collection link stays out of the initial loading layout');
       assert.equal(await page.locator('#relay-status').isVisible(), true);
       assert.match(await page.locator('#relay-status-details').textContent() || '', /Total elapsed: \d+\.\d s/);
+      const world = page.locator('#world-news');
+      const initialHeight = await world.evaluate(list => list.getBoundingClientRect().height);
+      if (width === 375) assert.ok(initialHeight > 600, 'the mobile preview is reserved before relay events');
       holdInitialResponse = false;
       for (const respond of initialResponses) respond();
       await page.locator('#world-news article').waitFor();
       assert.equal(await page.locator('#stringer-news article').count(), 0, 'Headlines render before the remaining stories arrive');
       assert.equal(await page.locator('#world-news').getAttribute('aria-busy'), 'true');
+      if (width === 375) assert.equal(await world.evaluate(list => list.getBoundingClientRect().height), initialHeight);
       assert.equal(await feedStatus.textContent(), 'Feed status');
       const progressDetails = await page.locator('#relay-status-details').textContent() || '';
       assert.match(progressDetails, /BBC World · loaded in \d+\.\d s/);
@@ -166,6 +170,8 @@ test('relay reader verifies complete collections, preserves order, caches offlin
       assert.equal(await page.locator('#refresh-status').textContent(), '');
       deliverRemainingStories!();
       await page.waitForFunction(() => /Latest feed load: .*loaded in/i.test(document.querySelector('#relay-status-details')?.textContent ?? ''));
+      assert.equal(await world.getAttribute('data-initial-load'), null);
+      if (width === 375) assert.ok(await world.evaluate(list => list.getBoundingClientRect().height) < initialHeight);
       assert.equal(await collectionLink.isVisible(), true);
       assert.equal(await page.locator('#relay-status-details').isVisible(), false);
       assert.match(await page.locator('#relay-status-details').textContent() || '', /Stringer · loaded in \d+\.\d s/);
