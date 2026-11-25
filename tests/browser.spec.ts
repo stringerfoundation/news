@@ -514,6 +514,9 @@ const cssValue = (locator: Locator, property: keyof CSSStyleDeclaration) => loca
 test('Stringer logo is visible, loaded, correctly sized, and linked on desktop and mobile', async () => {
   for (const [width, expected] of [[1440, branding.desktop], [375, branding.mobile]] as const) {
     const page = await pageAt('/', width);
+    const intro = page.locator('.intro-summary');
+    assert.equal(await intro.textContent(), 'The Stringer Foundation recognizes and supports courageous journalists. A reporter is killed every three days. Get involved and support them.');
+    assert.equal(await intro.getByRole('link').getAttribute('href'), new URL('/get-involved', branding.source).href);
     const logo = page.locator('header .brand img');
     assert.equal(await logo.isVisible(), true);
     assert.equal(await logo.evaluate(el => (el as HTMLImageElement).complete && (el as HTMLImageElement).naturalWidth > 0), true);
@@ -583,6 +586,16 @@ test('header and footer use main-site type sizes, colours, and hover treatments'
   }
   assert.equal(await cssValue(page.locator('.footer-appeal'), 'fontSize'), '15px');
   assert.equal(await cssValue(page.locator('.nonprofit'), 'fontSize'), '15px');
+  assert.match(await cssValue(page.locator('.footer-appeal'), 'fontFamily'), /Stringer Web Regular/);
+  const supportButton = page.locator('.footer-support .donate');
+  const supportTitle = page.getByRole('heading', {name: 'Your support matters'});
+  const mailingButton = page.getByRole('link', {name: 'Sign up', exact: true});
+  assert.equal(await mailingButton.getAttribute('href'), new URL('/mission#z-s_Vl', branding.source).href);
+  assert.equal(await cssValue(mailingButton, 'backgroundColor'), branding.colors.accent);
+  const [support, title, mailing] = await Promise.all([supportButton.boundingBox(), supportTitle.boundingBox(), mailingButton.boundingBox()]);
+  assert.ok(support && title && mailing);
+  assert.ok(title.x > support.x + support.width);
+  assert.ok(Math.abs(support.y + support.height - mailing.y - mailing.height) < 1);
   const [status, languages] = await Promise.all([
     page.locator('#relay-status').boundingBox(),
     page.locator('.edition-switcher').boundingBox(),
