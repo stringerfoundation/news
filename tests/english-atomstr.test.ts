@@ -41,6 +41,20 @@ test('fallback fills signed collection gaps within the per-publisher cap and ret
   assert.deepEqual(withEnglishAtomstrFallback(full, {}, embedded, now), full);
 });
 
+test('DW fallback deduplicates changed headline slugs by article ID', () => {
+  const original = { ...story('https://www.dw.com/en/egypt-at-least-31-dead-after-fuel-truck-overturns-on-highway/a-80055175?maca=en-rss-en-all-1573-rdf'),
+    title: 'Egypt: At least 31 dead after fuel truck overturns on highway' };
+  const mirror = { ...story('https://www.dw.com/en/egypt-at-least-30-dead-after-fuel-truck-overturns-on-highway/a-80055175?maca=en-rss-en-all-1573-rdf'),
+    title: 'Egypt: At least 30 dead after fuel truck overturns on highway', atomstr: true };
+  const differentArticle = { ...mirror, url: 'https://www.dw.com/en/another-story/a-80055176' };
+  const embedded = { dw: cached([mirror, differentArticle]) };
+
+  assert.deepEqual(withEnglishAtomstrFallback({ dw: source([original]) }, { dw: source([original], 'success', 1) }, embedded, now).dw?.stories,
+    [original, differentArticle]);
+  assert.deepEqual(withEnglishAtomstrFallback({}, {}, { dw: cached([mirror, original, differentArticle]) }, now).dw?.stories,
+    [mirror, differentArticle]);
+});
+
 test('fallback ignores complete, paused and loading sources and caches outside the freshness window', () => {
   const entry = story('https://www.dw.com/en/example');
   const displayed = { dw: source([]) };

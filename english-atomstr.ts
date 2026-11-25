@@ -16,6 +16,13 @@ export const ENGLISH_ATOMSTR_SOURCES: readonly AtomstrSource[] = [
 export type EmbeddedAtomstr = Record<string, Pick<SourceState, 'stories' | 'lastSuccessAt'>>;
 const maxAge = 36 * 60 * 60 * 1000;
 
+function fallbackArticleIdentity(value: string): string {
+  const url = new URL(articleLink(value));
+  // DW can change the headline slug while retaining the article ID.
+  const dwArticle = /^(?:www\.)?dw\.com$/.test(url.hostname) && url.pathname.match(/\/a-(\d+)\/?$/);
+  return dwArticle ? `dw:${dwArticle[1]}` : urlIdentity(url.href);
+}
+
 export function withEnglishAtomstrFallback(
   displayed: Record<string, SourceState>,
   live: Record<string, SourceState>,
@@ -34,14 +41,14 @@ export function withEnglishAtomstrFallback(
     const limit = Math.min(missing, NEWSWIRE_LIMIT - previous.length);
     if (limit <= 0) continue;
 
-    const known = new Set(previous.map(story => urlIdentity(articleLink(story.url))));
+    const known = new Set(previous.map(story => fallbackArticleIdentity(story.url)));
     const additions = [];
     for (const story of cached.stories) {
       const time = Date.parse(story.publishedAt ?? '');
       if (!(time >= now - maxAge && time <= now)) continue;
-      const url = urlIdentity(articleLink(story.url));
-      if (known.has(url)) continue;
-      known.add(url);
+      const identity = fallbackArticleIdentity(story.url);
+      if (known.has(identity)) continue;
+      known.add(identity);
       additions.push(story);
       if (additions.length >= limit) break;
     }
