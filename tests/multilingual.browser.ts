@@ -32,7 +32,7 @@ const editions = [
   {path: 'nl', lang: 'nl', dir: 'ltr', label: 'Nederlands', messages: dutch},
   {path: 'de', lang: 'de', dir: 'ltr', label: 'Deutsch', messages: german},
 ] as const;
-const publisherHeadline = '<img src=x onerror=window.pwned=true> أصل الخبر — 原始标题';
+const publisherHeadline = '<img src=x onerror=window.pwned=true> أصل الخبر — 原始标题 — enquête sur Camille Rivière à Lormont.';
 const snapshot: Snapshot = {
   schemaVersion: 2,
   generatedAt: collectedAt,
@@ -78,7 +78,7 @@ const fixtureApp = await build({entryPoints: ['app.ts'], bundle: true, write: fa
 });
 
 async function openEdition(browser: Awaited<ReturnType<typeof launchBrowser>>, prefix: string, editionPath: string,
-  options: {holdData?: boolean; unavailable?: boolean; builtApp?: boolean; illustrations?: 'related' | 'unrelated'; firstConnectionFailure?: 'drop' | 'silent'} = {}) {
+  options: {holdData?: boolean; unavailable?: boolean; builtApp?: boolean; illustrations?: 'named' | 'related' | 'unrelated'; firstConnectionFailure?: 'drop' | 'silent'} = {}) {
   const page = await browser.newPage({viewport: {width: 375, height: 900}});
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -92,6 +92,15 @@ async function openEdition(browser: Awaited<ReturnType<typeof launchBrowser>>, p
   await page.route('**/*', async route => {
     const url = new URL(route.request().url());
     if (options.illustrations && url.hostname === 'fr.wikipedia.org') {
+      if (url.searchParams.has('titles')) {
+        assert.equal(url.searchParams.get('titles'), 'Camille Rivière|Lormont');
+        if (options.illustrations === 'related') return route.abort();
+        return route.fulfill({json: {query: {pages: [
+          {title: 'Unrelated person', pageimage: 'Unrelated.png'},
+          ...(options.illustrations === 'named' ? [{title: 'Camille Rivière', pageimage: 'Illustration.png'}] : []),
+        ]}}});
+      }
+      assert.notEqual(options.illustrations, 'named');
       assert.equal(url.searchParams.get('gsrsearch'), publisherHeadline);
       assert.equal(url.searchParams.get('gsrlimit'), '5');
       return route.fulfill({json: {query: {pages: [
@@ -106,7 +115,7 @@ async function openEdition(browser: Awaited<ReturnType<typeof launchBrowser>>, p
     }
     if (options.illustrations && url.hostname === 'commons.wikimedia.org') {
       if (url.searchParams.has('titles')) {
-        assert.equal(options.illustrations, 'related');
+        assert.notEqual(options.illustrations, 'unrelated');
         assert.equal(url.searchParams.get('titles'), 'File:Illustration.png');
       }
       const pages = url.searchParams.has('titles') ? [{
@@ -235,7 +244,7 @@ test('localized editions preserve original headlines, direction, layout, loading
 test('a localized edition uses its Wikipedia and displays credited Commons illustrations', async () => {
   const browser = await launchBrowser();
   try {
-    const {page} = await openEdition(browser, '/', 'fr', {illustrations: 'related'});
+    const {page} = await openEdition(browser, '/', 'fr', {illustrations: 'named'});
     await page.setViewportSize({width: 1280, height: 1000});
     const image = page.locator('#world-news .wire-thumbnail > a > img');
     await image.waitFor();
@@ -253,6 +262,8 @@ test('a localized edition uses its Wikipedia and displays credited Commons illus
     const provenance = (await page.locator('.source-provenance').boundingBox())!;
     assert.ok(languages.y < notes.y + notes.height && notes.y < languages.y + languages.height);
     assert.ok(provenance.y >= utilities.y + utilities.height - 1);
+    const {page: fallback} = await openEdition(browser, '/', 'fr', {illustrations: 'related'});
+    await fallback.locator('#world-news .wire-thumbnail > a > img').waitFor();
     const {page: noMatch} = await openEdition(browser, '/', 'fr', {illustrations: 'unrelated'});
     await noMatch.locator('#world-news').getByRole('img', {name: french['No reusable image found for this headline.']!}).waitFor();
     assert.equal(await noMatch.locator('#world-news .wire-thumbnail img').count(), 0);
