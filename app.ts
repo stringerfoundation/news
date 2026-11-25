@@ -774,7 +774,7 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
     }
     body.append(meta);
     if (searchId && !commons) {
-      if (search?.error) wireFigure?.append(element('p', search.error, 'warning'));
+      if (search?.error) wireFigure?.append(storyPlaceholder(t('Image unavailable')));
       else if (search?.searched && (search.results.length || trusted)) {
         const message = search.results.length
           ? 'No more suggestions. Undo a skip or search again.'
