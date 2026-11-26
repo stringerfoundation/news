@@ -38,6 +38,7 @@ function applyContentPermissions(snapshot, permissions = CONTENT_PERMISSIONS) {
 }
 const NEWSWIRE_LIMIT = 30;
 const STALE_MS = 2 * 60 * 60 * 1e3;
+const CDN_SNAPSHOT_MAX_AGE_MS = 6 * 60 * 60 * 1e3;
 function safeUrl(value) {
   if (typeof value !== "string") return null;
   try {
@@ -165,6 +166,7 @@ function formatPublicationDate(value, locale = "en-US") {
 }
 export {
   ARTICLE_IMAGE_HOSTS,
+  CDN_SNAPSHOT_MAX_AGE_MS,
   CONTENT_PERMISSIONS,
   NEWSWIRE_LIMIT,
   SOURCES,

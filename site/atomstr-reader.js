@@ -7709,6 +7709,7 @@ var CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(SOURCES.map((source) 
 ])));
 var NEWSWIRE_LIMIT = 30;
 var STALE_MS = 2 * 60 * 60 * 1e3;
+var CDN_SNAPSHOT_MAX_AGE_MS = 6 * 60 * 60 * 1e3;
 function safeUrl(value) {
   if (typeof value !== "string") return null;
   try {

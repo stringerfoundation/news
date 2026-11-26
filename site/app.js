@@ -1695,6 +1695,7 @@ function permittedStories(sourceId, stories, permissions = CONTENT_PERMISSIONS) 
   }));
 }
 var STALE_MS = 2 * 60 * 60 * 1e3;
+var CDN_SNAPSHOT_MAX_AGE_MS = 6 * 60 * 60 * 1e3;
 function safeUrl(value) {
   if (typeof value !== "string") return null;
   try {
@@ -1752,7 +1753,7 @@ var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
 ));
 
 // english-atomstr.ts
-import { articleLink, NEWSWIRE_LIMIT, urlIdentity } from "./news-model.js?v=8e8431a0d78eadf4";
+import { articleLink, NEWSWIRE_LIMIT, urlIdentity } from "./news-model.js?v=95f4c8c6ff9f6283";
 var ENGLISH_ATOMSTR_SOURCES = [
   { id: "aljazeera", name: "Al Jazeera", feeds: [{
     url: "https://www.aljazeera.com/xml/rss/all.xml",
@@ -1802,9 +1803,9 @@ function withEnglishAtomstrFallback(displayed, live, embedded, now = Date.now())
 }
 
 // app.ts
-import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink as articleLink2, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=8e8431a0d78eadf4";
-import relayConfig from "./relay-config.js?v=8e8431a0d78eadf4";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=8e8431a0d78eadf4";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, STALE_MS as STALE_MS2, CDN_SNAPSHOT_MAX_AGE_MS as CDN_SNAPSHOT_MAX_AGE_MS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink as articleLink2, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=95f4c8c6ff9f6283";
+import relayConfig from "./relay-config.js?v=95f4c8c6ff9f6283";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=95f4c8c6ff9f6283";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -2057,7 +2058,7 @@ async function connectNostr() {
       })
     ]).finally(() => clearTimeout(timer));
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=8e8431a0d78eadf4");
+    const identity = await import("./relay-reader.js?v=95f4c8c6ff9f6283");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -2916,6 +2917,21 @@ function render() {
   }
   renderWorld();
 }
+async function loadCdnSnapshot() {
+  try {
+    const response = await fetch(new URL("./data/news.json", import.meta.url), {
+      cache: "default",
+      credentials: "omit",
+      signal: AbortSignal.timeout(15e3)
+    });
+    if (!response.ok) return null;
+    const value = applyContentPermissions(validateSnapshot(JSON.parse(await readResponseText(response))));
+    if (Date.now() - Date.parse(value.generatedAt) > CDN_SNAPSHOT_MAX_AGE_MS2) return null;
+    return value;
+  } catch {
+    return null;
+  }
+}
 async function load() {
   if (localizedEdition) return loadLocalized();
   if (loading) return;
@@ -2929,16 +2945,30 @@ async function load() {
   const loadTimer = setInterval(renderStatuses, 1e3);
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   feedback.textContent = "";
+  let bootstrap;
+  let relaySettled = false;
   try {
     let next;
     if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=8e8431a0d78eadf4");
+      const reader = await import("./relay-reader.js?v=95f4c8c6ff9f6283");
       ImageSessionClass = reader.ImageSession;
       searchImages = reader.searchImages;
       commonsSubject = reader.commonsSubject;
       if (!snapshot) {
         snapshot = reader.cachedRelaySnapshot(relayConfig);
         if (snapshot) render();
+      }
+      if (!snapshot || Date.now() - Date.parse(snapshot.generatedAt) > STALE_MS2) {
+        loadStage = t("Loading news\u2026");
+        renderStatuses();
+        bootstrap = loadCdnSnapshot().then((cdn) => {
+          if (relaySettled || !cdn) return;
+          if (!snapshot || Date.parse(cdn.generatedAt) >= Date.parse(snapshot.generatedAt)) {
+            snapshot = cdn;
+            retainedSources.clear();
+            render();
+          }
+        });
       }
       next = await reader.readRelaySnapshot(relayConfig, (message) => {
         const retry = message.match(/^Received (\d+) published notes\. Retrying (\d+) missing notes…$/);
@@ -2955,23 +2985,27 @@ async function load() {
           else retainedSources.delete(source.id);
         }
         snapshot = partial;
+        relaySettled = true;
         render();
       }, (timings) => {
         feedTimings = timings;
         renderStatuses();
       });
+      relaySettled = true;
     } else {
-      const response = await fetch(new URL("./data/news.json", import.meta.url), { cache: "no-cache", credentials: "omit", signal: AbortSignal.timeout(15e3) });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      next = applyContentPermissions(validateSnapshot(JSON.parse(await readResponseText(response))));
+      const cdn = await loadCdnSnapshot();
+      if (!cdn) throw new Error("HTTP unavailable");
+      next = cdn;
     }
-    if (snapshot && Date.parse(next.generatedAt) < Date.parse(snapshot.generatedAt)) throw new Error("Older snapshot returned");
+    if (snapshot && Date.parse(next.generatedAt) < Date.parse(snapshot.generatedAt))
+      throw new Error("Older snapshot returned");
     retainedSources.clear();
     snapshot = next;
     render();
     loadOutcome = Object.values(next.sources).some((source) => source.unavailable) ? "Partially loaded" : "Loaded";
     feedback.textContent = "";
   } catch (error) {
+    await bootstrap;
     loadOutcome = "Failed";
     console.error("[Stringer reader] Collection refresh failed:", error);
     feedback.textContent = t(snapshot ? "Could not check for updates. Keeping the previously loaded collection." : "The news collection is unavailable. We\u2019ll retry automatically.");
@@ -3010,7 +3044,7 @@ async function loadLocalized() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=8e8431a0d78eadf4");
+    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=95f4c8c6ff9f6283");
     if (!snapshot) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
@@ -3053,7 +3087,7 @@ async function loadLocalized() {
         try {
           let original;
           if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=8e8431a0d78eadf4");
+            const relay = await import("./relay-reader.js?v=95f4c8c6ff9f6283");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
@@ -3103,7 +3137,7 @@ setInterval(() => {
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && Date.now() - lastAttempt >= interval) load();
 });
-if (localizedEdition) void import("./relay-reader.js?v=8e8431a0d78eadf4").then((reader) => {
+if (localizedEdition) void import("./relay-reader.js?v=95f4c8c6ff9f6283").then((reader) => {
   searchImages = reader.searchImages;
   loadSuggestions();
 }, () => suggestionQueue.clear());
