@@ -65,8 +65,14 @@ export function routeFor(request: Request): Route {
     return { kind: 'edition-redirect', location: url.pathname + '/' + url.search };
   if (!url.pathname.startsWith(prefix)) return { kind: 'legacy' };
   const path = url.pathname.slice(prefix.length);
-  return isPublicAsset(path) || path === 'data/news.json'
-    ? { kind: 'asset', path: '/' + path } : { kind: 'missing' };
+  return isPublicAsset(path) ? { kind: 'asset', path: '/' + path } : { kind: 'missing' };
+}
+function assetCacheControl(path: string, requestUrl: string): string | null {
+  if (path === '/data/news.json') return 'public, max-age=60, s-maxage=300';
+  if (/\.(?:js|css)$/.test(path) && new URL(requestUrl).searchParams.has('v'))
+    return 'public, max-age=31536000, immutable';
+  if (/\.(?:png|ico|woff2?)$/.test(path)) return 'public, max-age=86400';
+  return null;
 }
 export default {
   async fetch(request: Request, env: Environment): Promise<Response> {
@@ -138,12 +144,18 @@ export default {
       return new Response('News temporarily unavailable', { status: 502 });
     }
     if (!response.ok) return new Response('News temporarily unavailable', { status: 502 });
-    if (route.kind === 'asset') return response;
+    if (route.kind === 'asset') {
+      const cacheControl = assetCacheControl(route.path, request.url);
+      if (!cacheControl) return response;
+      const headers = new Headers(response.headers);
+      headers.set('cache-control', cacheControl);
+      return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+    }
     if (!response.headers.get('content-type')?.includes('text/html'))
       return new Response('News temporarily unavailable', { status: 502 });
     const headers = new Headers(response.headers);
     for (const name of ['etag', 'content-length', 'content-encoding', 'set-cookie', 'link']) headers.delete(name);
-    headers.set('cache-control', 'no-store');
+    headers.set('cache-control', 'public, max-age=60, s-maxage=60');
     if (route.path === '/') headers.append('vary', languageVary);
     if (explicitEdition && request.method === 'GET') {
       headers.set('set-cookie', `${editionCookie}=${explicitEdition}; Path=/; Max-Age=31536000; Secure; HttpOnly; SameSite=Lax`);

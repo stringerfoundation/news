@@ -4,9 +4,21 @@ Use Node 24+ and install the repository dependencies and Playwright Chromium.
 Build the exact artifact being released, then check the final public homepage:
 
 ```sh
-npm run build
-READER_PUBLIC_URL=https://stringerjournalism.org/ npm run smoke:production
+pnpm run export:snapshot   # refresh data/news.json from relays before release
+pnpm run build
+READER_PUBLIC_URL=https://stringerjournalism.org/ pnpm run smoke:production
 ```
+
+Confirm the CDN snapshot is live and cacheable:
+
+```sh
+curl -sI https://stringerjournalism.org/news-assets/data/news.json
+curl -sI https://stringerjournalism.org/
+```
+
+Expect JSON (not HTML/502) for the snapshot, short shared `cache-control` on
+HTML/`news.json`, and long `immutable` caching on versioned `?v=` assets.
+Redeploy the homepage Worker after changing those headers.
 
 The check compares loaded script/style URL versions with the local
 `_site/index.html`. A later rebuild generates a different version because the

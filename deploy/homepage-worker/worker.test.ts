@@ -29,7 +29,7 @@ test('only the homepage, editions and namespaced reader assets reach Pages', () 
     assert.equal(routeFor(request(path)).kind, 'legacy');
   for (const path of ['/donate', '/donate/']) assert.equal(routeFor(request(path)).kind, 'donate');
   for (const path of ['/who-we-are', '/who-we-are/']) assert.equal(routeFor(request(path)).kind, 'about');
-  for (const path of ['/news-assets/app.js', '/news-assets/response.js', '/news-assets/publications.js', '/news-assets/relay-reader.js', '/news-assets/atomstr-reader.js', '/news-assets/assets/stringer-thumbnails/photo-1.png'])
+  for (const path of ['/news-assets/app.js', '/news-assets/response.js', '/news-assets/publications.js', '/news-assets/relay-reader.js', '/news-assets/atomstr-reader.js', '/news-assets/data/news.json', '/news-assets/assets/stringer-thumbnails/photo-1.png'])
     assert.equal(routeFor(request(path)).kind, 'asset');
   for (const path of ['/news-assets/private.csv', '/news-assets/', '/news-assets/dashboard/index.html', '/news-assets/wire-images.js'])
     assert.equal(routeFor(request(path)).kind, 'missing');
@@ -71,7 +71,10 @@ test('homepage uses browser language order, quality and the configured editions'
     }), environment);
     assert.equal(response.status, path ? 302 : 200, language);
     assert.equal(response.headers.get('location'), path ? path + '?campaign=test&source=fixture' : null, language);
-    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.equal(
+      response.headers.get('cache-control'),
+      path ? 'no-store' : 'public, max-age=60, s-maxage=60',
+    );
     assert.equal(response.headers.get('vary'), 'Accept-Language, Cookie');
     assert.equal(response.headers.get('set-cookie'), null);
   }

@@ -10,7 +10,7 @@ import { refreshSwahiliSource, swahiliPublisher } from './sources/sw.ts';
 import { collectedSwahiliPublishers } from './swahili-publishers.ts';
 import { ATOMSTR_MAX_AGE_MS } from './atomstr-config.ts';
 import { withEnglishAtomstrFallback, type EmbeddedAtomstr } from './english-atomstr.ts';
-import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from './news-model.js';
+import { SOURCES, CONTENT_PERMISSIONS, STALE_MS, applyContentPermissions, safeUrl, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from './news-model.js';
 import relayConfig from './relay-config.js';
 import { STRINGER_MEDIA } from './stringer-media.js';
 function requiredElement<T extends HTMLElement = HTMLElement>(selector: string): T {
@@ -975,6 +975,21 @@ function render() {
   }
   renderWorld();
 }
+async function loadCdnSnapshot(): Promise<Snapshot | null> {
+  try {
+    const response = await fetch(new URL('./data/news.json', import.meta.url), {
+      cache: 'default', credentials: 'omit', signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) return null;
+    return applyContentPermissions(validateSnapshot(JSON.parse(await readResponseText(response))));
+  } catch {
+    return null;
+  }
+}
+function snapshotIsStale(value: Snapshot | null | undefined) {
+  return !value || !Number.isFinite(Date.parse(value.generatedAt)) ||
+    Date.now() - Date.parse(value.generatedAt) > STALE_MS;
+}
 async function load() {
   if (localizedEdition) return loadLocalized();
   if (loading) return;
@@ -998,6 +1013,16 @@ async function load() {
         snapshot = reader.cachedRelaySnapshot(relayConfig);
         if (snapshot) render();
       }
+      // CDN snapshot absorbs cold/spike traffic; relays remain the refresh path.
+      if (snapshotIsStale(snapshot)) {
+        loadStage = t('Loading news…');
+        renderStatuses();
+        const cdn = await loadCdnSnapshot();
+        if (cdn && (!snapshot || Date.parse(cdn.generatedAt) >= Date.parse(snapshot.generatedAt))) {
+          snapshot = cdn;
+          render();
+        }
+      }
       next = await reader.readRelaySnapshot(relayConfig, message => {
         const retry = message.match(/^Received (\d+) published notes\. Retrying (\d+) missing notes…$/);
         loadStage = retry ? t('Received {received} published notes. Retrying {missing} missing notes…', {received: retry[1]!, missing: retry[2]!}) : t(message);
@@ -1020,9 +1045,9 @@ async function load() {
         renderStatuses();
       });
     } else {
-      const response = await fetch(new URL('./data/news.json', import.meta.url), { cache: 'no-cache', credentials: 'omit', signal: AbortSignal.timeout(15000) });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      next = applyContentPermissions(validateSnapshot(JSON.parse(await readResponseText(response))));
+      const cdn = await loadCdnSnapshot();
+      if (!cdn) throw new Error('HTTP unavailable');
+      next = cdn;
     }
     if (snapshot && Date.parse(next.generatedAt) < Date.parse(snapshot.generatedAt)) throw new Error('Older snapshot returned');
     retainedSources.clear();

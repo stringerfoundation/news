@@ -115,7 +115,7 @@ test('homepage rewrites relative navigation and indexing only on the configured 
     assert.equal($('[hreflang="fr"]').attr('href'), '');
     assert.equal($('meta[name="robots"]').length, publicIndex ? 0 : 1);
     assert.equal(response.headers.has('x-robots-tag'), !publicIndex);
-    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.equal(response.headers.get('cache-control'), 'public, max-age=60, s-maxage=60');
     for (const name of ['etag', 'content-length', 'content-encoding', 'set-cookie', 'link'])
       assert.equal(response.headers.get(name), null);
   }
@@ -127,4 +127,18 @@ test('homepage rewrites relative navigation and indexing only on the configured 
   assert.equal(selected.headers.get('set-cookie'), 'stringer_edition=en-US; Path=/; Max-Age=31536000; Secure; HttpOnly; SameSite=Lax');
   const brazil = await worker.fetch(request('/br/?edition=pt-BR'), env);
   assert.match(brazil.headers.get('set-cookie') ?? '', /^stringer_edition=pt-BR;/);
+});
+test('CDN snapshot and versioned assets get shared cache headers', async (t) => {
+  const mock = t.mock.method(globalThis, 'fetch', async () => new Response('{"schemaVersion":2}', {
+    headers: { 'content-type': 'application/json', 'cache-control': 'private' },
+  }));
+  const snapshot = await worker.fetch(request('/news-assets/data/news.json'), env);
+  assert.equal(snapshot.headers.get('cache-control'), 'public, max-age=60, s-maxage=300');
+  mock.mock.mockImplementation(async () => new Response('export {}', {
+    headers: { 'content-type': 'application/javascript' },
+  }));
+  const module = await worker.fetch(request('/news-assets/app.js?v=0123456789abcdef'), env);
+  assert.equal(module.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+  const image = await worker.fetch(request('/news-assets/assets/stringer-logo.png'), env);
+  assert.equal(image.headers.get('cache-control'), 'public, max-age=86400');
 });
