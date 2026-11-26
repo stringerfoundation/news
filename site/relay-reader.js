@@ -7716,6 +7716,8 @@ function permittedStories(sourceId, stories, permissions = CONTENT_PERMISSIONS) 
   const permission = permissions[sourceId];
   if (permission?.text !== true) return [];
   return stories.map((story) => ({
+    ...story.noteId && /^[0-9a-f]{64}$/.test(story.noteId) ? { noteId: story.noteId } : {},
+    ...story.clusterId && /^[0-9a-f]{64}$/.test(story.clusterId) ? { clusterId: story.clusterId } : {},
     title: story.title,
     url: story.url,
     publishedAt: story.publishedAt,
@@ -7937,25 +7939,8 @@ function readCachedCollection(pubkey) {
   }
 }
 
-// relay/images.ts
-var IMAGE_MARKER = "stringer-image-v1";
-var VOTE_MARKER = "stringer-image-vote-v1";
-var hex = (value) => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+// relay/illustration.ts
 var text = (value) => typeof value === "string" && !!value.trim() && value.length <= 2e3;
-var newest = (a, b) => b.created_at - a.created_at || a.id.localeCompare(b.id);
-function root(event2) {
-  const tags = event2.tags.filter((tag) => tag[0] === "e");
-  if (tags.length !== 1 || !hex(tags[0]?.[1]) || tags[0]?.[3] !== "root") throw new Error("Invalid image story reference");
-  return tags[0][1];
-}
-function payload(event2, marker) {
-  const tags = event2.tags.filter((tag) => tag[0] === marker);
-  if (tags.length !== 1 || tags[0]?.length !== 2) throw new Error("Invalid image metadata");
-  const value = JSON.parse(tags[0][1]);
-  if (!value || typeof value !== "object" || Array.isArray(value) || value.version !== 1)
-    throw new Error("Invalid image metadata version");
-  return value;
-}
 function https(value, allowQuery = false) {
   if (typeof value !== "string") throw new Error("Invalid image URL");
   const url = new URL(value);
@@ -8000,6 +7985,25 @@ function readIllustration(data) {
 function readCommonsImage(data) {
   if (data.source !== void 0) throw new Error("Not a Commons image");
   return readIllustration(data);
+}
+
+// relay/images.ts
+var IMAGE_MARKER = "stringer-image-v1";
+var VOTE_MARKER = "stringer-image-vote-v1";
+var hex = (value) => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+var newest = (a, b) => b.created_at - a.created_at || a.id.localeCompare(b.id);
+function root(event2) {
+  const tags = event2.tags.filter((tag) => tag[0] === "e");
+  if (tags.length !== 1 || !hex(tags[0]?.[1]) || tags[0]?.[3] !== "root") throw new Error("Invalid image story reference");
+  return tags[0][1];
+}
+function payload(event2, marker) {
+  const tags = event2.tags.filter((tag) => tag[0] === marker);
+  if (tags.length !== 1 || tags[0]?.length !== 2) throw new Error("Invalid image metadata");
+  const value = JSON.parse(tags[0][1]);
+  if (!value || typeof value !== "object" || Array.isArray(value) || value.version !== 1)
+    throw new Error("Invalid image metadata version");
+  return value;
 }
 function readCandidate(event2, pubkey, refs, discover = false) {
   checkedEvent(event2, pubkey, 1);

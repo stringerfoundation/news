@@ -20,6 +20,8 @@ function permittedStories(sourceId, stories, permissions = CONTENT_PERMISSIONS) 
   const permission = permissions[sourceId];
   if (permission?.text !== true) return [];
   return stories.map((story) => ({
+    ...story.noteId && /^[0-9a-f]{64}$/.test(story.noteId) ? { noteId: story.noteId } : {},
+    ...story.clusterId && /^[0-9a-f]{64}$/.test(story.clusterId) ? { clusterId: story.clusterId } : {},
     title: story.title,
     url: story.url,
     publishedAt: story.publishedAt,

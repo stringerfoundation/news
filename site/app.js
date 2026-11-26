@@ -29,6 +29,378 @@ async function readResponseText(response, limit = MAX_RESPONSE_BYTES) {
   }
 }
 
+// relay/illustration.ts
+var text = (value) => typeof value === "string" && !!value.trim() && value.length <= 2e3;
+function https(value, allowQuery = false) {
+  if (typeof value !== "string") throw new Error("Invalid image URL");
+  const url = new URL(value);
+  if (url.protocol !== "https:" || url.username || url.password || url.port || url.hash || !allowQuery && url.search)
+    throw new Error("Invalid image URL");
+  return url;
+}
+function publicUrl(value) {
+  const url = https(value, true), host = url.hostname.replace(/\.$/, "");
+  if (!host.includes(".") || /[\[\]:]/.test(host) || /^\d+(?:\.\d+)*$/.test(host) || /\.(?:local|localhost|internal|test|invalid|lan|home)$/.test(host)) throw new Error("Invalid public image URL");
+  return url;
+}
+function readIllustration(data) {
+  if (data.version !== 1) throw new Error("Invalid image metadata version");
+  for (const field of ["title", "alt", "creator", "attribution", "license"]) if (!text(data[field])) throw new Error("Missing image attribution");
+  const external = data.source === "openverse" || data.source === "eu";
+  const image = external ? publicUrl(data.url) : https(data.url), page = external ? publicUrl(data.filePage) : https(data.filePage), license = https(data.licenseUrl);
+  if (!external) {
+    if (data.source !== void 0 || !["upload.wikimedia.org", "thumb.wikimedia.org"].includes(image.hostname) || !image.pathname.startsWith("/wikipedia/commons/") || page.hostname !== "commons.wikimedia.org" || !page.pathname.startsWith("/wiki/File:")) throw new Error("Not a Commons image");
+  } else {
+    if (!text(data.sourceName)) throw new Error("Missing image source");
+    const catalog = https(data.sourceUrl);
+    if (data.source === "openverse" && (catalog.hostname !== "api.openverse.org" || !/^\/v1\/images\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/$/.test(catalog.pathname))) throw new Error("Invalid Openverse provenance");
+    if (data.source === "eu" && (catalog.hostname !== "audiovisual.ec.europa.eu" || !/^\/en\/(?:media\/)?photo\/P-\d+(?:~2F|%2F)\d+-\d+$/i.test(catalog.pathname) || page.href !== catalog.href || image.hostname !== "ec.europa.eu" || !image.pathname.startsWith("/avservices/repository/photo/") || data.license !== "CC-BY-4.0")) throw new Error("Invalid EU photo provenance");
+  }
+  const cc = /^(CC-BY|CC-BY-SA)-(1\.0|2\.0|2\.5|3\.0|4\.0)$/.exec(String(data.license));
+  const licensePath = cc ? `/licenses/${cc[1] === "CC-BY" ? "by" : "by-sa"}/${cc[2]}/` : data.license === "CC0-1.0" ? "/publicdomain/zero/1.0/" : data.license === "PDM-1.0" ? "/publicdomain/mark/1.0/" : null;
+  if (license.hostname !== "creativecommons.org" || !licensePath || license.pathname !== licensePath) throw new Error("Unsupported image license");
+  return {
+    version: 1,
+    url: image.href,
+    filePage: page.href,
+    title: data.title,
+    alt: data.alt,
+    creator: data.creator,
+    attribution: data.attribution,
+    license: data.license,
+    licenseUrl: license.href,
+    ...external ? { source: data.source, sourceName: data.sourceName, sourceUrl: data.sourceUrl } : {}
+  };
+}
+function readCommonsImage(data) {
+  if (data.source !== void 0) throw new Error("Not a Commons image");
+  return readIllustration(data);
+}
+
+// relay/commons.ts
+var places = {
+  Saudi: "Saudi Arabia",
+  British: "United Kingdom",
+  French: "France",
+  German: "Germany",
+  American: "United States",
+  Chinese: "China",
+  Indian: "India",
+  Pakistani: "Pakistan",
+  Russian: "Russia",
+  Ukrainian: "Ukraine",
+  Iranian: "Iran",
+  Israeli: "Israel",
+  Palestinian: "Palestine"
+};
+function commonsSubject(title) {
+  const names = [...title.matchAll(/\p{Lu}[\p{L}\p{M}'’.-]*(?:\s+(?:(?:de|del|der|van|von|le)\s+)*\p{Lu}[\p{L}\p{M}'’.-]*)*/gu)].map((match) => match[0].replace(/^(?:Ex-|Former\s+)/, "").split(/\s+(?:Prompt|Prompts|Says|Say|Hits|Warns|Faces|Under|Over|Will|Would|Could|May|Must|As|Has|Have|Is|Are|Was|Were|Sparks|Questions)\b/)[0]);
+  const subject = names.find((name) => !/^(The|A|An)\b/.test(name) && !/^(How|Why|What|After|Before|Flooding|Talks|Deaths|Death|New|Latest|Live|Breaking|Opinion|Analysis|Watch|Photos)$/.test(name));
+  return (places[subject || ""] || subject || title).trim().slice(0, 200);
+}
+function plain(value) {
+  if (typeof value !== "string") return "";
+  return new DOMParser().parseFromString(value, "text/html").body.textContent?.replace(/\s+/g, " ").trim().slice(0, 2e3) || "";
+}
+function namedSubjects(headline) {
+  const namePattern = /(?<![\p{L}\p{M}])\p{Lu}[\p{L}\p{M}'’.-]+(?:\s+(?:(?:de|del|des|du|der|van|von|le)\s+)*\p{Lu}[\p{L}\p{M}'’.-]+)*/gu;
+  const names = [...new Set(Array.from(headline.matchAll(namePattern), ([name]) => name.replace(/[.'’-]+$/, "")))];
+  const phrases = names.filter((name) => name.includes(" "));
+  const singleNames = names.filter((name) => !name.includes(" ") && name.length >= 4);
+  return [...phrases, ...singleNames].slice(0, 5);
+}
+function headlineMentionsSubject(headline, title) {
+  const phrase = (value) => value.normalize("NFC").toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, " ").trim();
+  const subject = phrase(title);
+  const text2 = phrase(headline);
+  return subject.length >= 2 && (/\p{Script=Han}/u.test(subject) ? text2.includes(subject) : ` ${text2} `.includes(` ${subject} `));
+}
+async function wikipediaPages(wiki, params, request, timeout = 8e3) {
+  wiki.search = new URLSearchParams({
+    action: "query",
+    format: "json",
+    formatversion: "2",
+    origin: "*",
+    prop: "pageimages|images",
+    piprop: "name",
+    pilicense: "free",
+    imlimit: "100",
+    ...params
+  }).toString();
+  const response = await request(wiki, { credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(timeout) });
+  if (!response.ok) return [];
+  const data = await response.json();
+  return data.query?.pages ?? [];
+}
+function representativeFiles(pages, query) {
+  return [...new Set(pages.flatMap((page) => {
+    const subject = page.title?.toLocaleLowerCase() || query.toLocaleLowerCase();
+    const maps = (page.images || []).map((image) => image.title || "").filter((title) => title.toLocaleLowerCase().includes(subject) && /map|orthographic|location/i.test(title));
+    return [...page.pageimage ? [`File:${page.pageimage}`] : [], ...maps];
+  }))].slice(0, 4);
+}
+async function representativeImages(query, request, language) {
+  try {
+    const localized = language !== "en";
+    const wiki = new URL("https://en.wikipedia.org/w/api.php");
+    if (/^[a-z]{2,3}$/.test(language)) wiki.hostname = `${language}.wikipedia.org`;
+    const subjects = localized ? namedSubjects(query) : [];
+    let titles = [];
+    if (subjects.length) {
+      const pages = await wikipediaPages(wiki, { titles: subjects.join("|"), redirects: "1" }, request, 2500).catch(() => []);
+      const ordered = subjects.flatMap((subject) => pages.filter((page) => page.title?.toLowerCase() === subject.toLowerCase()));
+      titles = representativeFiles(ordered, query);
+    }
+    if (!titles.length) {
+      const pages = await wikipediaPages(wiki, {
+        generator: "search",
+        gsrnamespace: "0",
+        gsrlimit: localized ? "5" : "1",
+        gsrsearch: query
+      }, request);
+      const matches = localized ? pages.filter((page) => headlineMentionsSubject(query, page.title ?? "")) : pages.slice(0, 1);
+      titles = representativeFiles(matches, query);
+    }
+    if (!titles.length) return [];
+    const commons = new URL("https://commons.wikimedia.org/w/api.php");
+    commons.search = new URLSearchParams({
+      action: "query",
+      format: "json",
+      formatversion: "2",
+      origin: "*",
+      titles: titles.join("|"),
+      prop: "imageinfo",
+      iiprop: "url|extmetadata|mime",
+      iiurlwidth: "320"
+    }).toString();
+    const files = await request(commons, { credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(8e3) });
+    if (!files.ok) return [];
+    const result = await files.json();
+    for (const image of result.query?.pages || []) image.index = titles.findIndex((title) => title.replaceAll("_", " ") === image.title);
+    return readImages(result);
+  } catch {
+    return [];
+  }
+}
+async function searchCommons(query, request = fetch, suggest = false, language = "en", onRepresentative) {
+  if (!query.trim()) throw new Error("Enter a person, place or subject to search for.");
+  const preferred = suggest ? representativeImages(query.trim().slice(0, 200), request, language).then((images2) => {
+    if (images2.length) onRepresentative?.(images2);
+    return images2;
+  }) : Promise.resolve([]);
+  const alternatives = searchCommonsFiles(query, request, suggest).catch(async (error) => {
+    if (!(await preferred).length) throw error;
+    return [];
+  });
+  const [representatives, matches] = await Promise.all([preferred, alternatives]);
+  const images = [...representatives, ...matches];
+  return images.filter((image, index) => images.findIndex((other) => other.filePage === image.filePage) === index).slice(0, 5);
+}
+async function searchCommonsFiles(query, request, suggest) {
+  const url = new URL("https://commons.wikimedia.org/w/api.php");
+  url.search = new URLSearchParams({
+    action: "query",
+    format: "json",
+    formatversion: "2",
+    origin: "*",
+    generator: "search",
+    gsrnamespace: "6",
+    gsrlimit: "10",
+    gsrsearch: `${query.trim().slice(0, 200)} filetype:bitmap`,
+    prop: "imageinfo",
+    iiprop: "url|extmetadata|mime",
+    iiurlwidth: "320"
+  }).toString();
+  const response = await request(url, { credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(12e3) });
+  if (!response.ok) throw new Error("Commons search is unavailable. Please retry.");
+  const data = await response.json();
+  if (data.error) throw new Error("Commons search is unavailable. Please retry.");
+  const normalize = (value) => value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  const words = normalize(query).split(" ");
+  return readImages(data).filter((image) => !suggest || words.every((word) => normalize(`${image.title} ${decodeURIComponent(new URL(image.filePage).pathname)}`).split(" ").includes(word)));
+}
+function readImages(data) {
+  if (data.error) return [];
+  const results = [];
+  for (const page of [...data.query?.pages || []].sort((a, b) => (a.index || 0) - (b.index || 0))) {
+    const info = page.imageinfo?.[0], meta = info?.extmetadata;
+    const rasterThumbnail = info?.mime === "image/svg+xml" && /\.png(?:\?|$)/.test(info.thumburl || "");
+    if (!info || !meta || !/^image\/(jpeg|png|webp)$/.test(info.mime || "") && !rasterThumbnail || plain(meta.Restrictions?.value)) continue;
+    const publicDomain = plain(meta.License?.value) === "pd" && plain(meta.Copyrighted?.value).toLowerCase() === "false" && plain(meta.UsageTerms?.value).toLowerCase() === "public domain";
+    const licenseUrl = (plain(meta.LicenseUrl?.value) || (publicDomain ? "https://creativecommons.org/publicdomain/mark/1.0/" : "")).replace(/^http:/, "https:").replace(/\/deed\.[a-z-]+$/, "/").replace(/\/?$/, "/");
+    const license = /^https:\/\/creativecommons\.org\/licenses\/(by|by-sa)\/(1\.0|2\.0|2\.5|3\.0|4\.0)\/$/.exec(licenseUrl);
+    const identifier = license ? `CC-${license[1].toUpperCase()}-${license[2]}` : licenseUrl === "https://creativecommons.org/publicdomain/zero/1.0/" ? "CC0-1.0" : licenseUrl === "https://creativecommons.org/publicdomain/mark/1.0/" ? "PDM-1.0" : "";
+    try {
+      const title = plain(meta.ObjectName?.value) || (page.title || "").replace(/^File:/, "");
+      const creator = plain(meta.Artist?.value);
+      const imageUrl = new URL(info.thumburl || info.url || "");
+      imageUrl.search = "";
+      imageUrl.hash = "";
+      results.push(readCommonsImage({
+        version: 1,
+        url: imageUrl.href,
+        filePage: info.descriptionurl,
+        title,
+        alt: plain(meta.ImageDescription?.value) || title,
+        creator,
+        attribution: plain(meta.Attribution?.value) || plain(meta.Credit?.value) || creator,
+        license: identifier,
+        licenseUrl
+      }));
+    } catch {
+    }
+    if (results.length >= 5) break;
+  }
+  return results;
+}
+
+// relay/open-images.ts
+var sources = { commons: "Wikimedia Commons", openverse: "Openverse", flickr: "Flickr via Openverse", eu: "EU audiovisual library", wellcome: "Wellcome Collection via Openverse", smithsonian: "Smithsonian via Openverse", europeana: "Europeana via Openverse" };
+var euEndpoint = "https://gfdwwnbuul.execute-api.eu-west-1.amazonaws.com/avsportal/avsportal";
+var searchUnavailable = "Search is unavailable. Please retry.";
+function plain2(value) {
+  if (typeof value !== "string") return "";
+  return new DOMParser().parseFromString(value, "text/html").body.textContent?.replace(/\s+/g, " ").trim().slice(0, 2e3) || "";
+}
+async function json(url, request, timeout = 12e3) {
+  const response = await request(url, { credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(timeout) }).catch(() => {
+    throw new Error(searchUnavailable);
+  });
+  if (!response.ok) throw new Error(response.status === 429 ? "Search limit reached. Please retry later." : searchUnavailable);
+  return response.json().catch(() => {
+    throw new Error(searchUnavailable);
+  });
+}
+async function searchOpenverse(query, request = fetch, provider = false) {
+  const url = new URL("https://api.openverse.org/v1/images/");
+  let filter = provider === true ? "flickr" : provider === "wellcome" ? "wellcome_collection" : provider === "europeana" ? "europeana" : "";
+  if (provider === "smithsonian") {
+    const stats = await json(new URL("https://api.openverse.org/v1/images/stats/"), request);
+    if (!Array.isArray(stats)) throw new Error("Invalid provider response.");
+    filter = stats.map((item) => item.source_name || "").filter((name) => /^smithsonian_[a-z_]+$/.test(name)).join(",");
+    if (!filter) throw new Error("Smithsonian search is unavailable.");
+  }
+  url.search = new URLSearchParams({
+    q: query.trim().slice(0, 200),
+    license: "by,by-sa,cc0,pdm",
+    page_size: "10",
+    mature: "false",
+    ...filter ? { source: filter } : { excluded_source: "wikimedia" }
+  }).toString();
+  const data = await json(url, request, 25e3);
+  if (!Array.isArray(data.results)) throw new Error("Invalid image search response.");
+  const images = [];
+  for (const item of data.results) {
+    if (item.mature || !plain2(item.source) || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(item.id || "") || item.source === "wikimedia" || filter && !filter.split(",").includes(item.source)) continue;
+    const license = item.license === "cc0" ? "CC0-1.0" : item.license === "pdm" ? "PDM-1.0" : ["by", "by-sa"].includes(item.license || "") ? `CC-${item.license.toUpperCase()}-${item.license_version}` : "";
+    try {
+      images.push(readIllustration({
+        version: 1,
+        source: "openverse",
+        sourceName: `${item.source?.startsWith("smithsonian_") ? "Smithsonian" : item.source === "wellcome_collection" ? "Wellcome Collection" : item.source === "europeana" ? "Europeana" : plain2(item.source)} via Openverse`,
+        sourceUrl: `https://api.openverse.org/v1/images/${item.id}/`,
+        url: item.url,
+        filePage: item.foreign_landing_url,
+        title: plain2(item.title),
+        alt: plain2(item.title),
+        creator: plain2(item.creator),
+        attribution: plain2(item.attribution),
+        license,
+        licenseUrl: item.license_url
+      }));
+    } catch {
+    }
+    if (images.length >= 5) break;
+  }
+  return images;
+}
+async function searchEuPhotos(query, request = fetch) {
+  const url = new URL(euEndpoint);
+  url.search = new URLSearchParams({
+    kwgg: query.trim().slice(0, 200),
+    type: "PHOTO",
+    hasMedia: "1",
+    wt: "json",
+    index: "1",
+    pagesize: "10",
+    fl: "ref,type,titles_json,summary_json,copyright_json,cc_by_json,cooperator_json,media_json"
+  }).toString();
+  const data = await json(url, request);
+  if (!Array.isArray(data.response?.docs)) throw new Error("Invalid EU photo search response.");
+  const images = [];
+  for (const item of data.response.docs) {
+    const holders = item.copyright_json?.holders?.EN, terms = item.cc_by_json;
+    if (item.type !== "PHOTO" || !/^P-\d+\/\d+-\d+$/.test(item.ref || "") || !holders?.length || !holders.every((holder) => ["European Union", "European Commission", "Commission of the European Communities"].includes(holder)) || !terms?.length || terms.some((term) => term.cc_by !== "0" || Object.keys(term.titles || {}).length || Object.keys(term.links || {}).length)) continue;
+    const path = item.media_json?.LOW?.PATH || item.media_json?.MED?.PATH;
+    if (!path || !/^\/\d+\/\d+\/\d+\/[\w-]+\.jpg$/.test(path) || !/^\d{4}$/.test(item.copyright_json?.year || "")) continue;
+    const creator = item.cooperator_json?.PHOTOGRAPHER?.EN?.coop?.map(plain2).filter(Boolean).join(", ");
+    if (!creator) continue;
+    const page = `https://audiovisual.ec.europa.eu/en/photo/${item.ref.replace("/", "~2F")}`;
+    const agencies = item.cooperator_json?.AGENCY?.EN?.coop?.map(plain2).filter(Boolean).join(", ");
+    try {
+      images.push(readIllustration({
+        version: 1,
+        source: "eu",
+        sourceName: "European Commission audiovisual library",
+        sourceUrl: page,
+        filePage: page,
+        url: `https://ec.europa.eu/avservices/repository/photo${path}`,
+        title: plain2(item.titles_json?.EN),
+        alt: plain2(item.summary_json?.EN) || plain2(item.titles_json?.EN),
+        creator,
+        attribution: `\xA9 European Union, ${item.copyright_json.year}${agencies ? ` \xB7 ${agencies}` : ""}. Thumbnail display.`,
+        license: "CC-BY-4.0",
+        licenseUrl: "https://creativecommons.org/licenses/by/4.0/"
+      }));
+    } catch {
+    }
+    if (images.length >= 5) break;
+  }
+  return images;
+}
+var cache = /* @__PURE__ */ new Map();
+async function searchImages(query, source = "all", suggest = false, request = fetch, onProgress, language = "en") {
+  if (!query.trim()) throw new Error("Enter a person, place or subject to search for.");
+  const issues = [];
+  const completed = [];
+  const snapshot2 = () => {
+    const images = [];
+    for (const image of completed.flat()) {
+      if (!images.some((other) => other.filePage === image.filePage || other.url === image.url)) images.push(image);
+    }
+    return { images: images.slice(0, 30), issues: [...issues] };
+  };
+  const run = async (id) => {
+    const key = JSON.stringify([id, query.trim(), suggest, language]), cached = cache.get(key);
+    if (request === fetch && cached && cached.until > Date.now()) return cached.images;
+    try {
+      const images = id === "commons" ? await searchCommons(query, request, suggest, language, (images2) => onProgress?.({ images: images2, issues: [...issues] })) : id === "eu" ? await searchEuPhotos(query, request) : await searchOpenverse(query, request, id === "flickr" ? true : ["wellcome", "smithsonian", "europeana"].includes(id) ? id : false);
+      if (request === fetch) {
+        if (cache.size >= 200) cache.delete(cache.keys().next().value);
+        cache.set(key, { until: Date.now() + 10 * 60 * 1e3, images });
+      }
+      return images;
+    } catch (error) {
+      issues.push(`${sources[id]}: ${error instanceof Error ? error.message : searchUnavailable}`);
+      return [];
+    }
+  };
+  const load2 = async (id) => {
+    completed.push(await run(id));
+    onProgress?.(snapshot2());
+  };
+  if (source !== "all") {
+    await load2(source);
+    return snapshot2();
+  }
+  if (suggest) {
+    await load2("commons");
+    if (snapshot2().images.length) return snapshot2();
+  }
+  await Promise.all((suggest ? ["openverse", "eu"] : ["commons", "openverse", "eu", "wellcome", "smithsonian", "europeana"]).map(load2));
+  return snapshot2();
+}
+
 // locales/fr.ts
 var french = {
   "Headlines from publishers in this language.": "Titres de m\xE9dias francophones.",
@@ -1685,6 +2057,8 @@ function permittedStories(sourceId, stories, permissions = CONTENT_PERMISSIONS) 
   const permission = permissions[sourceId];
   if (permission?.text !== true) return [];
   return stories.map((story) => ({
+    ...story.noteId && /^[0-9a-f]{64}$/.test(story.noteId) ? { noteId: story.noteId } : {},
+    ...story.clusterId && /^[0-9a-f]{64}$/.test(story.clusterId) ? { clusterId: story.clusterId } : {},
     title: story.title,
     url: story.url,
     publishedAt: story.publishedAt,
@@ -1753,7 +2127,7 @@ var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
 ));
 
 // english-atomstr.ts
-import { articleLink, NEWSWIRE_LIMIT, urlIdentity } from "./news-model.js?v=53722d746c2c4711";
+import { articleLink, NEWSWIRE_LIMIT, urlIdentity } from "./news-model.js?v=53a8e23513259759";
 var ENGLISH_ATOMSTR_SOURCES = [
   { id: "aljazeera", name: "Al Jazeera", feeds: [{
     url: "https://www.aljazeera.com/xml/rss/all.xml",
@@ -1771,7 +2145,7 @@ function fallbackArticleIdentity(value) {
   return dwArticle ? `dw:${dwArticle[1]}` : urlIdentity(url.href);
 }
 function withEnglishAtomstrFallback(displayed, live, embedded, now = Date.now()) {
-  const sources = { ...displayed };
+  const sources2 = { ...displayed };
   for (const { id } of ENGLISH_ATOMSTR_SOURCES) {
     const cached = embedded[id];
     const collected = Date.parse(cached?.lastSuccessAt ?? "");
@@ -1794,18 +2168,18 @@ function withEnglishAtomstrFallback(displayed, live, embedded, now = Date.now())
       if (additions.length >= limit) break;
     }
     if (!additions.length) continue;
-    sources[id] = {
+    sources2[id] = {
       ...displayed[id] ?? { status: "failure", error: "Primary feed unavailable", attemptedAt: new Date(now).toISOString(), lastSuccessAt: null },
       stories: [...previous, ...additions]
     };
   }
-  return sources;
+  return sources2;
 }
 
 // app.ts
-import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, STALE_MS as STALE_MS2, CDN_SNAPSHOT_MAX_AGE_MS as CDN_SNAPSHOT_MAX_AGE_MS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink as articleLink2, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=53722d746c2c4711";
-import relayConfig from "./relay-config.js?v=53722d746c2c4711";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=53722d746c2c4711";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, STALE_MS as STALE_MS2, CDN_SNAPSHOT_MAX_AGE_MS as CDN_SNAPSHOT_MAX_AGE_MS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink as articleLink2, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=53a8e23513259759";
+import relayConfig from "./relay-config.js?v=53a8e23513259759";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=53a8e23513259759";
 function requiredElement(selector) {
   const node = document.querySelector(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -1917,8 +2291,8 @@ var loadOutcome = "";
 var loadStage = "";
 var feedTimings = {};
 var ImageSessionClass = null;
-var searchImages = null;
-var commonsSubject;
+var searchImages2 = null;
+var commonsSubject2 = commonsSubject;
 var commonsSearches = /* @__PURE__ */ new Map();
 var suggestionQueue = /* @__PURE__ */ new Set();
 var activeSuggestions = 0;
@@ -1931,8 +2305,8 @@ var suggestionObserver = new IntersectionObserver((entries) => {
   loadSuggestions();
 }, { rootMargin: "100px" });
 function loadSuggestions() {
-  if (localizedEdition) {
-    if (!searchImages) return;
+  if (localizedEdition || publishedReader) {
+    if (!searchImages2) return;
   } else if (!imageSession) {
     suggestionQueue.clear();
     return;
@@ -1941,7 +2315,7 @@ function loadSuggestions() {
     if (activeSuggestions >= 2) break;
     suggestionQueue.delete(id);
     const state = commonsSearches.get(id);
-    if (!state || state.loading || state.searched || !localizedEdition && !imageSession?.refs[id]) continue;
+    if (!state || state.loading || state.searched || !localizedEdition && !publishedReader && !imageSession?.refs[id]) continue;
     activeSuggestions++;
     void findCommons(id, state.query, true).finally(() => {
       activeSuggestions--;
@@ -2021,6 +2395,7 @@ async function castImageVote(storyId, candidateId, remember = true) {
 }
 var imageToolbar = element("div", "", "image-toolbar");
 var imageEditor = new URLSearchParams(location.search).get("edit-images") === "1";
+var publishedReader = relayConfig.publishedReader && (!imageEditor || localizedEdition);
 imageToolbar.hidden = true;
 requiredElement(".footer-notes").append(imageToolbar);
 function syncImages() {
@@ -2058,7 +2433,7 @@ async function connectNostr() {
       })
     ]).finally(() => clearTimeout(timer));
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=53722d746c2c4711");
+    const identity = await import("./relay-reader.js?v=53a8e23513259759");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -2196,13 +2571,13 @@ function openCredits(credits, includeSources = false) {
   creditEmpty.hidden = credits.length > 0;
   creditBody.replaceChildren(creditEmpty, ...credits.map(creditEntry));
   if (includeSources) {
-    const sources = element("section", "", "image-credit-entry");
-    sources.append(
+    const sources2 = element("section", "", "image-credit-entry");
+    sources2.append(
       element("h3", t("Story sources")),
       element("p", t("English newswire headlines come from publisher RSS feeds and are delivered over Nostr. Most other language editions use third-party Atomstr mirrors. The Kiswahili edition uses publisher RSS and Atom feeds.")),
       element("p", t("Courageous Stories comes from Stringer\u2019s curated collection of reporting. Each headline links to the original story."))
     );
-    creditBody.prepend(sources, element("h3", t("Image credits"), "credits-section-title"));
+    creditBody.prepend(sources2, element("h3", t("Image credits"), "credits-section-title"));
   }
   creditDialog.showModal();
   creditBody.scrollTop = 0;
@@ -2238,7 +2613,7 @@ function thumbnailCredit(imageCredit) {
 }
 function prepareImageSearch(storyId, title) {
   if (!commonsSearches.has(storyId)) {
-    commonsSearches.set(storyId, { query: localizedEdition ? title.trim().slice(0, 200) : commonsSubject(title), source: localizedEdition ? "commons" : "all", issues: [], loading: false, results: [], error: "", searched: false });
+    commonsSearches.set(storyId, { query: localizedEdition ? title.trim().slice(0, 200) : commonsSubject2(title), source: localizedEdition ? "commons" : "all", issues: [], loading: false, results: [], error: "", searched: false });
   }
 }
 function imageReview(storyId, title) {
@@ -2325,8 +2700,8 @@ function imageReview(storyId, title) {
     const sourceSelect = element("select");
     sourceSelect.setAttribute("aria-label", "Image source");
     sourceSelect.dataset.imageAction = `${storyId}:source`;
-    for (const [value, text] of [["all", "All sources"], ["commons", "Wikimedia Commons"], ["openverse", "Openverse"], ["flickr", "Flickr via Openverse"], ["eu", "EU audiovisual library"], ["wellcome", "Wellcome Collection via Openverse"], ["smithsonian", "Smithsonian via Openverse"], ["europeana", "Europeana via Openverse"]]) {
-      const option = element("option", text);
+    for (const [value, text2] of [["all", "All sources"], ["commons", "Wikimedia Commons"], ["openverse", "Openverse"], ["flickr", "Flickr via Openverse"], ["eu", "EU audiovisual library"], ["wellcome", "Wellcome Collection via Openverse"], ["smithsonian", "Smithsonian via Openverse"], ["europeana", "Europeana via Openverse"]]) {
+      const option = element("option", text2);
       option.value = value;
       sourceSelect.append(option);
     }
@@ -2444,13 +2819,13 @@ function imageControls(storyId, title, image) {
   return controls;
 }
 async function findCommons(storyId, query, suggest = false) {
-  if (!searchImages || commonsSearches.get(storyId)?.loading) return;
+  if (!searchImages2 || commonsSearches.get(storyId)?.loading) return;
   const state = commonsSearches.get(storyId) || { query, source: "all", issues: [], loading: false, results: [], error: "", searched: false };
   Object.assign(state, { query, loading: true, results: state.query === query ? state.results : [], error: "", issues: [], searched: false });
   commonsSearches.set(storyId, state);
   renderWorld();
   try {
-    const result = await searchImages(query, state.source, suggest, fetch, (partial) => {
+    const result = await searchImages2(query, state.source, suggest, fetch, (partial) => {
       if (partial.images.length) state.results = partial.images;
       state.issues = partial.issues;
       renderWorld();
@@ -2490,9 +2865,9 @@ function shuffledStringerStories(stories) {
   for (const url of unseen) stringerOrder.set(url, stringerOrder.size);
   return [...stories].sort((a, b) => stringerOrder.get(a.url) - stringerOrder.get(b.url));
 }
-function element(tag, text, className) {
+function element(tag, text2, className) {
   const node = document.createElement(tag);
-  if (text) node.textContent = text;
+  if (text2) node.textContent = text2;
   if (className) node.className = className;
   return node;
 }
@@ -2536,14 +2911,15 @@ function renderStories(target, stories, emptyMessage) {
     const approvedMedia = usePlaceholder ? STRINGER_MEDIA.get(url) : null;
     const localImage = CONTENT_PERMISSIONS2.stringer.images && approvedMedia?.image ? locale !== "en-US" ? new URL(approvedMedia.image, import.meta.url).href : approvedMedia.image : null;
     const imageStoryId = wire && !localizedEdition ? story.noteId : void 0;
-    const searchId = wire && localizedEdition ? url : imageStoryId;
+    const searchId = wire && (localizedEdition || publishedReader) ? url : imageStoryId;
     const selection = imageStoryId ? imageSession?.selection(imageStoryId) : null;
     if (searchId) prepareImageSearch(searchId, story.title);
     const search = searchId ? commonsSearches.get(searchId) : void 0;
-    const commons = imageStoryId ? imageOptions(imageStoryId).find((image) => !skippedImages.get(choiceKey(imageStoryId))?.includes(image.filePage)) : search?.results[0];
+    const publishedImage = imageStoryId && publishedReader ? snapshot?.illustrations?.[imageStoryId] : void 0;
+    const commons = publishedImage ?? (imageStoryId && !publishedReader ? imageOptions(imageStoryId).find((image) => !skippedImages.get(choiceKey(imageStoryId))?.includes(image.filePage)) : search?.results[0]);
     const imageData = wire ? commons : story.image;
     const imageUrl = wire ? commons?.url : safeImageUrl(imageData?.url) || localImage;
-    const suggested = !!commons && commons.filePage !== selection?.winner?.filePage;
+    const suggested = !!commons && !publishedImage && commons.filePage !== selection?.winner?.filePage;
     const key = JSON.stringify([
       story,
       commons && imageCreditKey(commons),
@@ -2824,8 +3200,8 @@ function renderStatuses() {
   if (displayed) for (const group of ["world", "stringer"]) {
     const target = requiredElement(`#${group}-status`);
     target.replaceChildren();
-    const sources = group === "stringer" ? SOURCES2.filter((s) => s.id === "stringer") : publisherSources.filter((s) => !disabledSources.has(s.id));
-    for (const source of sources) {
+    const sources2 = group === "stringer" ? SOURCES2.filter((s) => s.id === "stringer") : publisherSources.filter((s) => !disabledSources.has(s.id));
+    for (const source of sources2) {
       const entry = snapshot.sources[source.id];
       if (entry.status === "paused") continue;
       if (collectedSwahiliPublishers.some((publisher) => publisher.id === source.id) && entry.lastSuccessAt)
@@ -2920,13 +3296,20 @@ function render() {
 async function loadCdnSnapshot() {
   try {
     const response = await fetch(new URL("./data/news.json", import.meta.url), {
-      cache: "default",
+      cache: "no-cache",
       credentials: "omit",
       signal: AbortSignal.timeout(15e3)
     });
     if (!response.ok) return null;
     const value = applyContentPermissions(validateSnapshot(JSON.parse(await readResponseText(response))));
     if (Date.now() - Date.parse(value.generatedAt) > CDN_SNAPSHOT_MAX_AGE_MS2) return null;
+    for (const [id, image] of Object.entries(value.illustrations ?? {})) {
+      try {
+        value.illustrations[id] = readIllustration({ ...image });
+      } catch {
+        delete value.illustrations[id];
+      }
+    }
     return value;
   } catch {
     return null;
@@ -2949,11 +3332,11 @@ async function load() {
   let relaySettled = false;
   try {
     let next;
-    if (relayConfig.enabled) {
-      const reader = await import("./relay-reader.js?v=53722d746c2c4711");
+    if (relayConfig.enabled && !publishedReader) {
+      const reader = await import("./relay-reader.js?v=53a8e23513259759");
       ImageSessionClass = reader.ImageSession;
-      searchImages = reader.searchImages;
-      commonsSubject = reader.commonsSubject;
+      searchImages2 = reader.searchImages;
+      commonsSubject2 = reader.commonsSubject;
       if (!snapshot) {
         snapshot = reader.cachedRelaySnapshot(relayConfig);
         if (snapshot) render();
@@ -3010,8 +3393,8 @@ async function load() {
     console.error("[Stringer reader] Collection refresh failed:", error);
     feedback.textContent = t(snapshot ? "Could not check for updates. Keeping the previously loaded collection." : "The news collection is unavailable. We\u2019ll retry automatically.");
     if (!snapshot) {
-      const sources = withEnglishAtomstrFallback({}, {}, embeddedAtomstr);
-      const stories = worldStories({ sources }, Object.keys(sources), publisherSources);
+      const sources2 = withEnglishAtomstrFallback({}, {}, embeddedAtomstr);
+      const stories = worldStories({ sources: sources2 }, Object.keys(sources2), publisherSources);
       renderStories(requiredElement("#world-news"), stories, "");
       updateStoryVisibility();
       requiredElement("#world-status").textContent = stories.length ? "Live headlines unavailable. Showing cached headlines." : t("Headlines unavailable.");
@@ -3032,6 +3415,26 @@ async function load() {
     else renderStatuses();
   }
 }
+async function refreshPublishedHeadlines() {
+  try {
+    const path = EDITIONS.find((edition) => edition.locale === locale).path;
+    const response = await fetch(new URL(`./${path}/headlines.json`, import.meta.url), {
+      cache: "no-cache",
+      credentials: "omit",
+      signal: AbortSignal.timeout(15e3)
+    });
+    if (!response.ok) throw new Error("Published headlines unavailable");
+    const data = JSON.parse(await readResponseText(response));
+    if (!(Date.parse(data.generatedAt) >= Date.now() - CDN_SNAPSHOT_MAX_AGE_MS2)) throw new Error("Expired edition");
+    for (const { id } of publisherSources) {
+      const next = data.sources[id];
+      const previous = snapshot.sources[id];
+      snapshot.sources[id] = next && (next.status === "success" || next.stories.length) ? next : { ...previous, status: "failure" };
+    }
+  } catch {
+    for (const { id } of publisherSources) snapshot.sources[id].status = "failure";
+  }
+}
 async function loadLocalized() {
   if (loading) return;
   loading = true;
@@ -3044,28 +3447,28 @@ async function loadLocalized() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = swahiliEdition ? null : await import("./atomstr-reader.js?v=53722d746c2c4711");
+    const reader = swahiliEdition || publishedReader ? null : await import("./atomstr-reader.js?v=53a8e23513259759");
     if (!snapshot) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
-      const sources = reader ? reader.cachedAtomstrSources(mirrorSources) : { [swahiliPublisher.id]: initialSource };
-      for (const source of Object.values(sources)) source.status = "loading";
+      const sources2 = reader ? reader.cachedAtomstrSources(mirrorSources) : Object.fromEntries(publisherSources.map((source) => [source.id, { ...initialSource }]));
+      for (const source of Object.values(sources2)) source.status = "loading";
       if (swahiliEdition) {
         const data = document.querySelector("#swahili-headlines");
         const collected = JSON.parse(data?.textContent || "{}");
         for (const source of collectedSwahiliPublishers) {
-          sources[source.id] = collected[source.id] ?? { ...initialSource, status: "failure", error: "Publisher feed unavailable" };
+          sources2[source.id] = collected[source.id] ?? { ...initialSource, status: "failure", error: "Publisher feed unavailable" };
         }
       } else {
         const cutoff = Date.now() - ATOMSTR_MAX_AGE_MS;
-        for (const [id, cached] of Object.entries(sources)) {
+        for (const [id, cached] of Object.entries(sources2)) {
           const entry = embeddedAtomstr[id];
           if (!entry?.lastSuccessAt || entry.lastSuccessAt <= (cached.lastSuccessAt ?? "")) continue;
           const stories = entry.stories.filter((story) => Date.parse(story.publishedAt ?? "") >= cutoff);
-          if (stories.length) sources[id] = { ...cached, stories, lastSuccessAt: entry.lastSuccessAt };
+          if (stories.length) sources2[id] = { ...cached, stories, lastSuccessAt: entry.lastSuccessAt };
         }
       }
-      snapshot = { schemaVersion: 2, generatedAt: now, sources: { ...sources, stringer: initialSource } };
+      snapshot = { schemaVersion: 2, generatedAt: now, sources: { ...sources2, stringer: initialSource } };
       renderWorld();
       render();
     }
@@ -3076,7 +3479,7 @@ async function loadLocalized() {
       }, 150);
     };
     await Promise.allSettled([
-      reader ? reader.readAtomstrSources({ sources: mirrorSources, previous: snapshot.sources, onUpdate(id, entry) {
+      publishedReader ? refreshPublishedHeadlines() : reader ? reader.readAtomstrSources({ sources: mirrorSources, previous: snapshot.sources, onUpdate(id, entry) {
         snapshot.sources[id] = entry;
         queueDraw();
       } }) : refreshSwahiliSource(snapshot.sources[swahiliPublisher.id]).then((entry) => {
@@ -3086,14 +3489,18 @@ async function loadLocalized() {
       (async () => {
         try {
           let original;
-          if (relayConfig.enabled) {
-            const relay = await import("./relay-reader.js?v=53722d746c2c4711");
+          if (relayConfig.enabled && !publishedReader) {
+            const relay = await import("./relay-reader.js?v=53a8e23513259759");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
               render();
             }
             original = await relay.readRelaySnapshot(relayConfig);
+          } else if (publishedReader) {
+            const published = await loadCdnSnapshot();
+            if (!published) throw new Error("Unavailable collection");
+            original = published;
           } else {
             const response = await fetch(new URL("./data/news.json", import.meta.url), { cache: "no-cache", credentials: "omit", signal: AbortSignal.timeout(15e3) });
             if (!response.ok) throw new Error("Unavailable collection");
@@ -3137,8 +3544,9 @@ setInterval(() => {
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && Date.now() - lastAttempt >= interval) load();
 });
-if (localizedEdition) void import("./relay-reader.js?v=53722d746c2c4711").then((reader) => {
-  searchImages = reader.searchImages;
+if (publishedReader) searchImages2 = searchImages;
+else if (localizedEdition) void import("./relay-reader.js?v=53a8e23513259759").then((reader) => {
+  searchImages2 = reader.searchImages;
   loadSuggestions();
 }, () => suggestionQueue.clear());
 if (initialStringerCount) {
