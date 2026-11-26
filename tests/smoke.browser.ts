@@ -128,26 +128,26 @@ test('runner reads the approved artifact or explicit monitor version and closes 
   assert.equal(closed, true);
 });
 
-test('monitor accepts the actual reader UI with a synthetic relay collection', async () => {
+test('monitor accepts the actual reader UI from the published snapshot with relays unavailable', async () => {
   const time = new Date().toISOString();
   const snapshot = { schemaVersion: 2, generatedAt: time,
     sources: Object.fromEntries(SOURCES.map(source => [source.id, {
       attemptedAt: time, lastSuccessAt: time, status: 'success', error: null,
       stories: [{ title: `Synthetic ${source.id}`, url: `https://example.org/${source.id}`,
-        summary: '', publishedAt: time, image: null }],
+        summary: 'Synthetic reporting', credits: 'Synthetic author', publishedAt: time, image: null }],
     }])) };
+  const sockets: string[] = [];
   const target = {
     async newContext(settings?: BrowserContextOptions) {
       const context = await browser.newContext(settings);
+      await context.routeWebSocket('**/*', socket => { sockets.push(socket.url()); socket.close(); });
       await context.route('**/*', async route => {
         const url = new URL(route.request().url());
         if (url.hostname !== 'smoke.test') return route.abort();
         const name = url.pathname.slice('/news/'.length) || 'index.html';
         let body, contentType = 'text/javascript';
-        if (name === 'relay-config.js') body = 'export default {enabled: true};';
-        else if (name === 'relay-reader.js') body = `export const cachedRelaySnapshot = () => null;
-          export const readRelaySnapshot = async () => (${JSON.stringify(snapshot)});`;
-        else if (['index.html', 'app.js', 'news-model.js', 'stringer-media.js', 'response.js', 'publications.js', 'style.css'].includes(name)) {
+        if (name === 'data/news.json') return route.fulfill({json: snapshot});
+        if (['relay-config.js', 'relay-reader.js', 'index.html', 'app.js', 'news-model.js', 'stringer-media.js', 'response.js', 'publications.js', 'style.css'].includes(name)) {
           body = (await readFile(new URL('../_site/' + name, import.meta.url), 'utf8')).replace(
             /(["'])\.\/([a-zA-Z0-9-]+\.(?:js|css))(?:\?[^"']*)?\1/g,
             (_, quote, asset) => `${quote}./${asset}?v=${version}${quote}`);
@@ -160,6 +160,7 @@ test('monitor accepts the actual reader UI with a synthetic relay collection', a
     },
   };
   const results = await checkHomepage(target, 'https://smoke.test/news/', version);
+  assert.deepEqual(sockets, []);
   for (const result of results) {
     assert.equal(result.headlines, 5);
     assert.equal(result.stories, 1);

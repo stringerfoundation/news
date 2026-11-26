@@ -59,5 +59,6 @@ for (const file of versioned.filter(file => /\.(html|js)$/.test(file))) {
 // Edition pages share the exact versioned modules and commit-linked build stamp.
 for (const {path, locale} of EDITIONS.filter(edition => edition.path)) {
   await mkdir(`_site/${path}`, {recursive: true});
+  await writeFile(`_site/${path}/headlines.json`, JSON.stringify({generatedAt: builtAt, sources: {}}));
   await writeFile(`_site/${path}/index.html`, localizedReaderHtml(await readFile('_site/index.html', 'utf8'), locale));
 }

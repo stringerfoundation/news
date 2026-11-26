@@ -1,10 +1,13 @@
 import { readResponseText } from './response.js';
 import type { SourceState, Snapshot } from './relay/types.js';
-import type { CommonsImage, ImageSession } from './relay/images.js';
+import { commonsSubject as headlineSubject } from './relay/commons.ts';
+import { readIllustration, type CommonsImage } from './relay/illustration.js';
+import type { ImageSession } from './relay/images.js';
+import { searchImages as searchPublishedImages } from './relay/open-images.js';
 import type { ImageSource } from './relay/open-images.js';
 import type { DisplayStory } from './news-model.js';
 import type { FeedLoadTiming } from './relay/reader.js';
-import { localeForLanguage, translator } from './reader-locales.ts';
+import { EDITIONS, localeForLanguage, translator } from './reader-locales.ts';
 import { sourcesForLocale } from './edition-sources.ts';
 import { refreshSwahiliSource, swahiliPublisher } from './sources/sw.ts';
 import { collectedSwahiliPublishers } from './swahili-publishers.ts';
@@ -116,7 +119,7 @@ let loadStage = '';
 let feedTimings: Record<string, FeedLoadTiming> = {};
 let ImageSessionClass: typeof ImageSession | null = null;
 let searchImages: typeof import('./relay/open-images.js').searchImages | null = null;
-let commonsSubject: typeof import('./relay/commons.js').commonsSubject;
+let commonsSubject = headlineSubject;
 interface CommonsSearch { query: string; source: ImageSource; issues: string[]; loading: boolean; results: CommonsImage[]; error: string; searched: boolean }
 const commonsSearches = new Map<string, CommonsSearch>();
 const suggestionQueue = new Set<string>();
@@ -130,14 +133,14 @@ const suggestionObserver = new IntersectionObserver(entries => {
   loadSuggestions();
 }, { rootMargin: '100px' });
 function loadSuggestions() {
-  if (localizedEdition) {
+  if (localizedEdition || publishedReader) {
     if (!searchImages) return;
   } else if (!imageSession) { suggestionQueue.clear(); return; }
   for (const id of suggestionQueue) {
     if (activeSuggestions >= 2) break;
     suggestionQueue.delete(id);
     const state = commonsSearches.get(id);
-    if (!state || state.loading || state.searched || (!localizedEdition && !imageSession?.refs[id])) continue;
+    if (!state || state.loading || state.searched || (!localizedEdition && !publishedReader && !imageSession?.refs[id])) continue;
     activeSuggestions++;
     void findCommons(id, state.query, true).finally(() => { activeSuggestions--; loadSuggestions(); });
   }
@@ -206,6 +209,7 @@ async function castImageVote(storyId: string, candidateId: string | null, rememb
 }
 const imageToolbar = element('div', '', 'image-toolbar');
 const imageEditor = new URLSearchParams(location.search).get('edit-images') === '1';
+const publishedReader = relayConfig.publishedReader && (!imageEditor || localizedEdition);
 imageToolbar.hidden = true;
 requiredElement('.footer-notes').append(imageToolbar);
 function syncImages() {
@@ -626,16 +630,17 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
       : null;
     // Publisher photos stay hidden, regardless of URL parameters or stored metadata.
     const imageStoryId = wire && !localizedEdition ? story.noteId : undefined;
-    const searchId = wire && localizedEdition ? url : imageStoryId;
+    const searchId = wire && (localizedEdition || publishedReader) ? url : imageStoryId;
     const selection = imageStoryId ? imageSession?.selection(imageStoryId) : null;
     if (searchId) prepareImageSearch(searchId, story.title);
     const search = searchId ? commonsSearches.get(searchId) : undefined;
-    const commons = imageStoryId
+    const publishedImage = imageStoryId && publishedReader ? snapshot?.illustrations?.[imageStoryId] : undefined;
+    const commons = publishedImage ?? (imageStoryId && !publishedReader
       ? imageOptions(imageStoryId).find(image => !skippedImages.get(choiceKey(imageStoryId))?.includes(image.filePage))
-      : search?.results[0];
+      : search?.results[0]);
     const imageData = wire ? commons : story.image;
     const imageUrl = wire ? commons?.url : safeImageUrl(imageData?.url) || localImage;
-    const suggested = !!commons && commons.filePage !== selection?.winner?.filePage;
+    const suggested = !!commons && !publishedImage && commons.filePage !== selection?.winner?.filePage;
     const key = JSON.stringify([story, commons && imageCreditKey(commons), !!(imageStoryId && trusted),
       commons ? null : [search?.error, search?.searched, !!search?.results.length]]);
     const controls = imageStoryId && trusted ? JSON.stringify([
@@ -978,11 +983,15 @@ function render() {
 async function loadCdnSnapshot(): Promise<Snapshot | null> {
   try {
     const response = await fetch(new URL('./data/news.json', import.meta.url), {
-      cache: 'default', credentials: 'omit', signal: AbortSignal.timeout(15000),
+      cache: 'no-cache', credentials: 'omit', signal: AbortSignal.timeout(15000),
     });
     if (!response.ok) return null;
     const value = applyContentPermissions(validateSnapshot(JSON.parse(await readResponseText(response))));
     if (Date.now() - Date.parse(value.generatedAt) > CDN_SNAPSHOT_MAX_AGE_MS) return null;
+    for (const [id, image] of Object.entries(value.illustrations ?? {})) {
+      try { value.illustrations![id] = readIllustration({...image}); }
+      catch { delete value.illustrations![id]; }
+    }
     return value;
   } catch {
     return null;
@@ -1005,7 +1014,7 @@ async function load() {
   let relaySettled = false;
   try {
     let next;
-    if (relayConfig.enabled) {
+    if (relayConfig.enabled && !publishedReader) {
       const reader = await import('./relay-reader.js');
       ImageSessionClass = reader.ImageSession;
       searchImages = reader.searchImages;
@@ -1088,6 +1097,24 @@ async function load() {
     if (snapshot) render(); else renderStatuses();
   }
 }
+async function refreshPublishedHeadlines() {
+  try {
+    const path = EDITIONS.find(edition => edition.locale === locale)!.path;
+    const response = await fetch(new URL(`./${path}/headlines.json`, import.meta.url), {
+      cache: 'no-cache', credentials: 'omit', signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) throw new Error('Published headlines unavailable');
+    const data = JSON.parse(await readResponseText(response)) as Pick<Snapshot, 'generatedAt' | 'sources'>;
+    if (!(Date.parse(data.generatedAt) >= Date.now() - CDN_SNAPSHOT_MAX_AGE_MS)) throw new Error('Expired edition');
+    for (const {id} of publisherSources) {
+      const next = data.sources[id];
+      const previous = snapshot!.sources[id]!;
+      snapshot!.sources[id] = next && (next.status === 'success' || next.stories.length) ? next : {...previous, status: 'failure'};
+    }
+  } catch {
+    for (const {id} of publisherSources) snapshot!.sources[id]!.status = 'failure';
+  }
+}
 async function loadLocalized() {
   if (loading) return;
   loading = true; lastAttempt = Date.now();
@@ -1099,11 +1126,12 @@ async function loadLocalized() {
   document.querySelectorAll('.story-list').forEach(list => list.setAttribute('aria-busy', 'true'));
   let redraw: ReturnType<typeof setTimeout> | undefined;
   try {
-    const reader = swahiliEdition ? null : await import('./atomstr-reader.js');
+    const reader = swahiliEdition || publishedReader ? null : await import('./atomstr-reader.js');
     if (!snapshot) {
       const now = new Date().toISOString();
       const initialSource: SourceState = {stories: [], status: 'loading', lastSuccessAt: null, attemptedAt: now, error: null};
-      const sources: Record<string, SourceState> = reader ? reader.cachedAtomstrSources(mirrorSources) : {[swahiliPublisher.id]: initialSource};
+      const sources: Record<string, SourceState> = reader ? reader.cachedAtomstrSources(mirrorSources) :
+        Object.fromEntries(publisherSources.map(source => [source.id, {...initialSource}]));
       for (const source of Object.values(sources)) source.status = 'loading';
       if (swahiliEdition) {
         const data = document.querySelector<HTMLScriptElement>('#swahili-headlines');
@@ -1128,7 +1156,8 @@ async function loadLocalized() {
       if (!redraw) redraw = setTimeout(() => { redraw = undefined; renderWorld(); }, 150);
     };
     await Promise.allSettled([
-      reader
+      publishedReader ? refreshPublishedHeadlines()
+        : reader
         ? reader.readAtomstrSources({sources: mirrorSources, previous: snapshot.sources, onUpdate(id, entry) {
           snapshot!.sources[id] = entry; queueDraw();
         }})
@@ -1139,11 +1168,15 @@ async function loadLocalized() {
       (async () => {
         try {
           let original: Snapshot;
-          if (relayConfig.enabled) {
+          if (relayConfig.enabled && !publishedReader) {
             const relay = await import('./relay-reader.js');
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) { snapshot!.sources.stringer = cached.sources.stringer!; render(); }
             original = await relay.readRelaySnapshot(relayConfig);
+          } else if (publishedReader) {
+            const published = await loadCdnSnapshot();
+            if (!published) throw new Error('Unavailable collection');
+            original = published;
           } else {
             const response = await fetch(new URL('./data/news.json', import.meta.url), {cache: 'no-cache', credentials: 'omit', signal: AbortSignal.timeout(15000)});
             if (!response.ok) throw new Error('Unavailable collection');
@@ -1181,7 +1214,8 @@ window.addEventListener('resize', updateStoryVisibility);
 document.fonts.ready.then(updateStoryVisibility);
 setInterval(() => { renderStatuses(); if (!document.hidden && Date.now() - lastAttempt >= interval) load(); }, 30_000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - lastAttempt >= interval) load(); });
-if (localizedEdition) void import('./relay-reader.js').then(reader => {
+if (publishedReader) searchImages = searchPublishedImages;
+else if (localizedEdition) void import('./relay-reader.js').then(reader => {
   searchImages = reader.searchImages;
   loadSuggestions();
 }, () => suggestionQueue.clear());

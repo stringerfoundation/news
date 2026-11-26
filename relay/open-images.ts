@@ -1,5 +1,5 @@
 import { searchCommons } from './commons.js';
-import { readIllustration, type CommonsImage } from './images.js';
+import { readIllustration, type CommonsImage } from './illustration.js';
 
 export type ImageSource = 'all' | 'commons' | 'openverse' | 'flickr' | 'eu' | 'wellcome' | 'smithsonian' | 'europeana';
 export interface ImageSearchResult { images: CommonsImage[]; issues: string[] }

@@ -40,7 +40,7 @@ FILES = REQUIRED_FILES | EDITION_FILES | SHARED_MODULE_FILES | {
 
 
 def allowed(path):
-    return path in FILES or re.fullmatch(r'assets/stringer-thumbnails/[a-zA-Z0-9-]+\.png', path)
+    return path in FILES or path in {f'{edition}/headlines.json' for edition in EDITION_PATHS + OPTIONAL_EDITION_PATHS} or re.fullmatch(r'assets/stringer-thumbnails/[a-zA-Z0-9-]+\.png', path)
 
 
 def unpack(data, destination):

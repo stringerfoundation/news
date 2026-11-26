@@ -72,7 +72,7 @@ export function routeFor(request: Request): Route {
 
 /** Short shared TTLs only. Never immutable: ?v= paths are not content-addressed. */
 export function assetCacheControl(path: string): string {
-  if (path === '/data/news.json') return 'public, max-age=60, s-maxage=300';
+  if (path.endsWith('.json')) return 'public, max-age=60, s-maxage=300';
   if (/\.(?:js|css)$/.test(path)) return 'public, max-age=60, s-maxage=300';
   return 'public, max-age=86400'; // Remaining allowlisted assets are images.
 }
