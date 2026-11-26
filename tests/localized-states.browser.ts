@@ -245,17 +245,19 @@ test('the homepage proxy keeps locale navigation visible and a missing optional 
 });
 
 test('published edition polls same-origin headlines and retains them through an outage without a relay query', async t => {
-  const first = EDITION_SOURCES.fr![0]!;
+  const [first, partial, empty] = EDITION_SOURCES.fr!;
   const {page, failStatic} = await setup(t, 'fr', {published: true, mirrorCache: {
-    [first.id]: entry([story('Published French headline')]),
+    [first!.id]: entry([story('Published French headline')]),
+    [partial!.id]: entry([{...story('Partial headline'), url: 'https://publisher.example/partial'}], 'failure'),
+    [empty!.id]: entry([], 'failure'),
   }});
   await ready(page);
-  assert.equal(await page.locator('#world-news h3').first().textContent(), 'Published French headline');
+  assert.ok((await page.locator('#world-news h3').allTextContents()).includes('Published French headline'));
   assert.equal(await page.evaluate(() => window.mirrorCalls), undefined);
   failStatic();
   await page.clock.fastForward(300000);
   await ready(page);
-  assert.equal(await page.locator('#world-news h3').first().textContent(), 'Published French headline');
+  assert.ok((await page.locator('#world-news h3').allTextContents()).includes('Published French headline'));
   assert.equal(await page.evaluate(() => window.mirrorCalls), undefined);
 });
 

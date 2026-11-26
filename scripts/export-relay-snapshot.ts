@@ -16,8 +16,10 @@ const snapshot = validateSnapshot(
 );
 const refs = Object.fromEntries(Object.entries(snapshot.sources)
   .filter(([source]) => source !== 'stringer')
-  .flatMap(([, source]) => source.stories.flatMap(story => story.noteId
-    ? [[story.noteId, snapshot.imageCandidates?.[story.noteId] ?? []] as const] : [])));
+  .flatMap(([, source]) => source.stories.map(story => {
+    const id = story.noteId!; // readRelaySnapshot assigns the verified event ID to every story.
+    return [id, snapshot.imageCandidates?.[id] ?? []] as const;
+  })));
 const pool = new SimplePool();
 try {
   snapshot.illustrations = await publishedImages(relayConfig.pubkey, refs,

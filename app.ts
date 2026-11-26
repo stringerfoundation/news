@@ -1109,7 +1109,7 @@ async function refreshPublishedHeadlines() {
     for (const {id} of publisherSources) {
       const next = data.sources[id];
       const previous = snapshot!.sources[id]!;
-      snapshot!.sources[id] = next?.status === 'success' ? next : {...previous, status: 'failure'};
+      snapshot!.sources[id] = next && (next.status === 'success' || next.stories.length) ? next : {...previous, status: 'failure'};
     }
   } catch {
     for (const {id} of publisherSources) snapshot!.sources[id]!.status = 'failure';
