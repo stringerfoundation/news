@@ -42,6 +42,7 @@ test('image commands reject stale actions, recover from signer/search failures, 
     await page.route('https://reader.test/**', async route => {
       const file = new URL(route.request().url()).pathname.slice(1) || 'index.html';
       if (file === 'relay-reader.js') { await readerGate; await route.fulfill({contentType: 'text/javascript', body: reader}); return; }
+      if (file === 'data/news.json') { await route.fulfill({ status: 404 }); return; }
       if (file !== 'index.html' && !isPublicAsset(file)) { await route.abort(); return; }
       await route.fulfill({contentType: file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : 'text/html', body: await readFile(file.endsWith('.js') ? `_site/${file}` : file)});
     });

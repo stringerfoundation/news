@@ -121,6 +121,8 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
       if (url.hostname !== 'reader.test') { await route.abort(); return; }
       const file = url.pathname.slice(1) || 'index.html';
       if (file === 'relay-config.js') { await route.fulfill({ contentType: 'text/javascript', body: `export default ${JSON.stringify({ enabled: true, pubkey, relays: ['wss://relay.test'] })}` }); return; }
+      // Relay fixtures own the collection; do not serve the published CDN snapshot here.
+      if (file === 'data/news.json') { await route.fulfill({ status: 404 }); return; }
       if (file !== 'index.html' && !isPublicAsset(file)) { await route.fulfill({ status: 404 }); return; }
       await route.fulfill({ contentType: file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.png') ? 'image/png' : 'text/html', body: await readFile(file.endsWith('.js') ? `_site/${file}` : file) });
     });

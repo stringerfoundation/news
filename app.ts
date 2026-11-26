@@ -1002,6 +1002,8 @@ async function load() {
   const loadTimer = setInterval(renderStatuses, 1000);
   document.querySelectorAll('.story-list').forEach(list => list.setAttribute('aria-busy', 'true'));
   feedback.textContent = '';
+  // CDN bootstrap is first paint only; a verified relay collection may replace it.
+  let cdnBootstrap = false;
   try {
     let next;
     if (relayConfig.enabled) {
@@ -1020,6 +1022,7 @@ async function load() {
         const cdn = await loadCdnSnapshot();
         if (cdn && (!snapshot || Date.parse(cdn.generatedAt) >= Date.parse(snapshot.generatedAt))) {
           snapshot = cdn;
+          cdnBootstrap = true;
           render();
         }
       }
@@ -1029,7 +1032,7 @@ async function load() {
         renderStatuses();
         console.info('[Stringer reader]', message);
       }, partial => {
-        if (snapshot && Date.parse(partial.generatedAt) < Date.parse(snapshot.generatedAt)) return;
+        if (snapshot && !cdnBootstrap && Date.parse(partial.generatedAt) < Date.parse(snapshot.generatedAt)) return;
         // Preserve already displayed stories while the rest of the update arrives.
         for (const source of SOURCES) {
           const current = partial.sources[source.id]!;
@@ -1039,6 +1042,7 @@ async function load() {
           else retainedSources.delete(source.id);
         }
         snapshot = partial;
+        cdnBootstrap = false;
         render();
       }, timings => {
         feedTimings = timings;
@@ -1049,7 +1053,8 @@ async function load() {
       if (!cdn) throw new Error('HTTP unavailable');
       next = cdn;
     }
-    if (snapshot && Date.parse(next.generatedAt) < Date.parse(snapshot.generatedAt)) throw new Error('Older snapshot returned');
+    if (snapshot && !cdnBootstrap && Date.parse(next.generatedAt) < Date.parse(snapshot.generatedAt))
+      throw new Error('Older snapshot returned');
     retainedSources.clear();
     snapshot = next; render();
     loadOutcome = Object.values(next.sources).some(source => source.unavailable) ? 'Partially loaded' : 'Loaded';
