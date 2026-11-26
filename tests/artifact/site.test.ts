@@ -1,3 +1,5 @@
+import { isHeadlineThumbnail } from '../../public-assets.ts';
+import { createHash } from 'node:crypto';
 import { EDITIONS } from '../../reader-locales.ts';
 import test from 'node:test';
 import { execFileSync } from 'node:child_process';
@@ -20,11 +22,21 @@ test('Pages artifact contains only the public asset allowlist', async () => {
     ...['stringer-logo.png','nostr-banner.png','favicon-16.png','favicon-32.png','favicon-192.png','favicon-180.png'].map(f => `assets/${f}`)]);
   for (const edition of EDITIONS.filter(edition => edition.path)) exact.add(`${edition.path}/headlines.json`);
   const paths = (await walk('_site')).map(path => path.slice(6));
-  for (const path of paths) assert.ok(exact.has(path) || /^assets\/stringer-thumbnails\/[a-zA-Z0-9-]+\.png$/.test(path), `Unexpected published file: ${path}`);
+  for (const path of paths) assert.ok(exact.has(path) || isHeadlineThumbnail(path) || /^assets\/stringer-thumbnails\/[a-zA-Z0-9-]+\.png$/.test(path), `Unexpected published file: ${path}`);
   for (const path of exact) assert.ok(paths.includes(path), `Missing public asset: ${path}`);
   assert.equal(paths.some(path => /(?:dashboard|backend|private|secrets|\.env|\.sqlite|\.csv|AGENTS|LICENSE|README)/i.test(path)), false);
   assert.match(await readFile('_site/robots.txt', 'utf8'), /Disallow:\s*$/m);
   const snapshot = JSON.parse(await readFile('_site/data/news.json', 'utf8'));
+  for (const data of [snapshot, ...await Promise.all(EDITIONS.filter(edition => edition.path).map(async edition =>
+    JSON.parse(await readFile(`_site/${edition.path}/headlines.json`, 'utf8'))))]) {
+    for (const thumb of Object.values(data.thumbnails ?? {}) as ({file: string} | null)[]) {
+      if (!thumb) continue;
+      assert.ok(isHeadlineThumbnail(thumb.file));
+      const bytes = await readFile(`_site/${thumb.file}`);
+      assert.equal(bytes.toString('ascii', 8, 12), 'WEBP');
+      assert.equal(thumb.file, `assets/headline-thumbnails/${createHash('sha256').update(bytes).digest('hex')}.webp`);
+    }
+  }
   assert.ok(snapshot && [1, 2].includes(snapshot.schemaVersion));
   assert.ok(Number.isFinite(Date.parse(snapshot.generatedAt)));
   assert.ok(snapshot.sources?.stringer?.stories?.length > 0);

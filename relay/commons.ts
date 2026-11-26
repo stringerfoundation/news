@@ -1,4 +1,5 @@
 import { readCommonsImage, type CommonsImage } from './illustration.js';
+import { plain } from './plain.js';
 
 const places: Record<string, string> = {
   Saudi: 'Saudi Arabia', British: 'United Kingdom', French: 'France', German: 'Germany',
@@ -8,19 +9,32 @@ const places: Record<string, string> = {
 
 /** A search hint, never a claim that the returned file depicts the subject. */
 export function commonsSubject(title: string): string {
-  const names = [...title.matchAll(/\p{Lu}[\p{L}\p{M}'’.-]*(?:\s+(?:(?:de|del|der|van|von|le)\s+)*\p{Lu}[\p{L}\p{M}'’.-]*)*/gu)].map(match => match[0]
-    .replace(/^(?:Ex-|Former\s+)/, '')
-    .split(/\s+(?:Prompt|Prompts|Says|Say|Hits|Warns|Faces|Under|Over|Will|Would|Could|May|Must|As|Has|Have|Is|Are|Was|Were|Sparks|Questions)\b/)[0]!);
+  // For headlines about a population affected in a named place, imagery is
+  // usually more useful when it centers the place than a generic group label.
+  const geographicContext = /\b(?:[Pp]eople|[Rr]esidents|[Rr]efugees|[Mm]igrants|[Ff]amilies|[Cc]hildren|[Cc]ivilians|[Vv]illagers|[Ff]armers|[Ww]orkers|[Ss]tudents|[Vv]oters|[Jj]udges|[Pp]rosecutors|[Ll]awmakers|\p{Lu}[\p{L}\p{M}'’.-]*(?:ians|ans|ese))\s+in\s+(\p{Lu}[\p{L}\p{M}'’.-]*(?:\s+(?:de|del|der|van|von|le)?\s*\p{Lu}[\p{L}\p{M}'’.-]+)*)/u.exec(title);
+  if (geographicContext?.[1]) {
+    const place = geographicContext[1].split(/\s+(?:Suggest|Suggests|Says|Say|Calls|Call|Warns|Warn|Faces|Face|Move|Moves|Could|Would|Will|Should|Propose|Proposes|Drop|Drops|Cut|Cuts|Flee|Fleeing)\b/)[0]!;
+    return place.trim().slice(0, 200);
+  }
+  const names = [...title.matchAll(/\p{Lu}[\p{L}\p{M}'’.-]*(?:\s+(?:(?:de|del|der|van|von|le)\s+)*\p{Lu}[\p{L}\p{M}'’.-]*)*/gu)].map(match => ({
+    name: match[0].replace(/^(?:Ex-|Former\s+)/, '').split(/\s+(?:Prompt|Prompts|Suggest|Suggests|Says|Say|Hits|Warns|Faces|Under|Over|Will|Would|Could|May|Must|As|Has|Have|Is|Are|Was|Were|Sparks|Questions)\b/)[0]!,
+    index: match.index,
+  }));
   // Title-style introductions such as "The Failures of" describe the article,
   // rather than the person/place that follows them.
-  const subject = names.find(name => !/^(The|A|An)\b/.test(name) && !/^(How|Why|What|After|Before|Flooding|Talks|Deaths|Death|New|Latest|Live|Breaking|Opinion|Analysis|Watch|Photos)$/.test(name));
+  const ignored = /^(?:A|An|The|At|By|For|From|In|Into|Of|On|Onto|To|With|As|After|Before|Across|Against|Among|Around|Through|During|Despite|Following|While|When|Where|Why|How|What|Who|Which|Whose|Is|Are|Was|Were|Be|Been|Being|Do|Does|Did|Have|Has|Had|Can|Could|May|Might|Must|Shall|Should|Will|Would|And|But|Or|Nor|So|Yet|If|Then|Than|This|That|These|Those|My|Your|His|Her|Its|Our|Their|Latest|Live|Breaking|Opinion|Analysis|Watch|Photos|Praise|Failings|Failure|Failures|Talks|Deaths|Death|Flooding|Says|Say|More|Why)$/i;
+  const candidates = names.map(({ name, index }) => {
+    const words = name.split(/\s+/);
+    const start = words.findIndex(word => !ignored.test(word));
+    const candidate = start < 0 ? '' : words.slice(start).join(' ');
+    const clean = candidate === 'New' ? '' : candidate;
+    const prefix = title.slice(0, index).trimEnd();
+    return { candidate: clean, contextualPhrase: !!clean && clean.includes(' ') && /\p{Ll}$/u.test(prefix) };
+  }).filter(item => item.candidate);
+  // Multiword names after a lowercase connector or role noun are strong clues:
+  // "in New Delhi", "of Emmanuel Macron", and "actor Gerard Depardieu".
+  const subject = candidates.find(item => item.contextualPhrase)?.candidate || candidates[0]?.candidate;
   return (places[subject || ''] || subject || title).trim().slice(0, 200);
-}
-
-function plain(value: unknown): string {
-  if (typeof value !== 'string') return '';
-  // Parse into an inert document, then return text only. Never insert Commons HTML.
-  return new DOMParser().parseFromString(value, 'text/html').body.textContent?.replace(/\s+/g, ' ').trim().slice(0, 2000) || '';
 }
 interface ImagePage { index?: number; title?: string; imageinfo?: { mime?: string; thumburl?: string; url?: string; descriptionurl?: string; extmetadata?: Record<string, { value?: string }> }[] }
 interface CommonsResponse { error?: unknown; query?: { pages?: ImagePage[] } }
@@ -53,9 +67,9 @@ async function wikipediaPages(wiki: URL, params: Record<string, string>, request
 
 function representativeFiles(pages: WikipediaPage[], query: string): string[] {
   return [...new Set(pages.flatMap(page => {
-    const subject = page.title?.toLocaleLowerCase() || query.toLocaleLowerCase();
+    const subject = page.title?.toLowerCase() || query.toLowerCase();
     const maps = (page.images || []).map(image => image.title || '').filter(title =>
-      title.toLocaleLowerCase().includes(subject) && /map|orthographic|location/i.test(title));
+      title.toLowerCase().includes(subject) && /map|orthographic|location/i.test(title));
     return [...(page.pageimage ? [`File:${page.pageimage}`] : []), ...maps];
   }))].slice(0, 4);
 }
@@ -114,7 +128,7 @@ async function searchCommonsFiles(query: string, request: typeof fetch, suggest:
   if (!response.ok) throw new Error('Commons search is unavailable. Please retry.');
   const data = await response.json() as CommonsResponse;
   if (data.error) throw new Error('Commons search is unavailable. Please retry.');
-  const normalize = (value: string) => value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const normalize = (value: string) => value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   const words = normalize(query).split(' ');
   return readImages(data).filter(image => !suggest || words.every(word =>
     normalize(`${image.title} ${decodeURIComponent(new URL(image.filePage).pathname)}`).split(' ').includes(word)));

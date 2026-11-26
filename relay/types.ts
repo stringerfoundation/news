@@ -27,6 +27,7 @@ export interface SourceState {
 }
 export interface Snapshot {
   illustrations?: Record<string, import('./images.js').CommonsImage>;
+  thumbnails?: Record<string, {file: string; image: import('./images.js').CommonsImage; suggested: boolean} | null>;
   imageCandidates?: Record<string, string[]>;
   schemaVersion: number;
   generatedAt: string;

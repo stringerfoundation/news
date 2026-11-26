@@ -12,5 +12,11 @@ test('Commons suggestions search the named subject instead of the entire headlin
   assert.equal(commonsSubject('Kenya convicts cult leader over the murder of 190 children'), 'Kenya');
   assert.equal(commonsSubject('Deaths at Danjiri Float Festival Prompt Questions in Japan'), 'Danjiri Float Festival');
   assert.equal(commonsSubject('Ex-OpenAI worker accused of planting device had Saudi support, says court filing'), 'OpenAI');
+  assert.equal(commonsSubject('At odds over the EU budget, European leaders cut summit short - DW has more'), 'EU');
+  assert.equal(commonsSubject('On farewell trip, Steinmeier calls for more investment in Africa'), 'Steinmeier');
+  assert.equal(commonsSubject('In Praise of My Typewriter'), 'Typewriter');
+  assert.equal(commonsSubject('Why are winter rains forcing Palestinians in Gaza to flee again?'), 'Gaza');
+  assert.equal(commonsSubject('Judges in Israel Suggest Dropping Key Corruption Case Against Netanyahu'), 'Israel');
+  assert.equal(commonsSubject('French actor Gerard Depardieu to face trial for rape, court rules'), 'Gerard Depardieu');
   assert.equal(commonsSubject('no named subject'), 'no named subject');
 });

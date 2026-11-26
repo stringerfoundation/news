@@ -40,7 +40,7 @@ FILES = REQUIRED_FILES | EDITION_FILES | SHARED_MODULE_FILES | {
 
 
 def allowed(path):
-    return path in FILES or path in {f'{edition}/headlines.json' for edition in EDITION_PATHS + OPTIONAL_EDITION_PATHS} or re.fullmatch(r'assets/stringer-thumbnails/[a-zA-Z0-9-]+\.png', path)
+    return path in FILES or path in {f'{edition}/headlines.json' for edition in EDITION_PATHS + OPTIONAL_EDITION_PATHS} or re.fullmatch(r'assets/(?:stringer-thumbnails/[a-zA-Z0-9-]+\.png|headline-thumbnails/[0-9a-f]{64}\.webp)', path)
 
 
 def unpack(data, destination):
@@ -55,7 +55,7 @@ def unpack(data, destination):
     with tarfile.open(fileobj=io.BytesIO(payload), mode='r:') as archive:
         for entry in archive:
             path = entry.name.removeprefix('./').rstrip('/')
-            if entry.isdir() and path in ('', '.', 'assets', 'assets/stringer-thumbnails', '.well-known', 'data', *EDITION_PATHS, *OPTIONAL_EDITION_PATHS):
+            if entry.isdir() and path in ('', '.', 'assets', 'assets/stringer-thumbnails', 'assets/headline-thumbnails', '.well-known', 'data', *EDITION_PATHS, *OPTIONAL_EDITION_PATHS):
                 continue
             if not entry.isfile() or not allowed(path) or path in files or entry.size > MAX_BYTES:
                 raise ValueError('Unexpected artifact entry: ' + entry.name)

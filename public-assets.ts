@@ -7,7 +7,10 @@ export const PUBLIC_ASSETS = new Set<string>([
   ...PUBLIC_MODULES.map(name => `${name}.js`), 'relay-reader.js', 'atomstr-reader.js', 'style.css',
   ...PUBLIC_IMAGES.map(name => `assets/${name}`),
 ]);
+export function isHeadlineThumbnail(path: string): boolean {
+  return /^assets\/headline-thumbnails\/[0-9a-f]{64}\.webp$/.test(path);
+}
 export function isPublicAsset(path: string): boolean {
-  return PUBLIC_ASSETS.has(path) || path === 'data/news.json' ||
+  return PUBLIC_ASSETS.has(path) || path === 'data/news.json' || isHeadlineThumbnail(path) ||
     /^assets\/stringer-thumbnails\/[a-zA-Z0-9-]+\.png$/.test(path);
 }

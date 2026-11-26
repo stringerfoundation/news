@@ -34,7 +34,7 @@ test('source adapters preserve credits, reject unsuitable metadata and recover f
         { ...eu, cc_by_json: [{ cc_by: '0', titles: { EN: 'No redistribution' }, links: {} }] },
         { ...eu, cooperator_json: {} }, { ...eu, media_json: { LOW: { PATH: '/../private.jpg' } } },
       ] } })));
-      const fallback = await searchImages('Fallback', 'all', true, async (input: Parameters<typeof fetch>[0]) => {
+      const fallback = await searchImages('Example', 'all', true, async (input: Parameters<typeof fetch>[0]) => {
         if (new URL(String(input)).hostname === 'api.openverse.org') return new Response(JSON.stringify({ results: [photo] }));
         return new Response('', { status: 503 });
       });
@@ -43,7 +43,7 @@ test('source adapters preserve credits, reject unsuitable metadata and recover f
         const host = new URL(String(input)).hostname;
         if (host === 'api.openverse.org') throw new TypeError('NetworkError when attempting to fetch resource.');
         if (host === 'gfdwwnbuul.execute-api.eu-west-1.amazonaws.com')
-          return Response.json({ response: { docs: [eu] } });
+          return Response.json({ response: { docs: [{ ...eu, titles_json: { EN: 'Offline EU subject' } }] } });
         return new Response('', { status: 503 });
       });
       const malformed = await searchImages('Malformed response', 'openverse', false, async () => new Response('<html>Unavailable</html>'));
@@ -74,7 +74,11 @@ test('source adapters preserve credits, reject unsuitable metadata and recover f
       const empty = await searchImages('No results', 'all', false, async (input: Parameters<typeof fetch>[0]) => new Response(JSON.stringify(
         new URL(String(input)).pathname.endsWith('/stats/') ? [{ source_name: 'smithsonian_libraries' }] : new URL(String(input)).hostname === 'api.openverse.org' ? { results: [] }
           : new URL(String(input)).hostname === 'commons.wikimedia.org' ? { query: { pages: [] } } : { response: { docs: [] } })));
-      return { ov, european, sourceFilter, licenses, fallback, limited, offline, malformed, empty, providerResults, progressive };
+      const relevance = await searchOpenverse('İZMİR', async () => new Response(JSON.stringify({ results: [
+        { ...photo, title: 'İzmir shoreline', id: '12345678-1234-1234-1234-123456789abd' },
+        { ...photo, title: 'Unrelated Brussels meeting', id: '12345678-1234-1234-1234-123456789abe' },
+      ] })), false, true);
+      return { ov, european, sourceFilter, licenses, fallback, limited, offline, malformed, empty, providerResults, progressive, relevance };
     });
     assert.deepEqual(result.providerResults, { wellcome: 1, europeana: 1, smithsonian: 1 });
     assert.equal(result.progressive, true, 'Fast results must be available while other providers are pending');
@@ -99,5 +103,6 @@ test('source adapters preserve credits, reject unsuitable metadata and recover f
     assert.ok(result.offline.issues.every(issue => !issue.includes('NetworkError')));
     assert.deepEqual(result.malformed, { images: [], issues: ['Openverse: Search is unavailable. Please retry.'] });
     assert.deepEqual(result.empty, { images: [], issues: [] });
+    assert.deepEqual(result.relevance.map(image => image.title), ['İzmir shoreline']);
   } finally { await browser.close(); }
 });

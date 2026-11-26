@@ -16,6 +16,7 @@ import { withEnglishAtomstrFallback, type EmbeddedAtomstr } from './english-atom
 import { SOURCES, CONTENT_PERMISSIONS, STALE_MS, CDN_SNAPSHOT_MAX_AGE_MS, applyContentPermissions, safeUrl, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from './news-model.js';
 import relayConfig from './relay-config.js';
 import { STRINGER_MEDIA } from './stringer-media.js';
+import { isHeadlineThumbnail } from './public-assets.js';
 function requiredElement<T extends HTMLElement = HTMLElement>(selector: string): T {
   const node = document.querySelector<T>(selector);
   if (!node) throw new Error(`Missing reader element: ${selector}`);
@@ -120,6 +121,25 @@ let feedTimings: Record<string, FeedLoadTiming> = {};
 let ImageSessionClass: typeof ImageSession | null = null;
 let searchImages: typeof import('./relay/open-images.js').searchImages | null = null;
 let commonsSubject = headlineSubject;
+type PublishedThumbnail = {file: string; image: CommonsImage; suggested: boolean} | null;
+let publishedThumbnails: Record<string, PublishedThumbnail> = {};
+let localizedThumbnailResponseReceived = false;
+function readPublishedThumbnails(value: unknown): Record<string, PublishedThumbnail> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const result: Record<string, PublishedThumbnail> = {};
+  for (const [url, raw] of Object.entries(value)) {
+    if (raw === null) { result[url] = null; continue; }
+    if (!raw || typeof raw !== 'object') continue;
+    const entry = raw as {file?: unknown; image?: unknown; suggested?: unknown};
+    if (typeof entry.file !== 'string' || !isHeadlineThumbnail(entry.file) || typeof entry.suggested !== 'boolean' || !entry.image || typeof entry.image !== 'object') continue;
+    try {
+      const image = readIllustration({...entry.image as CommonsImage});
+      result[url] = {file: entry.file, image: {...image, attribution: `${image.attribution} Thumbnail resized and converted to WebP.`}, suggested: entry.suggested};
+    }
+    catch { /* malformed metadata is ignored so normal image search can proceed */ }
+  }
+  return result;
+}
 interface CommonsSearch { query: string; source: ImageSource; issues: string[]; loading: boolean; results: CommonsImage[]; error: string; searched: boolean }
 const commonsSearches = new Map<string, CommonsSearch>();
 const suggestionQueue = new Set<string>();
@@ -417,6 +437,7 @@ function thumbnailCredit(imageCredit: CommonsImage) {
   return caption;
 }
 function prepareImageSearch(storyId: string, title: string) {
+  if (localizedEdition && publishedReader && !localizedThumbnailResponseReceived) return;
   if (!commonsSearches.has(storyId)) {
     commonsSearches.set(storyId, { query: localizedEdition ? title.trim().slice(0, 200) : commonsSubject(title), source: localizedEdition ? 'commons' : 'all', issues: [], loading: false, results: [], error: '', searched: false });
   }
@@ -631,17 +652,19 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
     // Publisher photos stay hidden, regardless of URL parameters or stored metadata.
     const imageStoryId = wire && !localizedEdition ? story.noteId : undefined;
     const searchId = wire && (localizedEdition || publishedReader) ? url : imageStoryId;
+    const hasPublishedThumbnail = !!searchId && Object.hasOwn(publishedThumbnails, url);
+    const publishedThumbnail = hasPublishedThumbnail ? publishedThumbnails[url] : undefined;
     const selection = imageStoryId ? imageSession?.selection(imageStoryId) : null;
-    if (searchId) prepareImageSearch(searchId, story.title);
+    if (searchId && !hasPublishedThumbnail) prepareImageSearch(searchId, story.title);
     const search = searchId ? commonsSearches.get(searchId) : undefined;
     const publishedImage = imageStoryId && publishedReader ? snapshot?.illustrations?.[imageStoryId] : undefined;
-    const commons = publishedImage ?? (imageStoryId && !publishedReader
+    const commons = publishedThumbnail ? publishedThumbnail.image : publishedImage ?? (imageStoryId && !publishedReader
       ? imageOptions(imageStoryId).find(image => !skippedImages.get(choiceKey(imageStoryId))?.includes(image.filePage))
-      : search?.results[0]);
+      : hasPublishedThumbnail ? undefined : search?.results[0]);
     const imageData = wire ? commons : story.image;
-    const imageUrl = wire ? commons?.url : safeImageUrl(imageData?.url) || localImage;
-    const suggested = !!commons && !publishedImage && commons.filePage !== selection?.winner?.filePage;
-    const key = JSON.stringify([story, commons && imageCreditKey(commons), !!(imageStoryId && trusted),
+    const imageUrl = wire ? (publishedThumbnail ? new URL(`./${publishedThumbnail.file}`, import.meta.url).href : commons?.url) : safeImageUrl(imageData?.url) || localImage;
+    const suggested = publishedThumbnail ? publishedThumbnail.suggested : !!commons && !publishedImage && commons.filePage !== selection?.winner?.filePage;
+    const key = JSON.stringify([story, publishedThumbnail, commons && imageCreditKey(commons), !!(imageStoryId && trusted),
       commons ? null : [search?.error, search?.searched, !!search?.results.length]]);
     const controls = imageStoryId && trusted ? JSON.stringify([
       trusted, voteBusy, search, selection?.scores, selection?.latest.get(trusted)?.vote.candidateId,
@@ -658,7 +681,7 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
         describeSuggestedImage(existing.querySelector<HTMLImageElement>('.story-media img')!, suggested);
         card.suggested = suggested;
       }
-      if (searchId && !search?.loading && !search?.searched)
+      if (searchId && !hasPublishedThumbnail && !search?.loading && !search?.searched)
         suggestionObserver.observe(existing.querySelector('.wire-thumbnail')!);
       cards.push(existing);
       continue;
@@ -676,7 +699,8 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
     if (wire) {
       article.classList.add('with-image');
       wireFigure = element('figure', '', 'story-media wire-thumbnail');
-      if (searchId) {
+      if (hasPublishedThumbnail && !publishedThumbnail) wireFigure.dataset.publishedMiss = 'true';
+      if (searchId && !hasPublishedThumbnail) {
         wireFigure.dataset.storyId = searchId;
         if (!search?.loading && !search?.searched) suggestionObserver.observe(wireFigure);
       }
@@ -786,7 +810,9 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
       meta.firstElementChild!.after(separator);
     }
     body.append(meta);
-    if (searchId && !commons) {
+    if (searchId && hasPublishedThumbnail && !publishedThumbnail) {
+      wireFigure?.append(storyPlaceholder(t('No thumbnail was published for this headline.')));
+    } else if (searchId && !hasPublishedThumbnail && !commons) {
       if (search?.error) wireFigure?.append(storyPlaceholder(t('Image unavailable')));
       else if (search?.searched && (search.results.length || trusted)) {
         const message = search.results.length
@@ -824,6 +850,7 @@ function headlineImageReason(figure: HTMLElement) {
   if (figure.classList.contains('image-load-failed')) return t('The image could not be loaded.');
   if (figure.classList.contains('image-loading')) return t('The image is waiting to load.');
   if (figure.querySelector(':scope > a > img')) return null;
+  if (figure.dataset.publishedMiss) return t('No thumbnail was published for this headline.');
   const id = figure.dataset.storyId;
   if (!id) return t('Image lookup is unavailable for this headline.');
   if (!localizedEdition && skippedImages.get(choiceKey(id))?.length && imageOptions(id).length)
@@ -1066,6 +1093,7 @@ async function load() {
     }
     if (snapshot && Date.parse(next.generatedAt) < Date.parse(snapshot.generatedAt))
       throw new Error('Older snapshot returned');
+    if (publishedReader && !localizedEdition) publishedThumbnails = readPublishedThumbnails(next.thumbnails);
     retainedSources.clear();
     snapshot = next; render();
     loadOutcome = Object.values(next.sources).some(source => source.unavailable) ? 'Partially loaded' : 'Loaded';
@@ -1104,14 +1132,17 @@ async function refreshPublishedHeadlines() {
       cache: 'no-cache', credentials: 'omit', signal: AbortSignal.timeout(15000),
     });
     if (!response.ok) throw new Error('Published headlines unavailable');
-    const data = JSON.parse(await readResponseText(response)) as Pick<Snapshot, 'generatedAt' | 'sources'>;
+    const data = JSON.parse(await readResponseText(response)) as Pick<Snapshot, 'generatedAt' | 'sources' | 'thumbnails'>;
     if (!(Date.parse(data.generatedAt) >= Date.now() - CDN_SNAPSHOT_MAX_AGE_MS)) throw new Error('Expired edition');
+    publishedThumbnails = readPublishedThumbnails(data.thumbnails);
+    localizedThumbnailResponseReceived = true;
     for (const {id} of publisherSources) {
       const next = data.sources[id];
       const previous = snapshot!.sources[id]!;
       snapshot!.sources[id] = next && (next.status === 'success' || next.stories.length) ? next : {...previous, status: 'failure'};
     }
   } catch {
+    localizedThumbnailResponseReceived = true;
     for (const {id} of publisherSources) snapshot!.sources[id]!.status = 'failure';
   }
 }

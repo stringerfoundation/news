@@ -30,15 +30,16 @@
   "devDependencies": {
     "@babel/eslint-parser": "8.1.2",
     "@babel/plugin-syntax-typescript": "8.0.3",
+    "@bcoe/v8-coverage": "1.0.2",
     "@cloudflare/workers-types": "5.20261121.1",
     "@playwright/test": "1.65.1",
     "@types/node": "26.6.6",
+    "c8": "12.0.0",
     "esbuild": "0.28.2",
     "eslint": "10.15.0",
     "globals": "17.14.0",
+    "sharp": "0.35.5",
     "tsx": "4.23.15",
-    "typescript": "7.0.2",
-    "@bcoe/v8-coverage": "1.0.2",
-    "c8": "12.0.0"
+    "typescript": "7.0.2"
   }
 }
