@@ -67,13 +67,53 @@ export function routeFor(request: Request): Route {
   const path = url.pathname.slice(prefix.length);
   return isPublicAsset(path) ? { kind: 'asset', path: '/' + path } : { kind: 'missing' };
 }
-function assetCacheControl(path: string, requestUrl: string): string | null {
+
+/** Short shared TTLs only. Never immutable: ?v= paths are not content-addressed. */
+export function assetCacheControl(path: string): string | null {
   if (path === '/data/news.json') return 'public, max-age=60, s-maxage=300';
-  if (/\.(?:js|css)$/.test(path) && new URL(requestUrl).searchParams.has('v'))
-    return 'public, max-age=31536000, immutable';
+  if (/\.(?:js|css)$/.test(path)) return 'public, max-age=60, s-maxage=300';
   if (/\.(?:png|ico|woff2?)$/.test(path)) return 'public, max-age=86400';
   return null;
 }
+
+/** Cache keys ignore analytics query strings and vary HTML by host indexing mode. */
+export function edgeCacheKey(
+  request: Request,
+  route: Extract<Route, { kind: 'home' | 'asset' }>,
+  env: Environment,
+): Request {
+  const url = new URL(request.url);
+  url.search = '';
+  if (route.kind === 'home') {
+    url.pathname = route.path;
+    const indexed = env.PUBLIC_INDEXING === 'true' && url.hostname === env.PUBLIC_HOST;
+    url.searchParams.set('__index', indexed ? '1' : '0');
+  }
+  return new Request(url.toString(), { method: 'GET' });
+}
+
+function withCacheStatus(response: Response, status: 'HIT' | 'MISS'): Response {
+  const headers = new Headers(response.headers);
+  headers.set('x-worker-cache', status);
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
+async function readEdgeCache(key: Request): Promise<Response | undefined> {
+  try {
+    return await caches.default.match(key);
+  } catch {
+    return undefined;
+  }
+}
+
+async function writeEdgeCache(key: Request, response: Response): Promise<void> {
+  try {
+    await caches.default.put(key, response.clone());
+  } catch {
+    /* Cache is best-effort in local tests and constrained runtimes. */
+  }
+}
+
 export default {
   async fetch(request: Request, env: Environment): Promise<Response> {
     const route = routeFor(request);
@@ -128,6 +168,15 @@ export default {
         });
       }
     }
+
+    const cacheable = (route.kind === 'home' || route.kind === 'asset') &&
+      request.method === 'GET' && !explicitEdition;
+    const cacheKey = cacheable ? edgeCacheKey(request, route, env) : null;
+    if (cacheKey) {
+      const cached = await readEdgeCache(cacheKey);
+      if (cached) return withCacheStatus(cached, 'HIT');
+    }
+
     const target = new URL(env.PAGES_ORIGIN);
     if (target.protocol !== 'https:') return new Response('Invalid origin configuration', { status: 503 });
     target.pathname = target.pathname.replace(/\/$/, '') + route.path;
@@ -145,11 +194,13 @@ export default {
     }
     if (!response.ok) return new Response('News temporarily unavailable', { status: 502 });
     if (route.kind === 'asset') {
-      const cacheControl = assetCacheControl(route.path, request.url);
-      if (!cacheControl) return response;
+      const cacheControl = assetCacheControl(route.path);
       const headers = new Headers(response.headers);
-      headers.set('cache-control', cacheControl);
-      return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+      if (cacheControl) headers.set('cache-control', cacheControl);
+      let out = new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+      out = withCacheStatus(out, 'MISS');
+      if (cacheKey) await writeEdgeCache(cacheKey, out);
+      return out;
     }
     if (!response.headers.get('content-type')?.includes('text/html'))
       return new Response('News temporarily unavailable', { status: 502 });
@@ -164,10 +215,11 @@ export default {
     if (publicRequest && env.PUBLIC_INDEXING === 'true') headers.delete('x-robots-tag');
     else headers.set('x-robots-tag', 'noindex, nofollow, noarchive, noimageindex');
     const body = new Response(response.body, { status: response.status, headers });
-    if (request.method === 'HEAD') return body;
+    if (request.method === 'HEAD') return withCacheStatus(body, 'MISS');
     // Edition documents use ../ for shared assets, so keep their depth under the asset prefix.
     const assetBase = prefix + route.path.slice(1);
-    return new HTMLRewriter()
+    // Promise.resolve accepts the runtime's sync transform and Node test doubles that return a Promise.
+    const rewritten = await Promise.resolve(new HTMLRewriter()
       .on('head', { element(el) { el.prepend(`<base href="${assetBase}">`, { html: true }); } })
       .on('a[href]', { element(el) {
         const href = el.getAttribute('href');
@@ -188,6 +240,9 @@ export default {
       .on('meta[name="robots"]', { element(el) {
         if (publicRequest && env.PUBLIC_INDEXING === 'true') el.remove();
       } })
-      .transform(body);
+      .transform(body));
+    const out = withCacheStatus(rewritten, 'MISS');
+    if (cacheKey) await writeEdgeCache(cacheKey, out);
+    return out;
   },
 };

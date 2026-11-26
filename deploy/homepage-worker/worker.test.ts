@@ -1,7 +1,29 @@
-import test from 'node:test';
+import test, { beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import worker, { routeFor } from './worker.ts';
 import { EDITIONS } from '../../reader-locales.ts';
+
+class MemoryCache {
+  entries = new Map<string, Response>();
+  async match(request: RequestInfo | URL) {
+    const key = request instanceof Request ? request.url : String(request);
+    const hit = this.entries.get(key);
+    return hit ? hit.clone() : undefined;
+  }
+  async put(request: RequestInfo | URL, response: Response) {
+    const key = request instanceof Request ? request.url : String(request);
+    this.entries.set(key, await response.clone().arrayBuffer().then(body => new Response(body, response)));
+  }
+}
+beforeEach(() => {
+  Object.defineProperty(globalThis, 'caches', {
+    value: { default: new MemoryCache() }, configurable: true,
+  });
+});
+Object.defineProperty(globalThis, 'caches', {
+  value: { default: new MemoryCache() }, configurable: true,
+});
+
 const request = (path: string, method = 'GET') => new Request('https://example.org' + path, { method });
 const environment = { PUBLIC_HOST: 'example.org', PAGES_ORIGIN: 'https://pages.example.org' };
 

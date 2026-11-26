@@ -144,7 +144,12 @@ jobs:
           node-version: '24'
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run build
+      - name: Refresh verified CDN snapshot from relays
+        run: pnpm run export:snapshot
+      - name: Build public artifact with a fresh snapshot
+        run: pnpm run build
+        env:
+          STRINGER_REQUIRE_FRESH_SNAPSHOT: '1'
       - name: Collect Kiswahili headlines for publication
         run: >-
           node --input-type=module -e

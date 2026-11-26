@@ -1,9 +1,31 @@
 
-import test from 'node:test';
+import test, { beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from 'cheerio';
 import worker from '../deploy/homepage-worker/worker.ts';
 import redirect from '../deploy/news-redirect/worker.ts';
+
+class MemoryCache {
+  entries = new Map<string, Response>();
+  async match(request: RequestInfo | URL) {
+    const key = request instanceof Request ? request.url : String(request);
+    const hit = this.entries.get(key);
+    return hit ? hit.clone() : undefined;
+  }
+  async put(request: RequestInfo | URL, response: Response) {
+    const key = request instanceof Request ? request.url : String(request);
+    this.entries.set(key, await response.clone().arrayBuffer().then(body =>
+      new Response(body, response)));
+  }
+}
+function installEdgeCache() {
+  const cache = new MemoryCache();
+  Object.defineProperty(globalThis, 'caches', { value: { default: cache }, configurable: true });
+  return cache;
+}
+installEdgeCache();
+beforeEach(() => { installEdgeCache(); });
+
 type ElementHandler = { element(element: ElementLike): void };
 type ElementLike = {
   prepend(html: string): void;
@@ -128,17 +150,46 @@ test('homepage rewrites relative navigation and indexing only on the configured 
   const brazil = await worker.fetch(request('/br/?edition=pt-BR'), env);
   assert.match(brazil.headers.get('set-cookie') ?? '', /^stringer_edition=pt-BR;/);
 });
-test('CDN snapshot and versioned assets get shared cache headers', async (t) => {
+test('CDN snapshot and modules get short shared cache headers without immutable', async (t) => {
   const mock = t.mock.method(globalThis, 'fetch', async () => new Response('{"schemaVersion":2}', {
     headers: { 'content-type': 'application/json', 'cache-control': 'private' },
   }));
   const snapshot = await worker.fetch(request('/news-assets/data/news.json'), env);
   assert.equal(snapshot.headers.get('cache-control'), 'public, max-age=60, s-maxage=300');
+  assert.equal(snapshot.headers.get('x-worker-cache'), 'MISS');
   mock.mock.mockImplementation(async () => new Response('export {}', {
     headers: { 'content-type': 'application/javascript' },
   }));
   const module = await worker.fetch(request('/news-assets/app.js?v=0123456789abcdef'), env);
-  assert.equal(module.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+  assert.equal(module.headers.get('cache-control'), 'public, max-age=60, s-maxage=300');
+  assert.equal(module.headers.get('cache-control')?.includes('immutable'), false);
   const image = await worker.fetch(request('/news-assets/assets/stringer-logo.png'), env);
   assert.equal(image.headers.get('cache-control'), 'public, max-age=86400');
+});
+test('Worker edge cache hits repeat homepage and asset GETs while edition redirects stay uncached', async (t) => {
+  (globalThis as typeof globalThis & { HTMLRewriter: typeof Rewriter }).HTMLRewriter = Rewriter;
+  t.after(() => {
+    delete (globalThis as typeof globalThis & { HTMLRewriter?: typeof Rewriter }).HTMLRewriter;
+  });
+  let upstream = 0;
+  t.mock.method(globalThis, 'fetch', async () => {
+    upstream++;
+    return new Response('<html><head></head><body><a href="./">Home</a></body></html>', {
+      headers: { 'content-type': 'text/html' },
+    });
+  });
+  const first = await worker.fetch(request('/pt/'), env);
+  assert.equal(first.headers.get('x-worker-cache'), 'MISS');
+  assert.equal(upstream, 1);
+  const firstBody = await first.text();
+  const second = await worker.fetch(request('/pt/?utm=repeat'), env);
+  assert.equal(second.headers.get('x-worker-cache'), 'HIT');
+  assert.equal(upstream, 1);
+  assert.equal(await second.text(), firstBody);
+  const redirected = await worker.fetch(new Request('https://example.org/', {
+    headers: { 'Accept-Language': 'pt-PT' },
+  }), env);
+  assert.equal(redirected.status, 302);
+  assert.equal(redirected.headers.get('cache-control'), 'no-store');
+  assert.equal(redirected.headers.get('x-worker-cache'), null);
 });

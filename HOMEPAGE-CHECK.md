@@ -5,7 +5,7 @@ Build the exact artifact being released, then check the final public homepage:
 
 ```sh
 pnpm run export:snapshot   # refresh data/news.json from relays before release
-pnpm run build
+STRINGER_REQUIRE_FRESH_SNAPSHOT=1 pnpm run build
 READER_PUBLIC_URL=https://stringerjournalism.org/ pnpm run smoke:production
 ```
 
@@ -14,11 +14,15 @@ Confirm the CDN snapshot is live and cacheable:
 ```sh
 curl -sI https://stringerjournalism.org/news-assets/data/news.json
 curl -sI https://stringerjournalism.org/
+curl -sI https://stringerjournalism.org/   # second request should report x-worker-cache: HIT
 ```
 
 Expect JSON (not HTML/502) for the snapshot, short shared `cache-control` on
-HTML/`news.json`, and long `immutable` caching on versioned `?v=` assets.
-Redeploy the homepage Worker after changing those headers.
+HTML/`news.json`/JS/CSS (never `immutable` on `?v=` paths), and
+`x-worker-cache: HIT` on repeat homepage/asset GETs. Edition language
+negotiation redirects stay `no-store`. Redeploy the homepage Worker after
+changing cache behavior. The public Pages workflow runs `export:snapshot`
+before packaging so cold loads do not keep a committed stale fallback.
 
 The check compares loaded script/style URL versions with the local
 `_site/index.html`. A later rebuild generates a different version because the
