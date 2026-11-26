@@ -11,6 +11,8 @@ interface RuntimeHTMLRewriter {
 }
 declare const HTMLRewriter: { new(): RuntimeHTMLRewriter };
 
+declare const caches: CacheStorage & { readonly default: Cache };
+
 interface Environment {
   PUBLIC_HOST: string;
   PAGES_ORIGIN: string;
@@ -69,25 +71,23 @@ export function routeFor(request: Request): Route {
 }
 
 /** Short shared TTLs only. Never immutable: ?v= paths are not content-addressed. */
-export function assetCacheControl(path: string): string | null {
+export function assetCacheControl(path: string): string {
   if (path === '/data/news.json') return 'public, max-age=60, s-maxage=300';
   if (/\.(?:js|css)$/.test(path)) return 'public, max-age=60, s-maxage=300';
-  if (/\.(?:png|ico|woff2?)$/.test(path)) return 'public, max-age=86400';
-  return null;
+  return 'public, max-age=86400'; // Remaining allowlisted assets are images.
 }
 
-/** Cache keys ignore analytics query strings and vary HTML by host indexing mode. */
+/** HTML links preserve the request query, and indexing depends on the host configuration. */
 export function edgeCacheKey(
   request: Request,
   route: Extract<Route, { kind: 'home' | 'asset' }>,
   env: Environment,
 ): Request {
   const url = new URL(request.url);
-  url.search = '';
   if (route.kind === 'home') {
     url.pathname = route.path;
     const indexed = env.PUBLIC_INDEXING === 'true' && url.hostname === env.PUBLIC_HOST;
-    url.searchParams.set('__index', indexed ? '1' : '0');
+    url.searchParams.append('__index', indexed ? '1' : '0');
   }
   return new Request(url.toString(), { method: 'GET' });
 }
@@ -169,8 +169,7 @@ export default {
       }
     }
 
-    const cacheable = (route.kind === 'home' || route.kind === 'asset') &&
-      request.method === 'GET' && !explicitEdition;
+    const cacheable = request.method === 'GET' && !explicitEdition;
     const cacheKey = cacheable ? edgeCacheKey(request, route, env) : null;
     if (cacheKey) {
       const cached = await readEdgeCache(cacheKey);
@@ -196,7 +195,7 @@ export default {
     if (route.kind === 'asset') {
       const cacheControl = assetCacheControl(route.path);
       const headers = new Headers(response.headers);
-      if (cacheControl) headers.set('cache-control', cacheControl);
+      headers.set('cache-control', cacheControl);
       let out = new Response(response.body, { status: response.status, statusText: response.statusText, headers });
       out = withCacheStatus(out, 'MISS');
       if (cacheKey) await writeEdgeCache(cacheKey, out);
@@ -206,7 +205,7 @@ export default {
       return new Response('News temporarily unavailable', { status: 502 });
     const headers = new Headers(response.headers);
     for (const name of ['etag', 'content-length', 'content-encoding', 'set-cookie', 'link']) headers.delete(name);
-    headers.set('cache-control', 'public, max-age=60, s-maxage=60');
+    headers.set('cache-control', explicitEdition ? 'no-store' : 'public, max-age=60, s-maxage=60');
     if (route.path === '/') headers.append('vary', languageVary);
     if (explicitEdition && request.method === 'GET') {
       headers.set('set-cookie', `${editionCookie}=${explicitEdition}; Path=/; Max-Age=31536000; Secure; HttpOnly; SameSite=Lax`);

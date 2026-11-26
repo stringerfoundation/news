@@ -146,6 +146,7 @@ test('homepage rewrites relative navigation and indexing only on the configured 
     headers: { Cookie: 'stringer_edition=pt-PT', 'Accept-Language': 'fr' },
   }), env);
   assert.equal(selected.status, 200);
+  assert.equal(selected.headers.get('cache-control'), 'no-store');
   assert.equal(selected.headers.get('set-cookie'), 'stringer_edition=en-US; Path=/; Max-Age=31536000; Secure; HttpOnly; SameSite=Lax');
   const brazil = await worker.fetch(request('/br/?edition=pt-BR'), env);
   assert.match(brazil.headers.get('set-cookie') ?? '', /^stringer_edition=pt-BR;/);
@@ -182,14 +183,27 @@ test('Worker edge cache hits repeat homepage and asset GETs while edition redire
   assert.equal(first.headers.get('x-worker-cache'), 'MISS');
   assert.equal(upstream, 1);
   const firstBody = await first.text();
-  const second = await worker.fetch(request('/pt/?utm=repeat'), env);
+  const second = await worker.fetch(request('/pt/'), env);
   assert.equal(second.headers.get('x-worker-cache'), 'HIT');
   assert.equal(upstream, 1);
   assert.equal(await second.text(), firstBody);
+  const campaign = await worker.fetch(request('/pt/?utm=another'), env);
+  assert.equal(campaign.headers.get('x-worker-cache'), 'MISS');
+  assert.equal(upstream, 2);
   const redirected = await worker.fetch(new Request('https://example.org/', {
     headers: { 'Accept-Language': 'pt-PT' },
   }), env);
   assert.equal(redirected.status, 302);
   assert.equal(redirected.headers.get('cache-control'), 'no-store');
   assert.equal(redirected.headers.get('x-worker-cache'), null);
+});
+
+test('asset requests survive an unavailable edge cache and HEAD skips cache writes', async t => {
+  Object.defineProperty(globalThis, 'caches', { value: {}, configurable: true });
+  t.mock.method(globalThis, 'fetch', async () => new Response(null));
+  for (const method of ['GET', 'HEAD']) {
+    const response = await worker.fetch(new Request('https://example.org/news-assets/style.css', {method}), env);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('x-worker-cache'), 'MISS');
+  }
 });

@@ -301,3 +301,27 @@ test('an exhausted budget prevents subscription work', async t => {
 test('a newer verified collection saved during loading rejects the older network response', async t => {
   const batch=fixture(), newer=fixture(1,'2026-01-02T00:00:00.000Z');const values=storage(t);relay(t,batch,{events:()=>{values.set(`stringer-relay:${pubkey}`,JSON.stringify({manifest:newer.manifest,stories:newer.events}));return batch.events;}});await assert.rejects(readRelaySnapshot(config),/Older collection/);
 });
+
+test('snapshot exporter writes a verified relay collection and rejects disabled configuration', async t => {
+  const { mkdir, mkdtemp, rm, readFile } = await import('node:fs/promises');
+  const { resolve } = await import('node:path');
+  const { default: settings } = await import('../relay-config.ts');
+  const original = { ...settings };
+  const cwd = process.cwd();
+  await mkdir('.test-output', {recursive: true});
+  const dir = await mkdtemp(resolve('.test-output/export-'));
+  t.after(async () => {
+    process.chdir(cwd);
+    Object.assign(settings, original);
+    await rm(dir, {recursive: true, force: true});
+  });
+  process.chdir(dir);
+  Object.assign(settings, config, {enabled: false});
+  const script = new URL('../scripts/export-relay-snapshot.ts', import.meta.url);
+  await assert.rejects(import(script.href + '?disabled'), /disabled/);
+  Object.assign(settings, {enabled: true});
+  relay(t, fixture());
+  await import(script.href);
+  const exported = JSON.parse(await readFile('data/news.json', 'utf8'));
+  assert.equal(exported.sources.stringer.stories[0].title, 'Story 0');
+});

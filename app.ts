@@ -988,10 +988,6 @@ async function loadCdnSnapshot(): Promise<Snapshot | null> {
     return null;
   }
 }
-function snapshotIsStale(value: Snapshot | null | undefined) {
-  return !value || !Number.isFinite(Date.parse(value.generatedAt)) ||
-    Date.now() - Date.parse(value.generatedAt) > STALE_MS;
-}
 async function load() {
   if (localizedEdition) return loadLocalized();
   if (loading) return;
@@ -1005,7 +1001,7 @@ async function load() {
   document.querySelectorAll('.story-list').forEach(list => list.setAttribute('aria-busy', 'true'));
   feedback.textContent = '';
   // CDN bootstrap is first paint only; a verified relay collection may replace it.
-  let cdnBootstrap = false;
+  let bootstrap: Promise<void> | undefined;
   let relaySettled = false;
   try {
     let next;
@@ -1019,14 +1015,14 @@ async function load() {
         if (snapshot) render();
       }
       // Start CDN and relays together; CDN may paint while relay verification is still pending.
-      if (snapshotIsStale(snapshot)) {
+      if (!snapshot || Date.now() - Date.parse(snapshot.generatedAt) > STALE_MS) {
         loadStage = t('Loading news…');
         renderStatuses();
-        void loadCdnSnapshot().then(cdn => {
+        bootstrap = loadCdnSnapshot().then(cdn => {
           if (relaySettled || !cdn) return;
           if (!snapshot || Date.parse(cdn.generatedAt) >= Date.parse(snapshot.generatedAt)) {
             snapshot = cdn;
-            cdnBootstrap = true;
+            retainedSources.clear();
             render();
           }
         });
@@ -1037,7 +1033,7 @@ async function load() {
         renderStatuses();
         console.info('[Stringer reader]', message);
       }, partial => {
-        if (snapshot && !cdnBootstrap && Date.parse(partial.generatedAt) < Date.parse(snapshot.generatedAt)) return;
+        if (snapshot && Date.parse(partial.generatedAt) < Date.parse(snapshot.generatedAt)) return;
         // Preserve already displayed stories while the rest of the update arrives.
         for (const source of SOURCES) {
           const current = partial.sources[source.id]!;
@@ -1047,27 +1043,26 @@ async function load() {
           else retainedSources.delete(source.id);
         }
         snapshot = partial;
-        cdnBootstrap = false;
+        relaySettled = true;
         render();
       }, timings => {
         feedTimings = timings;
         renderStatuses();
       });
       relaySettled = true;
-      cdnBootstrap = false;
     } else {
       const cdn = await loadCdnSnapshot();
       if (!cdn) throw new Error('HTTP unavailable');
       next = cdn;
     }
-    if (snapshot && !cdnBootstrap && Date.parse(next.generatedAt) < Date.parse(snapshot.generatedAt))
+    if (snapshot && Date.parse(next.generatedAt) < Date.parse(snapshot.generatedAt))
       throw new Error('Older snapshot returned');
     retainedSources.clear();
     snapshot = next; render();
     loadOutcome = Object.values(next.sources).some(source => source.unavailable) ? 'Partially loaded' : 'Loaded';
     feedback.textContent = '';
   } catch (error) {
-    relaySettled = true;
+    await bootstrap;
     loadOutcome = 'Failed';
     console.error('[Stringer reader] Collection refresh failed:', error);
     feedback.textContent = t(snapshot ? 'Could not check for updates. Keeping the previously loaded collection.' : 'The news collection is unavailable. We’ll retry automatically.');

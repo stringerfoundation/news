@@ -12,9 +12,9 @@ READER_PUBLIC_URL=https://stringerjournalism.org/ pnpm run smoke:production
 Confirm the CDN snapshot is live and cacheable:
 
 ```sh
-curl -sI https://stringerjournalism.org/news-assets/data/news.json
-curl -sI https://stringerjournalism.org/
-curl -sI https://stringerjournalism.org/   # second request should report x-worker-cache: HIT
+curl -fsS -D - -o /dev/null https://stringerjournalism.org/news-assets/data/news.json
+curl -fsS -D - -o /dev/null https://stringerjournalism.org/
+curl -fsS -D - -o /dev/null https://stringerjournalism.org/   # second request should report x-worker-cache: HIT
 ```
 
 Expect JSON (not HTML/502) for the snapshot, short shared `cache-control` on

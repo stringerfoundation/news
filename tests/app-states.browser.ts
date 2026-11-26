@@ -4,7 +4,7 @@ import test from 'node:test';
 import type { TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import type { Page } from '@playwright/test';
+import type { Page, Route } from '@playwright/test';
 import { launchBrowser } from '../scripts/browser.ts';
 import { SOURCES } from '../news-model.ts';
 import type { Snapshot, Story } from '../relay/types.ts';
@@ -50,7 +50,7 @@ function sourceState(snapshot: Snapshot, id: string) {
 }
 const reader = `export const cachedRelaySnapshot=()=>window.cached;
 export async function readRelaySnapshot(config,report,partial,timing){window.readerCalls=(window.readerCalls||0)+1;window.readerCallbacks={report,partial,timing};return new Promise((resolve,reject)=>{window.finish=resolve;window.fail=()=>reject(new Error('Offline'));});}`;
-async function setup(t: TestContext, cached: Snapshot | null = null, images = true, {withoutLabels = false, missingMenu = false}: {withoutLabels?: boolean; missingMenu?: boolean} = {}): Promise<Page> {
+async function setup(t: TestContext, cached: Snapshot | null = null, images = true, {withoutLabels = false, missingMenu = false, cdn}: {withoutLabels?: boolean; missingMenu?: boolean; cdn?: (route: Route) => Promise<void>} = {}): Promise<Page> {
   const browser = await launchBrowser();
   t.after(() => browser.close());
   const page = await browser.newPage();
@@ -61,6 +61,7 @@ async function setup(t: TestContext, cached: Snapshot | null = null, images = tr
   }, cached);
   await page.route('https://reader.test/**', async (route) => {
     const file = new URL(route.request().url()).pathname.slice(1) || 'index.html';
+    if (file === 'data/news.json') return cdn ? cdn(route) : route.fulfill({status: 404});
     if (file === 'relay-reader.js')
       return route.fulfill({ contentType: 'text/javascript', body: reader });
     if (file === 'relay-config.js')
@@ -232,4 +233,55 @@ test('retained stories without a collection time do not invent a timestamp', asy
   await page.evaluate(value=>window.readerCallbacks.partial(value),partial);
   assert.match((await page.locator('#relay-status-details').textContent()) ?? '',/Showing 1 previously collected stories\./);
   await page.evaluate(value=>window.finish(value),partial);
+});
+
+function deferredResponse() {
+  let resolve!: () => void;
+  const promise = new Promise<void>(done => { resolve = done; });
+  return {promise, resolve};
+}
+
+test('a cold reader keeps a valid CDN snapshot when the relay fails first', async t => {
+  const response = deferredResponse();
+  const value = snapshot();
+  value.generatedAt = new Date().toISOString();
+  value.sources.stringer = {...sourceState(value, 'stringer'), status: 'success', lastSuccessAt: time, stories: [story()]};
+  const page = await setup(t, null, true, {cdn: async route => {
+    await response.promise;
+    await route.fulfill({json: value});
+  }});
+  await page.evaluate(() => window.fail());
+  response.resolve();
+  await page.locator('#stringer-news article').waitFor();
+  await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
+  assert.match(await page.locator('#refresh-status').innerText(), /previously loaded/);
+});
+
+test('CDN first paint respects cached collection and relay ordering', async t => {
+  const now = Date.now();
+  const dated = (hours: number) => ({...snapshot(), generatedAt: new Date(now - hours * 3600_000).toISOString()});
+  for (const [cacheAge, cdnAge, relayFirst, paints] of [
+    [3, 4, false, false], [4, 3, false, true], [3, 7, false, false], [3, 0, true, false],
+    [0, 0, false, false],
+  ] as const) {
+    const gate = deferredResponse();
+    const cdn = dated(cdnAge);
+    cdn.sources.stringer = {...sourceState(cdn, 'stringer'), status: 'success', lastSuccessAt: time, stories: [story()]};
+    const page = await setup(t, dated(cacheAge), true, {cdn: async route => {
+      await gate.promise;
+      await route.fulfill({json: cdn});
+    }});
+    if (relayFirst) {
+      await page.evaluate(value => window.finish(value), dated(0));
+      await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
+    }
+    const delivered = cacheAge ? page.waitForEvent('requestfinished', req => req.url().endsWith('/data/news.json')) : null;
+    gate.resolve();
+    await delivered;
+    if (paints) await page.locator('#stringer-news article').waitFor();
+    if (!relayFirst) await page.evaluate(() => window.fail());
+    await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
+    assert.equal(await page.locator('#stringer-news article').count(), paints ? 1 : 0);
+    await page.close();
+  }
 });
