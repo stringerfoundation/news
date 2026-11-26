@@ -8264,7 +8264,8 @@ var ImageSession = class {
 // relay/plain.ts
 function plain(value) {
   if (typeof value !== "string") return "";
-  return new DOMParser().parseFromString(value, "text/html").body.textContent?.replace(/\s+/g, " ").trim().slice(0, 2e3) || "";
+  const text2 = new DOMParser().parseFromString(value, "text/html").body.textContent;
+  return (text2 || "").replace(/\s+/g, " ").trim().slice(0, 2e3);
 }
 
 // relay/commons.ts

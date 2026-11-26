@@ -80,7 +80,8 @@ function readCommonsImage(data) {
 // relay/plain.ts
 function plain(value) {
   if (typeof value !== "string") return "";
-  return new DOMParser().parseFromString(value, "text/html").body.textContent?.replace(/\s+/g, " ").trim().slice(0, 2e3) || "";
+  const text2 = new DOMParser().parseFromString(value, "text/html").body.textContent;
+  return (text2 || "").replace(/\s+/g, " ").trim().slice(0, 2e3);
 }
 
 // relay/commons.ts
@@ -2153,7 +2154,7 @@ var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
 ));
 
 // english-atomstr.ts
-import { articleLink, NEWSWIRE_LIMIT, urlIdentity } from "./news-model.js?v=607fb4f34b699280";
+import { articleLink, NEWSWIRE_LIMIT, urlIdentity } from "./news-model.js?v=3d81f6a904a52d0a";
 var ENGLISH_ATOMSTR_SOURCES = [
   { id: "aljazeera", name: "Al Jazeera", feeds: [{
     url: "https://www.aljazeera.com/xml/rss/all.xml",
@@ -2203,9 +2204,9 @@ function withEnglishAtomstrFallback(displayed, live, embedded, now = Date.now())
 }
 
 // app.ts
-import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, STALE_MS as STALE_MS2, CDN_SNAPSHOT_MAX_AGE_MS as CDN_SNAPSHOT_MAX_AGE_MS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink as articleLink2, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=607fb4f34b699280";
-import relayConfig from "./relay-config.js?v=607fb4f34b699280";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=607fb4f34b699280";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, STALE_MS as STALE_MS2, CDN_SNAPSHOT_MAX_AGE_MS as CDN_SNAPSHOT_MAX_AGE_MS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink as articleLink2, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=3d81f6a904a52d0a";
+import relayConfig from "./relay-config.js?v=3d81f6a904a52d0a";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=3d81f6a904a52d0a";
 
 // public-assets.ts
 var PUBLIC_MODULES = ["app", "news-model", "relay-config", "stringer-media", "response", "publications"];
@@ -2375,9 +2376,11 @@ function loadSuggestions() {
     suggestionQueue.clear();
     return;
   }
+  if (localizedEdition && publishedReader && !localizedThumbnailResponseReceived) return;
   for (const id of suggestionQueue) {
     if (activeSuggestions >= 2) break;
     suggestionQueue.delete(id);
+    if ((localizedEdition || publishedReader) && Object.hasOwn(publishedThumbnails, id)) continue;
     const state = commonsSearches.get(id);
     if (!state || state.loading || state.searched || !localizedEdition && !publishedReader && !imageSession?.refs[id]) continue;
     activeSuggestions++;
@@ -2497,7 +2500,7 @@ async function connectNostr() {
       })
     ]).finally(() => clearTimeout(timer));
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=607fb4f34b699280");
+    const identity = await import("./relay-reader.js?v=3d81f6a904a52d0a");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -2676,7 +2679,6 @@ function thumbnailCredit(imageCredit) {
   return caption;
 }
 function prepareImageSearch(storyId, title) {
-  if (localizedEdition && publishedReader && !localizedThumbnailResponseReceived) return;
   if (!commonsSearches.has(storyId)) {
     commonsSearches.set(storyId, { query: localizedEdition ? title.trim().slice(0, 200) : commonsSubject2(title), source: localizedEdition ? "commons" : "all", issues: [], loading: false, results: [], error: "", searched: false });
   }
@@ -3032,7 +3034,7 @@ function renderStories(target, stories, emptyMessage) {
     if (wire) {
       article.classList.add("with-image");
       wireFigure = element("figure", "", "story-media wire-thumbnail");
-      if (hasPublishedThumbnail && !publishedThumbnail) wireFigure.dataset.publishedMiss = "true";
+      if (hasPublishedThumbnail && !publishedThumbnail && !commons) wireFigure.dataset.publishedMiss = "true";
       if (searchId && !hasPublishedThumbnail) {
         wireFigure.dataset.storyId = searchId;
         if (!search?.loading && !search?.searched) suggestionObserver.observe(wireFigure);
@@ -3160,8 +3162,8 @@ function renderStories(target, stories, emptyMessage) {
       meta.firstElementChild.after(separator);
     }
     body.append(meta);
-    if (searchId && hasPublishedThumbnail && !publishedThumbnail) {
-      wireFigure?.append(storyPlaceholder(t("No thumbnail was published for this headline.")));
+    if (searchId && hasPublishedThumbnail && !publishedThumbnail && !commons) {
+      wireFigure?.append(storyPlaceholder(t("Image unavailable")));
     } else if (searchId && !hasPublishedThumbnail && !commons) {
       if (search?.error) wireFigure?.append(storyPlaceholder(t("Image unavailable")));
       else if (search?.searched && (search.results.length || trusted)) {
@@ -3198,7 +3200,7 @@ function headlineImageReason(figure) {
   if (figure.classList.contains("image-load-failed")) return t("The image could not be loaded.");
   if (figure.classList.contains("image-loading")) return t("The image is waiting to load.");
   if (figure.querySelector(":scope > a > img")) return null;
-  if (figure.dataset.publishedMiss) return t("No thumbnail was published for this headline.");
+  if (figure.dataset.publishedMiss) return t("Image unavailable");
   const id = figure.dataset.storyId;
   if (!id) return t("Image lookup is unavailable for this headline.");
   if (!localizedEdition && skippedImages.get(choiceKey(id))?.length && imageOptions(id).length)
@@ -3405,7 +3407,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled && !publishedReader) {
-      const reader = await import("./relay-reader.js?v=607fb4f34b699280");
+      const reader = await import("./relay-reader.js?v=3d81f6a904a52d0a");
       ImageSessionClass = reader.ImageSession;
       searchImages2 = reader.searchImages;
       commonsSubject2 = reader.commonsSubject;
@@ -3501,6 +3503,7 @@ async function refreshPublishedHeadlines() {
     if (!(Date.parse(data.generatedAt) >= Date.now() - CDN_SNAPSHOT_MAX_AGE_MS2)) throw new Error("Expired edition");
     publishedThumbnails = readPublishedThumbnails(data.thumbnails);
     localizedThumbnailResponseReceived = true;
+    loadSuggestions();
     for (const { id } of publisherSources) {
       const next = data.sources[id];
       const previous = snapshot.sources[id];
@@ -3508,6 +3511,7 @@ async function refreshPublishedHeadlines() {
     }
   } catch {
     localizedThumbnailResponseReceived = true;
+    loadSuggestions();
     for (const { id } of publisherSources) snapshot.sources[id].status = "failure";
   }
 }
@@ -3523,7 +3527,7 @@ async function loadLocalized() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = swahiliEdition || publishedReader ? null : await import("./atomstr-reader.js?v=607fb4f34b699280");
+    const reader = swahiliEdition || publishedReader ? null : await import("./atomstr-reader.js?v=3d81f6a904a52d0a");
     if (!snapshot) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
@@ -3566,7 +3570,7 @@ async function loadLocalized() {
         try {
           let original;
           if (relayConfig.enabled && !publishedReader) {
-            const relay = await import("./relay-reader.js?v=607fb4f34b699280");
+            const relay = await import("./relay-reader.js?v=3d81f6a904a52d0a");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
@@ -3621,7 +3625,7 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden && Date.now() - lastAttempt >= interval) load();
 });
 if (publishedReader) searchImages2 = searchImages;
-else if (localizedEdition) void import("./relay-reader.js?v=607fb4f34b699280").then((reader) => {
+else if (localizedEdition) void import("./relay-reader.js?v=3d81f6a904a52d0a").then((reader) => {
   searchImages2 = reader.searchImages;
   loadSuggestions();
 }, () => suggestionQueue.clear());
