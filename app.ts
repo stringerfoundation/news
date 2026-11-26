@@ -156,9 +156,11 @@ function loadSuggestions() {
   if (localizedEdition || publishedReader) {
     if (!searchImages) return;
   } else if (!imageSession) { suggestionQueue.clear(); return; }
+  if (localizedEdition && publishedReader && !localizedThumbnailResponseReceived) return;
   for (const id of suggestionQueue) {
     if (activeSuggestions >= 2) break;
     suggestionQueue.delete(id);
+    if ((localizedEdition || publishedReader) && Object.hasOwn(publishedThumbnails, id)) continue;
     const state = commonsSearches.get(id);
     if (!state || state.loading || state.searched || (!localizedEdition && !publishedReader && !imageSession?.refs[id])) continue;
     activeSuggestions++;
@@ -437,7 +439,6 @@ function thumbnailCredit(imageCredit: CommonsImage) {
   return caption;
 }
 function prepareImageSearch(storyId: string, title: string) {
-  if (localizedEdition && publishedReader && !localizedThumbnailResponseReceived) return;
   if (!commonsSearches.has(storyId)) {
     commonsSearches.set(storyId, { query: localizedEdition ? title.trim().slice(0, 200) : commonsSubject(title), source: localizedEdition ? 'commons' : 'all', issues: [], loading: false, results: [], error: '', searched: false });
   }
@@ -699,7 +700,7 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
     if (wire) {
       article.classList.add('with-image');
       wireFigure = element('figure', '', 'story-media wire-thumbnail');
-      if (hasPublishedThumbnail && !publishedThumbnail) wireFigure.dataset.publishedMiss = 'true';
+      if (hasPublishedThumbnail && !publishedThumbnail && !commons) wireFigure.dataset.publishedMiss = 'true';
       if (searchId && !hasPublishedThumbnail) {
         wireFigure.dataset.storyId = searchId;
         if (!search?.loading && !search?.searched) suggestionObserver.observe(wireFigure);
@@ -810,8 +811,8 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
       meta.firstElementChild!.after(separator);
     }
     body.append(meta);
-    if (searchId && hasPublishedThumbnail && !publishedThumbnail) {
-      wireFigure?.append(storyPlaceholder(t('No thumbnail was published for this headline.')));
+    if (searchId && hasPublishedThumbnail && !publishedThumbnail && !commons) {
+      wireFigure?.append(storyPlaceholder(t('Image unavailable')));
     } else if (searchId && !hasPublishedThumbnail && !commons) {
       if (search?.error) wireFigure?.append(storyPlaceholder(t('Image unavailable')));
       else if (search?.searched && (search.results.length || trusted)) {
@@ -850,7 +851,7 @@ function headlineImageReason(figure: HTMLElement) {
   if (figure.classList.contains('image-load-failed')) return t('The image could not be loaded.');
   if (figure.classList.contains('image-loading')) return t('The image is waiting to load.');
   if (figure.querySelector(':scope > a > img')) return null;
-  if (figure.dataset.publishedMiss) return t('No thumbnail was published for this headline.');
+  if (figure.dataset.publishedMiss) return t('Image unavailable');
   const id = figure.dataset.storyId;
   if (!id) return t('Image lookup is unavailable for this headline.');
   if (!localizedEdition && skippedImages.get(choiceKey(id))?.length && imageOptions(id).length)
@@ -1136,6 +1137,7 @@ async function refreshPublishedHeadlines() {
     if (!(Date.parse(data.generatedAt) >= Date.now() - CDN_SNAPSHOT_MAX_AGE_MS)) throw new Error('Expired edition');
     publishedThumbnails = readPublishedThumbnails(data.thumbnails);
     localizedThumbnailResponseReceived = true;
+    loadSuggestions();
     for (const {id} of publisherSources) {
       const next = data.sources[id];
       const previous = snapshot!.sources[id]!;
@@ -1143,6 +1145,7 @@ async function refreshPublishedHeadlines() {
     }
   } catch {
     localizedThumbnailResponseReceived = true;
+    loadSuggestions();
     for (const {id} of publisherSources) snapshot!.sources[id]!.status = 'failure';
   }
 }

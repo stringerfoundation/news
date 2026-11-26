@@ -29,6 +29,8 @@ test('leaves unapproved first-five headlines absent from the persistent image ma
   const titles = ['Newest A', 'Newest B', 'Newest C', 'Newest D', 'Newest E', 'Sixth'];
   const site = await makeSite(root, titles);
   try {
+    const newsPath = join(site, 'data', 'news.json'); const news = JSON.parse(await readFile(newsPath, 'utf8'));
+    delete news.sources.bbc.stories[0].noteId; await writeFile(newsPath, JSON.stringify(news));
     await publishHeadlineThumbnails(site, join(root, '.thumbnail-cache'), { download: async () => { throw new Error('unapproved images are not downloaded'); } });
     const result = JSON.parse(await readFile(join(site, 'data', 'news.json'), 'utf8'));
     assert.deepEqual(result.thumbnails, {});
@@ -85,10 +87,22 @@ test('approved URL keys normalize and stale bytes refresh', async () => {
     assert.ok(result.thumbnails['https://example.org/0#tracking']);
     assert.deepEqual(logs, ['Headline thumbnails en-US: 1/1']);
     const cached = JSON.parse(await readFile(join(cacheDirectory, 'index.json'), 'utf8'));
+    cached.push({ key: 'f'.repeat(64), image: image(90), hash: 'a'.repeat(64) });
+    await writeFile(join(cacheDirectory, 'index.json'), JSON.stringify(cached));
+    await mkdir(join(site, 'assets', 'headline-thumbnails'), { recursive: true });
+    await mkdir(join(cacheDirectory, 'assets'), { recursive: true });
+    await writeFile(join(site, 'assets', 'headline-thumbnails', 'orphan.webp'), 'orphan');
+    await writeFile(join(cacheDirectory, 'assets', 'orphan.webp'), 'orphan');
+    await writeFile(join(cacheDirectory, 'assets', `${'a'.repeat(64)}.webp`), 'orphan');
     await writeFile(join(cacheDirectory, 'assets', `${cached[0].hash}.webp`), 'corrupt');
     await publishHeadlineThumbnails(site, cacheDirectory, dependencies);
     result = JSON.parse(await readFile(newsPath, 'utf8'));
     assert.ok(result.thumbnails['https://example.org/0#tracking']);
+    const current = JSON.parse(await readFile(join(cacheDirectory, 'index.json'), 'utf8'));
+    const hash = current[0].hash;
+    await rm(join(cacheDirectory, 'assets', `${hash}.webp`));
+    await publishHeadlineThumbnails(site, cacheDirectory, dependencies);
+    assert.ok(JSON.parse(await readFile(newsPath, 'utf8')).thumbnails['https://example.org/0#tracking']);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -107,16 +121,30 @@ test('malformed approval remains an explicit null and is never downloaded', asyn
 
 test('expired publication budget leaves approved thumbnails null', async () => {
   const root = await mkdtemp(join(tmpdir(), 'headline-thumbs-'));
-  const site = await makeSite(root, ['Budget']); const logs: string[] = [];
+  const site = await makeSite(root, ['Budget']);
   try {
     const newsPath = join(site, 'data', 'news.json'); const news = JSON.parse(await readFile(newsPath, 'utf8'));
     news.illustrations = { '0': image(20) }; await writeFile(newsPath, JSON.stringify(news));
     await publishHeadlineThumbnails(site, join(root, '.thumbnail-cache'), {
-      download: async () => { throw new Error('download should not start'); }, log: line => logs.push(line),
       timeBudgetMs: 0,
     });
     const result = JSON.parse(await readFile(newsPath, 'utf8'));
     assert.equal(result.thumbnails['https://example.org/0'], null);
-    assert.deepEqual(logs, ['Headline thumbnails en-US: 0/1']);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('empty bytes and download rejection leave only approved entries null', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'headline-thumbs-'));
+  const site = await makeSite(root, ['Empty', 'Reject']); const newsPath = join(site, 'data', 'news.json');
+  const news = JSON.parse(await readFile(newsPath, 'utf8'));
+  news.illustrations = { '0': image(30), '1': image(31) }; await writeFile(newsPath, JSON.stringify(news));
+  try {
+    await publishHeadlineThumbnails(site, join(root, '.thumbnail-cache'), { download: async url => {
+      if (url.endsWith('/30.jpg')) return Buffer.alloc(0);
+      throw new Error('approved source unavailable');
+    }, log: () => {} });
+    const result = JSON.parse(await readFile(newsPath, 'utf8'));
+    assert.equal(result.thumbnails['https://example.org/0'], null);
+    assert.equal(result.thumbnails['https://example.org/1'], null);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

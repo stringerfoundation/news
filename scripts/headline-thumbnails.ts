@@ -6,6 +6,7 @@ import type { Snapshot, Story } from '../relay/types.ts';
 import { readIllustration, type CommonsImage } from '../relay/illustration.ts';
 import { EDITIONS } from '../reader-locales.ts';
 import { firstScreenHeadlines } from './first-screen-headlines.ts';
+import { fetchThumbnail } from './thumbnail-bytes.ts';
 
 export interface PublishedThumbnail { file: string; image: CommonsImage; suggested: boolean }
 export interface ThumbnailDependencies {
@@ -14,13 +15,13 @@ export interface ThumbnailDependencies {
   timeBudgetMs?: number;
   log?: (line: string) => void;
 }
-interface CachedImage { key: string; image: CommonsImage; hash: string }
+interface CachedImage { key: string; hash: string }
 const keyFor = (story: Story, locale: string, approved: CommonsImage) => createHash('sha256')
   .update(JSON.stringify([story.title, story.url, locale, approved])).digest('hex');
 
 /** Publish only owner-approved images for the first five world headlines in each edition. */
 export async function publishHeadlineThumbnails(site: string, cacheDirectory: string, dependencies: ThumbnailDependencies = {}): Promise<void> {
-  const download = dependencies.download ?? (await import('./thumbnail-bytes.ts')).fetchThumbnail;
+  const download = dependencies.download ?? fetchThumbnail;
   const concurrency = Math.max(1, Math.min(4, Math.floor(dependencies.concurrency ?? 4)));
   const deadline = Date.now() + Math.max(0, dependencies.timeBudgetMs ?? 8 * 60_000);
   const newsPath = join(site, 'data', 'news.json');
@@ -35,8 +36,7 @@ export async function publishHeadlineThumbnails(site: string, cacheDirectory: st
   let old: CachedImage[] = [];
   try {
     const data: unknown = JSON.parse(await readFile(cacheFile, 'utf8'));
-    if (Array.isArray(data)) old = data.filter((item): item is CachedImage => !!item && typeof item.key === 'string' && /^[0-9a-f]{64}$/.test(item.hash) && !!item.image)
-      .map(item => ({ ...item, image: readIllustration(item.image as unknown as Record<string, unknown>) }));
+    if (Array.isArray(data)) old = data.filter((item): item is CachedImage => !!item && typeof item.key === 'string' && /^[0-9a-f]{64}$/.test(item.hash));
   } catch { /* Rebuild cache on first run or after damaged metadata. */ }
   const cache = new Map(old.map(item => [item.key, item]));
   const activeKeys = new Set<string>(), currentAssets = new Set<string>();
@@ -69,7 +69,7 @@ export async function publishHeadlineThumbnails(site: string, cacheDirectory: st
                 const siteAsset = join(site, expectedFile);
                 await mkdir(dirname(siteAsset), { recursive: true }); await copyFile(cacheAsset, siteAsset);
                 currentAssets.add(`${cached.hash}.webp`);
-                thumbnails[storyUrl] = { file: expectedFile, image: cached.image, suggested: false };
+                thumbnails[storyUrl] = { file: expectedFile, image: approved, suggested: false };
                 return;
               }
             } catch { /* Missing cached bytes triggers a fresh download below. */ }
@@ -80,7 +80,7 @@ export async function publishHeadlineThumbnails(site: string, cacheDirectory: st
           if (!Buffer.isBuffer(bytes) || !bytes.length) { thumbnails[storyUrl] = null; return; }
           const hash = createHash('sha256').update(bytes).digest('hex');
           const file = `assets/headline-thumbnails/${hash}.webp`;
-          cache.set(key, { key, image: approved, hash });
+          cache.set(key, { key, hash });
           const cacheAsset = join(cacheDirectory, 'assets', `${hash}.webp`);
           const siteAsset = join(site, file);
           await mkdir(dirname(cacheAsset), { recursive: true }); await mkdir(dirname(siteAsset), { recursive: true });

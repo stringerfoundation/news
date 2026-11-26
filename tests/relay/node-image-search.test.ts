@@ -46,6 +46,18 @@ test('automatic external suggestions require the subject in image metadata', asy
   }));
   const openverse = await searchOpenverse('Gaza', async () => Response.json({ results: openverseRows }), false, true);
   assert.deepEqual(openverse.map(image => image.title), ['Gaza rain shelter']);
+  const euMatches = await searchOpenverse('EU', async () => Response.json({ results: [
+    { ...openverseRows[0], title: 'EU summit', id: '12345678-1234-1234-1234-123456789ac0' },
+    { ...openverseRows[0], title: 'European Union budget', id: '12345678-1234-1234-1234-123456789ac1' },
+    { ...openverseRows[0], title: 'European Commission meeting', id: '12345678-1234-1234-1234-123456789ac2' },
+    { ...openverseRows[0], title: 'European Parliament debate', id: '12345678-1234-1234-1234-123456789ac3' },
+    { ...openverseRows[0], title: 'International conference', id: '12345678-1234-1234-1234-123456789ac4' },
+  ] }), false, true);
+  assert.deepEqual(euMatches.map(image => image.title), ['EU summit', 'European Union budget', 'European Commission meeting', 'European Parliament debate']);
+  assert.deepEqual(await searchOpenverse('🌧️', async () => Response.json({ results: openverseRows }), false, true), []);
+  assert.deepEqual(await searchOpenverse('Missing title', async () => Response.json({ results: [{
+    ...openverseRows[0], title: '', id: '12345678-1234-1234-1234-123456789ac5',
+  }] })), []);
   const unicode = await searchOpenverse('İZMİR', async () => Response.json({ results: [{
     ...openverseRows[0], title: 'İzmir shoreline', id: '12345678-1234-1234-1234-123456789abd',
   }] }), false, true);
