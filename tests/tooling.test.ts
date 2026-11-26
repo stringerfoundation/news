@@ -79,11 +79,13 @@ test('browser helper honors an explicit Chrome path while enforcing headless mod
   });
   const marker = {};
   t.mock.method(chromium, 'launch', async (options: LaunchOptions) => {
-    assert.equal(options.executablePath, '/synthetic/chrome');
+    assert.equal(options.executablePath, process.env.CHROME_PATH);
     assert.equal(options.headless, true);
     assert.equal(options.timeout, 10);
     return marker;
   });
+  assert.equal(await launchBrowser({ headless: false, timeout: 10 }), marker);
+  delete process.env.CHROME_PATH;
   assert.equal(await launchBrowser({ headless: false, timeout: 10 }), marker);
 });
 test('syntax checker treats a terminated child as failure', async (t) => {

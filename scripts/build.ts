@@ -1,3 +1,4 @@
+import { validateSnapshot, CDN_SNAPSHOT_MAX_AGE_MS } from '../news-model.ts';
 import { EDITIONS } from '../reader-locales.ts';
 import { localizedReaderHtml } from './reader-html.ts';
 import { browserExternals } from './browser-build.ts';
@@ -32,7 +33,6 @@ await writeFile('_site/robots.txt', 'User-agent: *\nDisallow:\n');
 await mkdir('_site/data', { recursive: true });
 // CDN snapshot for cold loads. Publishing must run `pnpm run export:snapshot` first.
 {
-  const { validateSnapshot, CDN_SNAPSHOT_MAX_AGE_MS } = await import('../news-model.ts');
   const snapshot = validateSnapshot(JSON.parse(await readFile('data/news.json', 'utf8')));
   const ageMs = Date.now() - Date.parse(snapshot.generatedAt);
   if (process.env.STRINGER_REQUIRE_FRESH_SNAPSHOT === '1' && ageMs > CDN_SNAPSHOT_MAX_AGE_MS)
