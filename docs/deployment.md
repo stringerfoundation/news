@@ -22,7 +22,7 @@ To roll back the Pages origin, restore the previous `PAGES_ORIGIN` in private op
 
 ### Cloudflare Pages Direct Upload
 
-The Cloudflare Pages workflow uploads the checked public artifact after the website CI workflow succeeds on `main`. Set `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_PAGES_PROJECT` as secrets in the GitHub `cloudflare-pages` environment. Allow the `main` branch in that environment and grant the token Cloudflare Pages Edit access to the account that owns the Direct Upload project. A push or a manual run of the website workflow on `main` can deploy the checked build.
+The Cloudflare Pages workflow uploads the checked public artifact after the website CI workflow succeeds on `main`. Set `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_PAGES_PROJECT` as secrets in the GitHub `cloudflare-pages` environment. Allow the `main` branch in that environment and grant the token Cloudflare Pages Edit access to the account that owns the Direct Upload project. Pushes, manual runs, and the hourly schedule on `main` deploy the checked build. The publisher reads the configured relays and writes static news files for visitors.
 
 ## Continuous integration
 

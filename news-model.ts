@@ -29,6 +29,8 @@ export function permittedStories(sourceId: string, stories: Story[], permissions
   const permission = permissions[sourceId];
   if (permission?.text !== true) return [];
   return stories.map(story => ({
+    ...(story.noteId && /^[0-9a-f]{64}$/.test(story.noteId) ? {noteId: story.noteId} : {}),
+    ...(story.clusterId && /^[0-9a-f]{64}$/.test(story.clusterId) ? {clusterId: story.clusterId} : {}),
     title: story.title, url: story.url, publishedAt: story.publishedAt,
     summary: permission.summaries === true ? story.summary : '',
     ...(sourceId === 'stringer' ? { credits: story.credits, publicationDate: story.publicationDate ?? null, publicationSource: story.publicationSource ?? null } : {}),

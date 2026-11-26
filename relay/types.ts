@@ -26,6 +26,7 @@ export interface SourceState {
   error: string | null;
 }
 export interface Snapshot {
+  illustrations?: Record<string, import('./images.js').CommonsImage>;
   imageCandidates?: Record<string, string[]>;
   schemaVersion: number;
   generatedAt: string;

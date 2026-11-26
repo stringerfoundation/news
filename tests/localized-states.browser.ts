@@ -15,6 +15,8 @@ interface LocalizedFixtureOptions {
   storageDenied?: boolean;
   failStatic?: boolean;
   relay?: boolean;
+  published?: boolean;
+  expired?: boolean;
   proxy?: boolean;
   omitOptions?: boolean;
   cacheThrows?: boolean;
@@ -74,6 +76,9 @@ async function setup(t: TestContext, locale: string, options: LocalizedFixtureOp
     if (file.startsWith('assets/')) {assets.push(file); return route.abort();}
     if (file === 'atomstr-reader.js') return route.fulfill({contentType: 'text/javascript', body: mirrors});
     if (file === 'relay-reader.js') return route.fulfill({contentType: 'text/javascript', body: relay});
+    if (file.endsWith('/headlines.json')) return failStatic ? route.fulfill({status: 503}) :
+      route.fulfill({json: {generatedAt: options.expired ? at : new Date().toISOString(), sources: options.mirrorCache}});
+    if (file === 'relay-config.js' && options.published) return route.fulfill({contentType: 'text/javascript', body: await readFile('_site/relay-config.js', 'utf8')});
     if (file === 'relay-config.js') return route.fulfill({contentType: 'text/javascript', body: `export default {enabled:${Boolean(options.relay)}};`});
     if (file === 'data/news.json') return failStatic ? route.fulfill({status: 503}) : route.fulfill({json: collection()});
     let body = file.endsWith('.js') ? await readerSource(file) : await readFile(`_site/${file}`, 'utf8');
@@ -237,4 +242,26 @@ test('the homepage proxy keeps locale navigation visible and a missing optional 
   assert.equal(await page.locator('#source-options').count(), 0);
   assert.equal(await page.locator('#refresh-status').textContent(), '');
   assert.deepEqual(errors, []);
+});
+
+test('published edition polls same-origin headlines and retains them through an outage without a relay query', async t => {
+  const first = EDITION_SOURCES.fr![0]!;
+  const {page, failStatic} = await setup(t, 'fr', {published: true, mirrorCache: {
+    [first.id]: entry([story('Published French headline')]),
+  }});
+  await ready(page);
+  assert.equal(await page.locator('#world-news h3').first().textContent(), 'Published French headline');
+  assert.equal(await page.evaluate(() => window.mirrorCalls), undefined);
+  failStatic();
+  await page.clock.fastForward(300000);
+  await ready(page);
+  assert.equal(await page.locator('#world-news h3').first().textContent(), 'Published French headline');
+  assert.equal(await page.evaluate(() => window.mirrorCalls), undefined);
+});
+
+test('published editions report an expired headline collection', async t => {
+  const {page} = await setup(t, 'fr', {published: true, expired: true});
+  await ready(page);
+  assert.equal(await page.locator('#world-news article').count(), 0);
+  assert.equal(await page.evaluate(() => window.mirrorCalls), undefined);
 });

@@ -75,3 +75,19 @@ test('independent candidates require Stringer’s signature, discovery tag, and 
   assert.throws(() => readCandidate(event, getPublicKey(a), { [story]: [] }, true));
   assert.throws(() => readCandidate(c1, getPublicKey(owner), { [story]: [] }, true));
 });
+
+test('the publisher exports only illustrations selected by verified votes', async () => {
+  const {publishedImages} = await import('../../scripts/published-images.ts');
+  const identity = getPublicKey(owner);
+  assert.deepEqual(await publishedImages(identity, {}, async () => []), {});
+  const trust = finalizeEvent({kind: 3, content: '', created_at: now, tags: [['p', getPublicKey(a)]]}, owner);
+  const bogus = finalizeEvent({kind: 3, content: '', created_at: now + 1, tags: []}, b);
+  const result = await publishedImages(identity, {...refs, [other]: []}, async filter => {
+    if (filter.kinds?.includes(3)) return [trust, bogus];
+    if (filter.ids) return [c1];
+    if (filter['#t']?.includes(IMAGE_MARKER)) return [c2, bogus];
+    return [vote(a, c1.id)];
+  });
+  assert.equal(result[story]?.id, c1.id);
+  assert.equal(result[other], undefined);
+});

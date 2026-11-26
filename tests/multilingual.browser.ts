@@ -390,6 +390,11 @@ test('the Kiswahili preview shows checked publisher snapshots with source attrib
     const pageFile = join(directory, 'sw.html');
     await writeFile(pageFile, await readFile('_site/sw/index.html'));
     await embedSwahiliHeadlines(pageFile, async (url, options) => {
+      if (url === swahiliPublisher.url) return `<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="sw">
+        <entry><title>Habari DW</title><link rel="alternate" hreflang="sw" href="https://www.dw.com/sw/story"/><published>2026-11-17T09:30:00Z</published></entry>
+        <entry><title>DW undated</title><link rel="alternate" hreflang="sw" href="https://www.dw.com/sw/undated"/></entry>
+        <entry><title>Wrong host</title><link rel="alternate" hreflang="sw" href="https://example.org/story"/></entry>
+        <entry></entry></feed>`;
       const publisher = collectedSwahiliPublishers.find(source => source.url === url)!;
       assert.deepEqual(options?.allowedHosts, [new URL(url).hostname]);
       if (publisher.id === 'sw-voa') throw new Error('Unavailable');
@@ -401,6 +406,11 @@ test('the Kiswahili preview shows checked publisher snapshots with source attrib
         <title>Unexpected external link</title><link>https://example.org/sw/habari</link>
       </item></channel></rss>`;
     });
+    const saved = JSON.parse(await readFile(join(directory, 'headlines.json'), 'utf8'));
+    assert.deepEqual(saved.sources.dw.stories.map((item: {title: string}) => item.title), ['Habari DW', 'DW undated']);
+    await writeFile(join(directory, 'invalid.html'), '<body></body>');
+    await embedSwahiliHeadlines(join(directory, 'invalid.html'), async () => '<rss/>');
+    assert.equal(JSON.parse(await readFile(join(directory, 'headlines.json'), 'utf8')).sources.dw.status, 'failure');
     const html = await readFile(pageFile, 'utf8');
     assert.doesNotMatch(html, /Unapproved publisher copy|photo\.jpg|Unexpected external link/);
     const {page, errors} = await openEdition(browser, '/pr-preview/61/', 'fr', {builtApp: true});

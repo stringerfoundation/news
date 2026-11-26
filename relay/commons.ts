@@ -1,4 +1,4 @@
-import { readCommonsImage, type CommonsImage } from './images.js';
+import { readCommonsImage, type CommonsImage } from './illustration.js';
 
 const places: Record<string, string> = {
   Saudi: 'Saudi Arabia', British: 'United Kingdom', French: 'France', German: 'Germany',

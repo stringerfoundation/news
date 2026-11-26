@@ -6,7 +6,7 @@ import { launchBrowser } from './browser.ts';
 import type { Browser } from '@playwright/test';
 import { PUBLIC_MODULES } from '../public-assets.ts';
 
-const requiredAssets = ['app.js', 'news-model.js', 'relay-config.js', 'relay-reader.js', 'style.css'];
+const requiredAssets = ['app.js', 'news-model.js', 'relay-config.js', 'style.css'];
 const monitoredAssets = new Set([...PUBLIC_MODULES.map(name => `${name}.js`), 'relay-reader.js', 'style.css']);
 
 export function homepageURL(value: string | undefined) {

@@ -10,7 +10,7 @@ import type { Snapshot, SourceState } from '../relay/types.ts';
 const key = generateSecretKey(),
   pubkey = getPublicKey(key),
   config = { pubkey, relays: ['wss://relay.test'] };
-function fixture(count = 1, time = '2026-01-01T00:00:00.000Z') {
+function fixture(count = 1, time = '2026-01-01T00:00:00.000Z', withHeadline = false) {
   const snapshot: Snapshot = {
     schemaVersion: 2,
     generatedAt: time,
@@ -35,6 +35,7 @@ function fixture(count = 1, time = '2026-01-01T00:00:00.000Z') {
     status: count ? 'success' : 'paused',
     error: null,
   };
+  if (withHeadline) snapshot.sources.bbc = {...snapshot.sources.stringer, stories: snapshot.sources.stringer.stories.map(item => ({...item, url: 'https://example.org/headline'}))};
   return publicBatch(snapshot, key).batch;
 }
 interface CachedCollectionFixture {
@@ -320,7 +321,9 @@ test('snapshot exporter writes a verified relay collection and rejects disabled 
   const script = new URL('../scripts/export-relay-snapshot.ts', import.meta.url);
   await assert.rejects(import(script.href + '?disabled'), /disabled/);
   Object.assign(settings, {enabled: true});
-  relay(t, fixture());
+  const batch = fixture(1, undefined, true);
+  relay(t, batch);
+  t.mock.method(SimplePool.prototype, 'querySync', async () => []);
   await import(script.href);
   const exported = JSON.parse(await readFile('data/news.json', 'utf8'));
   assert.equal(exported.sources.stringer.stories[0].title, 'Story 0');
