@@ -15,7 +15,7 @@ test('built production and PR previews preserve relative assets, indexing and mo
   await mkdir(root, { recursive: true });
   // Use the real publisher and checked build; synthetic news stays inside this test server.
   execFileSync('python3', ['-B', '-c', `from pathlib import Path; import runpy; p = runpy.run_path('scripts/pages-preview.py'); p['apply_site'](Path(${JSON.stringify(root)}), Path('_site')); p['apply_site'](Path(${JSON.stringify(root)}), Path('_site'), '18', '${'a'.repeat(40)}')`]);
-  const at = '2026-10-19T14:42:00.000Z';
+  const at = new Date().toISOString();
   const snapshot = { schemaVersion: 2, generatedAt: at, sources: Object.fromEntries(SOURCES.map(source => [source.id, {
     attemptedAt: at, lastSuccessAt: at, status: 'success', error: null,
     stories: Array.from({ length: 6 }, (_, index) => ({ title: `Synthetic ${source.id} fixture ${index}`, url: `https://example.test/${source.id}/${index}`,

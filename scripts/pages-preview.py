@@ -24,7 +24,7 @@ EDITION_PATHS = ('br', 'pt', 'fr', 'es', 'ar', 'zh', 'ru', 'nl', 'de')
 OPTIONAL_EDITION_PATHS = ('sw',)
 REQUIRED_FILES = {
     'index.html', 'app.js', 'style.css', 'news-model.js', 'relay-config.js',
-    'stringer-media.js', 'relay-reader.js',
+    'stringer-media.js', 'relay-reader.js', 'data/news.json',
     '.well-known/nostr.json', '.nojekyll', 'robots.txt',
     *('assets/' + name for name in ['stringer-logo.png', 'nostr-banner.png',
       'favicon-16.png', 'favicon-32.png', 'favicon-192.png', 'favicon-180.png']),
@@ -55,7 +55,7 @@ def unpack(data, destination):
     with tarfile.open(fileobj=io.BytesIO(payload), mode='r:') as archive:
         for entry in archive:
             path = entry.name.removeprefix('./').rstrip('/')
-            if entry.isdir() and path in ('', '.', 'assets', 'assets/stringer-thumbnails', '.well-known', *EDITION_PATHS, *OPTIONAL_EDITION_PATHS):
+            if entry.isdir() and path in ('', '.', 'assets', 'assets/stringer-thumbnails', '.well-known', 'data', *EDITION_PATHS, *OPTIONAL_EDITION_PATHS):
                 continue
             if not entry.isfile() or not allowed(path) or path in files or entry.size > MAX_BYTES:
                 raise ValueError('Unexpected artifact entry: ' + entry.name)

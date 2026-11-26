@@ -1,3 +1,4 @@
+import { validateSnapshot, CDN_SNAPSHOT_MAX_AGE_MS } from '../news-model.ts';
 import { EDITIONS } from '../reader-locales.ts';
 import { localizedReaderHtml } from './reader-html.ts';
 import { browserExternals } from './browser-build.ts';
@@ -29,6 +30,15 @@ for (const file of await readdir('assets/stringer-thumbnails')) {
 await copyFile('.well-known/nostr.json', '_site/.well-known/nostr.json');
 await writeFile('_site/.nojekyll', '');
 await writeFile('_site/robots.txt', 'User-agent: *\nDisallow:\n');
+await mkdir('_site/data', { recursive: true });
+// CDN snapshot for cold loads. Publishing must run `pnpm run export:snapshot` first.
+{
+  const snapshot = validateSnapshot(JSON.parse(await readFile('data/news.json', 'utf8')));
+  const ageMs = Date.now() - Date.parse(snapshot.generatedAt);
+  if (process.env.STRINGER_REQUIRE_FRESH_SNAPSHOT === '1' && ageMs > CDN_SNAPSHOT_MAX_AGE_MS)
+    throw new Error(`data/news.json is ${Math.round(ageMs / 60000)} minutes old; run pnpm run export:snapshot`);
+  await copyFile('data/news.json', '_site/data/news.json');
+}
 let html = await readFile('_site/index.html', 'utf8');
 html = html.replace('<head>', '<head>\n  <meta name="robots" content="index, follow" />');
 html = html.replace('<p id="reader-build" class="build-info" hidden>Build <time></time>',

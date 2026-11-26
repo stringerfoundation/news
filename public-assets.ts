@@ -6,5 +6,6 @@ export const PUBLIC_ASSETS = new Set<string>([
   ...PUBLIC_IMAGES.map(name => `assets/${name}`),
 ]);
 export function isPublicAsset(path: string): boolean {
-  return PUBLIC_ASSETS.has(path) || /^assets\/stringer-thumbnails\/[a-zA-Z0-9-]+\.png$/.test(path);
+  return PUBLIC_ASSETS.has(path) || path === 'data/news.json' ||
+    /^assets\/stringer-thumbnails\/[a-zA-Z0-9-]+\.png$/.test(path);
 }

@@ -10,7 +10,7 @@ import { refreshSwahiliSource, swahiliPublisher } from './sources/sw.ts';
 import { collectedSwahiliPublishers } from './swahili-publishers.ts';
 import { ATOMSTR_MAX_AGE_MS } from './atomstr-config.ts';
 import { withEnglishAtomstrFallback, type EmbeddedAtomstr } from './english-atomstr.ts';
-import { SOURCES, CONTENT_PERMISSIONS, applyContentPermissions, safeUrl, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from './news-model.js';
+import { SOURCES, CONTENT_PERMISSIONS, STALE_MS, CDN_SNAPSHOT_MAX_AGE_MS, applyContentPermissions, safeUrl, safeImageUrl, articleLink, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from './news-model.js';
 import relayConfig from './relay-config.js';
 import { STRINGER_MEDIA } from './stringer-media.js';
 function requiredElement<T extends HTMLElement = HTMLElement>(selector: string): T {
@@ -975,6 +975,19 @@ function render() {
   }
   renderWorld();
 }
+async function loadCdnSnapshot(): Promise<Snapshot | null> {
+  try {
+    const response = await fetch(new URL('./data/news.json', import.meta.url), {
+      cache: 'default', credentials: 'omit', signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) return null;
+    const value = applyContentPermissions(validateSnapshot(JSON.parse(await readResponseText(response))));
+    if (Date.now() - Date.parse(value.generatedAt) > CDN_SNAPSHOT_MAX_AGE_MS) return null;
+    return value;
+  } catch {
+    return null;
+  }
+}
 async function load() {
   if (localizedEdition) return loadLocalized();
   if (loading) return;
@@ -987,6 +1000,9 @@ async function load() {
   const loadTimer = setInterval(renderStatuses, 1000);
   document.querySelectorAll('.story-list').forEach(list => list.setAttribute('aria-busy', 'true'));
   feedback.textContent = '';
+  // CDN bootstrap is first paint only; a verified relay collection may replace it.
+  let bootstrap: Promise<void> | undefined;
+  let relaySettled = false;
   try {
     let next;
     if (relayConfig.enabled) {
@@ -997,6 +1013,19 @@ async function load() {
       if (!snapshot) {
         snapshot = reader.cachedRelaySnapshot(relayConfig);
         if (snapshot) render();
+      }
+      // Start CDN and relays together; CDN may paint while relay verification is still pending.
+      if (!snapshot || Date.now() - Date.parse(snapshot.generatedAt) > STALE_MS) {
+        loadStage = t('Loading news…');
+        renderStatuses();
+        bootstrap = loadCdnSnapshot().then(cdn => {
+          if (relaySettled || !cdn) return;
+          if (!snapshot || Date.parse(cdn.generatedAt) >= Date.parse(snapshot.generatedAt)) {
+            snapshot = cdn;
+            retainedSources.clear();
+            render();
+          }
+        });
       }
       next = await reader.readRelaySnapshot(relayConfig, message => {
         const retry = message.match(/^Received (\d+) published notes\. Retrying (\d+) missing notes…$/);
@@ -1014,22 +1043,26 @@ async function load() {
           else retainedSources.delete(source.id);
         }
         snapshot = partial;
+        relaySettled = true;
         render();
       }, timings => {
         feedTimings = timings;
         renderStatuses();
       });
+      relaySettled = true;
     } else {
-      const response = await fetch(new URL('./data/news.json', import.meta.url), { cache: 'no-cache', credentials: 'omit', signal: AbortSignal.timeout(15000) });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      next = applyContentPermissions(validateSnapshot(JSON.parse(await readResponseText(response))));
+      const cdn = await loadCdnSnapshot();
+      if (!cdn) throw new Error('HTTP unavailable');
+      next = cdn;
     }
-    if (snapshot && Date.parse(next.generatedAt) < Date.parse(snapshot.generatedAt)) throw new Error('Older snapshot returned');
+    if (snapshot && Date.parse(next.generatedAt) < Date.parse(snapshot.generatedAt))
+      throw new Error('Older snapshot returned');
     retainedSources.clear();
     snapshot = next; render();
     loadOutcome = Object.values(next.sources).some(source => source.unavailable) ? 'Partially loaded' : 'Loaded';
     feedback.textContent = '';
   } catch (error) {
+    await bootstrap;
     loadOutcome = 'Failed';
     console.error('[Stringer reader] Collection refresh failed:', error);
     feedback.textContent = t(snapshot ? 'Could not check for updates. Keeping the previously loaded collection.' : 'The news collection is unavailable. We’ll retry automatically.');

@@ -47,6 +47,8 @@ export function applyContentPermissions(snapshot: Snapshot, permissions: Content
 }
 export const NEWSWIRE_LIMIT = 30;
 export const STALE_MS = 2 * 60 * 60 * 1000;
+/** Reject CDN/first-paint snapshots older than this; publishing must refresh within the window. */
+export const CDN_SNAPSHOT_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 export function safeUrl(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   try { const url = new URL(value); return /^https?:$/.test(url.protocol) && !url.username && !url.password ? url.href : null; } catch { return null; }

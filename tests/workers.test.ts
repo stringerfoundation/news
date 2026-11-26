@@ -1,9 +1,31 @@
 
-import test from 'node:test';
+import test, { beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from 'cheerio';
 import worker from '../deploy/homepage-worker/worker.ts';
 import redirect from '../deploy/news-redirect/worker.ts';
+
+class MemoryCache {
+  entries = new Map<string, Response>();
+  async match(request: RequestInfo | URL) {
+    const key = request instanceof Request ? request.url : String(request);
+    const hit = this.entries.get(key);
+    return hit ? hit.clone() : undefined;
+  }
+  async put(request: RequestInfo | URL, response: Response) {
+    const key = request instanceof Request ? request.url : String(request);
+    this.entries.set(key, await response.clone().arrayBuffer().then(body =>
+      new Response(body, response)));
+  }
+}
+function installEdgeCache() {
+  const cache = new MemoryCache();
+  Object.defineProperty(globalThis, 'caches', { value: { default: cache }, configurable: true });
+  return cache;
+}
+installEdgeCache();
+beforeEach(() => { installEdgeCache(); });
+
 type ElementHandler = { element(element: ElementLike): void };
 type ElementLike = {
   prepend(html: string): void;
@@ -115,7 +137,7 @@ test('homepage rewrites relative navigation and indexing only on the configured 
     assert.equal($('[hreflang="fr"]').attr('href'), '');
     assert.equal($('meta[name="robots"]').length, publicIndex ? 0 : 1);
     assert.equal(response.headers.has('x-robots-tag'), !publicIndex);
-    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.equal(response.headers.get('cache-control'), 'public, max-age=60, s-maxage=60');
     for (const name of ['etag', 'content-length', 'content-encoding', 'set-cookie', 'link'])
       assert.equal(response.headers.get(name), null);
   }
@@ -124,7 +146,64 @@ test('homepage rewrites relative navigation and indexing only on the configured 
     headers: { Cookie: 'stringer_edition=pt-PT', 'Accept-Language': 'fr' },
   }), env);
   assert.equal(selected.status, 200);
+  assert.equal(selected.headers.get('cache-control'), 'no-store');
   assert.equal(selected.headers.get('set-cookie'), 'stringer_edition=en-US; Path=/; Max-Age=31536000; Secure; HttpOnly; SameSite=Lax');
   const brazil = await worker.fetch(request('/br/?edition=pt-BR'), env);
   assert.match(brazil.headers.get('set-cookie') ?? '', /^stringer_edition=pt-BR;/);
+});
+test('CDN snapshot and modules get short shared cache headers without immutable', async (t) => {
+  const mock = t.mock.method(globalThis, 'fetch', async () => new Response('{"schemaVersion":2}', {
+    headers: { 'content-type': 'application/json', 'cache-control': 'private' },
+  }));
+  const snapshot = await worker.fetch(request('/news-assets/data/news.json'), env);
+  assert.equal(snapshot.headers.get('cache-control'), 'public, max-age=60, s-maxage=300');
+  assert.equal(snapshot.headers.get('x-worker-cache'), 'MISS');
+  mock.mock.mockImplementation(async () => new Response('export {}', {
+    headers: { 'content-type': 'application/javascript' },
+  }));
+  const module = await worker.fetch(request('/news-assets/app.js?v=0123456789abcdef'), env);
+  assert.equal(module.headers.get('cache-control'), 'public, max-age=60, s-maxage=300');
+  assert.equal(module.headers.get('cache-control')?.includes('immutable'), false);
+  const image = await worker.fetch(request('/news-assets/assets/stringer-logo.png'), env);
+  assert.equal(image.headers.get('cache-control'), 'public, max-age=86400');
+});
+test('Worker edge cache hits repeat homepage and asset GETs while edition redirects stay uncached', async (t) => {
+  (globalThis as typeof globalThis & { HTMLRewriter: typeof Rewriter }).HTMLRewriter = Rewriter;
+  t.after(() => {
+    delete (globalThis as typeof globalThis & { HTMLRewriter?: typeof Rewriter }).HTMLRewriter;
+  });
+  let upstream = 0;
+  t.mock.method(globalThis, 'fetch', async () => {
+    upstream++;
+    return new Response('<html><head></head><body><a href="./">Home</a></body></html>', {
+      headers: { 'content-type': 'text/html' },
+    });
+  });
+  const first = await worker.fetch(request('/pt/'), env);
+  assert.equal(first.headers.get('x-worker-cache'), 'MISS');
+  assert.equal(upstream, 1);
+  const firstBody = await first.text();
+  const second = await worker.fetch(request('/pt/'), env);
+  assert.equal(second.headers.get('x-worker-cache'), 'HIT');
+  assert.equal(upstream, 1);
+  assert.equal(await second.text(), firstBody);
+  const campaign = await worker.fetch(request('/pt/?utm=another'), env);
+  assert.equal(campaign.headers.get('x-worker-cache'), 'MISS');
+  assert.equal(upstream, 2);
+  const redirected = await worker.fetch(new Request('https://example.org/', {
+    headers: { 'Accept-Language': 'pt-PT' },
+  }), env);
+  assert.equal(redirected.status, 302);
+  assert.equal(redirected.headers.get('cache-control'), 'no-store');
+  assert.equal(redirected.headers.get('x-worker-cache'), null);
+});
+
+test('asset requests survive an unavailable edge cache and HEAD skips cache writes', async t => {
+  Object.defineProperty(globalThis, 'caches', { value: {}, configurable: true });
+  t.mock.method(globalThis, 'fetch', async () => new Response(null));
+  for (const method of ['GET', 'HEAD']) {
+    const response = await worker.fetch(new Request('https://example.org/news-assets/style.css', {method}), env);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('x-worker-cache'), 'MISS');
+  }
 });
