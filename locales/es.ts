@@ -1,4 +1,5 @@
 const spanish: Readonly<Record<string, string>> = {
+  'Preview · {date}': 'Vista previa · {date}',
   'Headlines from publishers in this language.': 'Titulares de medios en español.',
   'Close menu': 'Cerrar menú', 'Open menu': 'Abrir menú', 'Sources': 'Fuentes',
   'Choose news sources': 'Elegir fuentes de noticias', 'Enable all': 'Activar todas',

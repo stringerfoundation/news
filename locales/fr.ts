@@ -1,4 +1,5 @@
 const french: Readonly<Record<string, string>> = {
+  'Preview · {date}': 'Aperçu · {date}',
   'Headlines from publishers in this language.': 'Titres de médias francophones.',
   'Close menu': 'Fermer le menu', 'Open menu': 'Ouvrir le menu', 'Sources': 'Sources',
   'Choose news sources': 'Choisir les sources d’actualités', 'Enable all': 'Tout activer',

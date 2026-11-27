@@ -1,4 +1,5 @@
 const arabic: Readonly<Record<string, string>> = {
+  'Preview · {date}': 'معاينة · {date}',
   'Headlines from publishers in this language.': 'عناوين من وسائل إعلام باللغة العربية.',
   'Close menu': 'إغلاق القائمة', 'Open menu': 'فتح القائمة', 'Sources': 'المصادر',
   'Choose news sources': 'اختر مصادر الأخبار', 'Enable all': 'تفعيل الكل',

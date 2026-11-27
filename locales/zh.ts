@@ -1,4 +1,5 @@
 const chinese: Readonly<Record<string, string>> = {
+  'Preview · {date}': '预览 · {date}',
   'Headlines from publishers in this language.': '中文媒体的新闻标题。',
   'Close menu': '关闭菜单', 'Open menu': '打开菜单', 'Sources': '来源',
   'Choose news sources': '选择新闻来源', 'Enable all': '全部启用',

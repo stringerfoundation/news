@@ -28,13 +28,29 @@ const swahiliEdition = locale === 'sw';
 const localizedEdition = swahiliEdition || mirrorSources.length > 0;
 function readEmbeddedAtomstr(): EmbeddedAtomstr {
   try {
-    return JSON.parse(document.getElementById('atomstr-headlines')?.textContent || '{}') as EmbeddedAtomstr;
+    return JSON.parse(document.getElementById('atomstr-headlines')?.textContent || '{}') as EmbeddedAtomstr ?? {};
   } catch {
     return {};
   }
 }
 const embeddedAtomstr = readEmbeddedAtomstr();
 const t = translator(locale);
+// PR previews display an archived build. Production checks freshness on every poll.
+const previewBuild = document.querySelector('meta[name="preview-commit"]') &&
+  document.querySelector<HTMLTimeElement>('#reader-build time[datetime]');
+const previewTime = Date.parse(previewBuild?.dateTime ?? '');
+// Mirror collection finishes after the HTML build stamp. Include its collection
+// time so headlines embedded during that same build remain eligible in previews.
+const previewCollectionTime = Object.values(embeddedAtomstr).reduce((latest, entry) =>
+  Math.max(latest, Date.parse(String(entry?.lastSuccessAt)) || 0), previewTime);
+function snapshotReferenceTime() {
+  return Number.isFinite(previewTime) ? previewCollectionTime : Date.now();
+}
+if (Number.isFinite(previewTime)) {
+  requiredElement('#page-title').after(element('p', t('Preview · {date}', {
+    date: formatLocalDateTime(new Date(previewTime), locale),
+  }), 'build-info'));
+}
 const menuToggle = requiredElement('.header-menu-toggle');
 const headerMenu = requiredElement('#header-menu');
 function setHeaderMenu(open: boolean) {
@@ -108,7 +124,7 @@ function displayedSnapshot(): Snapshot {
 }
 function displayedWorldSources(): Snapshot['sources'] {
   const displayed = displayedSnapshot().sources;
-  return localizedEdition ? displayed : withEnglishAtomstrFallback(displayed, snapshot!.sources, embeddedAtomstr);
+  return localizedEdition ? displayed : withEnglishAtomstrFallback(displayed, snapshot!.sources, embeddedAtomstr, snapshotReferenceTime());
 }
 let loading = false;
 let showingEmbeddedStringer = false;
@@ -1028,7 +1044,7 @@ async function loadCdnSnapshot(): Promise<Snapshot | null> {
     });
     if (!response.ok) return null;
     const value = applyContentPermissions(validateSnapshot(JSON.parse(await readResponseText(response))));
-    if (Date.now() - Date.parse(value.generatedAt) > CDN_SNAPSHOT_MAX_AGE_MS) return null;
+    if (snapshotReferenceTime() - Date.parse(value.generatedAt) > CDN_SNAPSHOT_MAX_AGE_MS) return null;
     for (const [id, image] of Object.entries(value.illustrations ?? {})) {
       try { value.illustrations![id] = readIllustration({...image}); }
       catch { delete value.illustrations![id]; }
@@ -1118,7 +1134,7 @@ async function load() {
     console.error('[Stringer reader] Collection refresh failed:', error);
     feedback.textContent = t(snapshot ? 'Could not check for updates. Keeping the previously loaded collection.' : 'The news collection is unavailable. We’ll retry automatically.');
     if (!snapshot) {
-      const sources = withEnglishAtomstrFallback({}, {}, embeddedAtomstr);
+      const sources = withEnglishAtomstrFallback({}, {}, embeddedAtomstr, snapshotReferenceTime());
       const stories = worldStories({ sources }, Object.keys(sources), publisherSources);
       renderStories(requiredElement('#world-news'), stories, '');
       updateStoryVisibility();
@@ -1147,7 +1163,7 @@ async function refreshPublishedHeadlines() {
     });
     if (!response.ok) throw new Error('Published headlines unavailable');
     const data = JSON.parse(await readResponseText(response)) as Pick<Snapshot, 'generatedAt' | 'sources' | 'thumbnails'>;
-    if (!(Date.parse(data.generatedAt) >= Date.now() - CDN_SNAPSHOT_MAX_AGE_MS)) throw new Error('Expired edition');
+    if (!(Date.parse(data.generatedAt) >= snapshotReferenceTime() - CDN_SNAPSHOT_MAX_AGE_MS)) throw new Error('Expired edition');
     publishedThumbnails = readPublishedThumbnails(data.thumbnails);
     localizedThumbnailResponseReceived = true;
     loadSuggestions();
@@ -1187,7 +1203,7 @@ async function loadLocalized() {
           sources[source.id] = collected[source.id] ?? {...initialSource, status: 'failure', error: 'Publisher feed unavailable'};
         }
       } else {
-        const cutoff = Date.now() - ATOMSTR_MAX_AGE_MS;
+        const cutoff = snapshotReferenceTime() - ATOMSTR_MAX_AGE_MS;
         for (const [id, cached] of Object.entries(sources)) {
           const entry = embeddedAtomstr[id];
           if (!entry?.lastSuccessAt || entry.lastSuccessAt <= (cached.lastSuccessAt ?? '')) continue;

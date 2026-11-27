@@ -1,4 +1,5 @@
 const russian: Readonly<Record<string, string>> = {
+  'Preview · {date}': 'Предпросмотр · {date}',
   'Headlines from publishers in this language.': 'Заголовки русскоязычных СМИ.',
   'Close menu': 'Закрыть меню',
   'Open menu': 'Открыть меню',
