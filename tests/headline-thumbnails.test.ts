@@ -24,7 +24,7 @@ async function makeSite(root: string, titles: string[], editionTitles: string[] 
   return site;
 }
 
-test('writes explicit nulls for Commons search misses among the first five', async () => {
+test('writes explicit nulls for Commons search misses including expanded headlines', async () => {
   const root = await mkdtemp(join(tmpdir(), 'headline-thumbs-'));
   const titles = ['Newest A', 'Newest B', 'Newest C', 'Newest D', 'Newest E', 'Sixth'];
   const site = await makeSite(root, titles);
@@ -37,8 +37,8 @@ test('writes explicit nulls for Commons search misses among the first five', asy
       download: async () => { throw new Error('a search miss cannot download'); },
     });
     const result = JSON.parse(await readFile(join(site, 'data', 'news.json'), 'utf8'));
-    assert.equal(queries.length, 5);
-    assert.equal(Object.keys(result.thumbnails).length, 5);
+    assert.equal(queries.length, 6);
+    assert.equal(Object.keys(result.thumbnails).length, 6);
     assert.ok(Object.values(result.thumbnails).every(value => value === null));
   } finally { await rm(root, { recursive: true, force: true }); }
 });

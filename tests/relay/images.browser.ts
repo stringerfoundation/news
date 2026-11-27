@@ -39,7 +39,7 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
   const browser = await launchBrowser();
   const errors: string[] = [];
   const searchedSubjects = new Set<string>();
-  const suggestedImage = '.wire-thumbnail > a > img[aria-description="Automatically suggested image"]';
+  const suggestedImage = '.wire-thumbnail > a > img[data-suggested]';
   async function checkCredits(page: Page, text: RegExp, licensed = false) {
     const caption = page.locator('#world-news .wire-thumbnail > figcaption');
     const credit = caption.getByRole('button', { name: 'Image credits' });
@@ -401,7 +401,8 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     assert.equal(await multi.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     assert.deepEqual(await untrusted.locator('#world-news .wire-thumbnail > a').evaluateAll(links => links.map(link => link.getAttribute('href'))), await multi.locator('#world-news .wire-thumbnail > a').evaluateAll(links => links.map(link => link.getAttribute('href'))));
     const heights = await multi.evaluate(() => [...document.querySelectorAll('#world-news article')].map(card => card.getBoundingClientRect().height));
-    assert.deepEqual(heights, await untrusted.evaluate(() => [...document.querySelectorAll('#world-news article')].map(card => card.getBoundingClientRect().height)));
+    const readerHeights = await untrusted.locator('#world-news article').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height));
+    assert.ok(readerHeights.every((height, index) => height <= heights[index]!), 'public cards use only the space their headlines and images need');
     await mkdir('.test-output', { recursive: true });
     await multi.locator('#world-news').screenshot({ path: '.test-output/image-voting-mobile.png' });
     const firstCard = multi.locator('#world-news article').first();

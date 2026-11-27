@@ -436,7 +436,7 @@ test('the initial reservation is mobile-only and clears after short, empty, or f
 
         await page.setViewportSize({ width: 767, height: 844 });
         const reserved = await height();
-        assert.ok(reserved > 600, 'mobile reserves the preview while waiting');
+        assert.ok(reserved >= 350 && reserved <= 400, 'mobile reserves the preview while waiting');
         releaseFeed();
         await page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
         assert.equal(await world.getAttribute('data-initial-load'), null);

@@ -53,13 +53,14 @@ export async function publishHeadlineThumbnails(site: string, cacheDirectory: st
   const activeKeys = new Set<string>(), currentAssets = new Set<string>();
   const assetWrites = new Map<string, Promise<void>>();
   const jobs: (() => Promise<void>)[] = [];
+  const expandedJobs: typeof jobs = [];
   const selectedCounts = new Map<Snapshot, number>();
   for (const { locale, snapshot } of outputs) {
     const thumbnails: Record<string, PublishedThumbnail | null> = {};
     snapshot.thumbnails = thumbnails;
     const selectedStories = await firstScreenHeadlines(site, locale, snapshot);
     selectedCounts.set(snapshot, selectedStories.length);
-    for (const story of selectedStories) {
+    for (const [index, story] of selectedStories.entries()) {
       const storyUrl = safeUrl(story.url)!;
       const rawApproval = story.noteId ? news.illustrations?.[story.noteId] : undefined;
       thumbnails[storyUrl] = null;
@@ -68,7 +69,8 @@ export async function publishHeadlineThumbnails(site: string, cacheDirectory: st
       catch { /* Ignore invalid approval metadata and try a reusable Commons illustration. */ }
       const key = keyFor(story, locale, approved);
       activeKeys.add(key);
-      jobs.push(async () => {
+      const queue = index < 5 ? jobs : expandedJobs;
+      queue.push(async () => {
         try {
           let cached = cache.get(key);
           if (cached) {
@@ -132,6 +134,7 @@ export async function publishHeadlineThumbnails(site: string, cacheDirectory: st
       });
     }
   }
+  jobs.push(...expandedJobs);
   let next = 0;
   await Promise.all(Array.from({ length: Math.min(concurrency, jobs.length) }, async () => {
     while (next < jobs.length) await jobs[next++]!();
