@@ -8261,6 +8261,13 @@ var ImageSession = class {
   }
 };
 
+// relay/plain.ts
+function plain(value) {
+  if (typeof value !== "string") return "";
+  const text2 = new DOMParser().parseFromString(value, "text/html").body.textContent;
+  return (text2 || "").replace(/\s+/g, " ").trim().slice(0, 2e3);
+}
+
 // relay/commons.ts
 var places = {
   Saudi: "Saudi Arabia",
@@ -8278,13 +8285,26 @@ var places = {
   Palestinian: "Palestine"
 };
 function commonsSubject(title) {
-  const names = [...title.matchAll(/\p{Lu}[\p{L}\p{M}'’.-]*(?:\s+(?:(?:de|del|der|van|von|le)\s+)*\p{Lu}[\p{L}\p{M}'’.-]*)*/gu)].map((match) => match[0].replace(/^(?:Ex-|Former\s+)/, "").split(/\s+(?:Prompt|Prompts|Says|Say|Hits|Warns|Faces|Under|Over|Will|Would|Could|May|Must|As|Has|Have|Is|Are|Was|Were|Sparks|Questions)\b/)[0]);
-  const subject = names.find((name) => !/^(The|A|An)\b/.test(name) && !/^(How|Why|What|After|Before|Flooding|Talks|Deaths|Death|New|Latest|Live|Breaking|Opinion|Analysis|Watch|Photos)$/.test(name));
+  const geographicContext = /\b(?:[Pp]eople|[Rr]esidents|[Rr]efugees|[Mm]igrants|[Ff]amilies|[Cc]hildren|[Cc]ivilians|[Vv]illagers|[Ff]armers|[Ww]orkers|[Ss]tudents|[Vv]oters|[Jj]udges|[Pp]rosecutors|[Ll]awmakers|\p{Lu}[\p{L}\p{M}'’.-]*(?:ians|ans|ese))\s+in\s+(\p{Lu}[\p{L}\p{M}'’.-]*(?:\s+(?:de|del|der|van|von|le)?\s*\p{Lu}[\p{L}\p{M}'’.-]+)*)/u.exec(title);
+  if (geographicContext?.[1]) {
+    const place = geographicContext[1].split(/\s+(?:Suggest|Suggests|Says|Say|Calls|Call|Warns|Warn|Faces|Face|Move|Moves|Could|Would|Will|Should|Propose|Proposes|Drop|Drops|Cut|Cuts|Flee|Fleeing)\b/)[0];
+    return place.trim().slice(0, 200);
+  }
+  const names = [...title.matchAll(/\p{Lu}[\p{L}\p{M}'’.-]*(?:\s+(?:(?:de|del|der|van|von|le)\s+)*\p{Lu}[\p{L}\p{M}'’.-]*)*/gu)].map((match) => ({
+    name: match[0].replace(/^(?:Ex-|Former\s+)/, "").split(/\s+(?:Prompt|Prompts|Suggest|Suggests|Says|Say|Hits|Warns|Faces|Under|Over|Will|Would|Could|May|Must|As|Has|Have|Is|Are|Was|Were|Sparks|Questions)\b/)[0],
+    index: match.index
+  }));
+  const ignored = /^(?:A|An|The|At|By|For|From|In|Into|Of|On|Onto|To|With|As|After|Before|Across|Against|Among|Around|Through|During|Despite|Following|While|When|Where|Why|How|What|Who|Which|Whose|Is|Are|Was|Were|Be|Been|Being|Do|Does|Did|Have|Has|Had|Can|Could|May|Might|Must|Shall|Should|Will|Would|And|But|Or|Nor|So|Yet|If|Then|Than|This|That|These|Those|My|Your|His|Her|Its|Our|Their|Latest|Live|Breaking|Opinion|Analysis|Watch|Photos|Praise|Failings|Failure|Failures|Talks|Deaths|Death|Flooding|Says|Say|More|Why)$/i;
+  const candidates = names.map(({ name, index }) => {
+    const words = name.split(/\s+/);
+    const start = words.findIndex((word) => !ignored.test(word));
+    const candidate = start < 0 ? "" : words.slice(start).join(" ");
+    const clean3 = candidate === "New" ? "" : candidate;
+    const prefix = title.slice(0, index).trimEnd();
+    return { candidate: clean3, contextualPhrase: !!clean3 && clean3.includes(" ") && /\p{Ll}$/u.test(prefix) };
+  }).filter((item) => item.candidate);
+  const subject = candidates.find((item) => item.contextualPhrase)?.candidate || candidates[0]?.candidate;
   return (places[subject || ""] || subject || title).trim().slice(0, 200);
-}
-function plain(value) {
-  if (typeof value !== "string") return "";
-  return new DOMParser().parseFromString(value, "text/html").body.textContent?.replace(/\s+/g, " ").trim().slice(0, 2e3) || "";
 }
 function namedSubjects(headline) {
   const namePattern = /(?<![\p{L}\p{M}])\p{Lu}[\p{L}\p{M}'’.-]+(?:\s+(?:(?:de|del|des|du|der|van|von|le)\s+)*\p{Lu}[\p{L}\p{M}'’.-]+)*/gu;
@@ -8318,8 +8338,8 @@ async function wikipediaPages(wiki, params, request, timeout = 8e3) {
 }
 function representativeFiles(pages, query) {
   return [...new Set(pages.flatMap((page) => {
-    const subject = page.title?.toLocaleLowerCase() || query.toLocaleLowerCase();
-    const maps = (page.images || []).map((image) => image.title || "").filter((title) => title.toLocaleLowerCase().includes(subject) && /map|orthographic|location/i.test(title));
+    const subject = page.title?.toLowerCase() || query.toLowerCase();
+    const maps = (page.images || []).map((image) => image.title || "").filter((title) => title.toLowerCase().includes(subject) && /map|orthographic|location/i.test(title));
     return [...page.pageimage ? [`File:${page.pageimage}`] : [], ...maps];
   }))].slice(0, 4);
 }
@@ -8399,7 +8419,7 @@ async function searchCommonsFiles(query, request, suggest) {
   if (!response.ok) throw new Error("Commons search is unavailable. Please retry.");
   const data = await response.json();
   if (data.error) throw new Error("Commons search is unavailable. Please retry.");
-  const normalize = (value) => value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  const normalize = (value) => value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
   const words = normalize(query).split(" ");
   return readImages(data).filter((image) => !suggest || words.every((word) => normalize(`${image.title} ${decodeURIComponent(new URL(image.filePage).pathname)}`).split(" ").includes(word)));
 }
@@ -8597,9 +8617,14 @@ function cachedRelaySnapshot(config) {
 var sources = { commons: "Wikimedia Commons", openverse: "Openverse", flickr: "Flickr via Openverse", eu: "EU audiovisual library", wellcome: "Wellcome Collection via Openverse", smithsonian: "Smithsonian via Openverse", europeana: "Europeana via Openverse" };
 var euEndpoint = "https://gfdwwnbuul.execute-api.eu-west-1.amazonaws.com/avsportal/avsportal";
 var searchUnavailable = "Search is unavailable. Please retry.";
-function plain2(value) {
-  if (typeof value !== "string") return "";
-  return new DOMParser().parseFromString(value, "text/html").body.textContent?.replace(/\s+/g, " ").trim().slice(0, 2e3) || "";
+function matchesSubject(query, ...values) {
+  const fold = (value) => value.normalize("NFD").toLowerCase().replace(/\p{M}/gu, "");
+  const terms = fold(query).match(/[\p{L}\p{N}]+/gu) || [];
+  const text2 = fold(values.join(" ")).replace(/[^\p{L}\p{N}]+/gu, " ");
+  if (!terms.length) return false;
+  if (terms.length === 1 && terms[0] === "eu") return /\beu\b|\beuropean (?:union|commission|parliament)\b/u.test(text2);
+  const words = new Set(text2.split(/\s+/));
+  return terms.every((term) => words.has(term));
 }
 async function json(url, request, timeout = 12e3) {
   const response = await request(url, { credentials: "omit", referrerPolicy: "no-referrer", signal: AbortSignal.timeout(timeout) }).catch(() => {
@@ -8610,7 +8635,7 @@ async function json(url, request, timeout = 12e3) {
     throw new Error(searchUnavailable);
   });
 }
-async function searchOpenverse(query, request = fetch, provider = false) {
+async function searchOpenverse(query, request = fetch, provider = false, relevantOnly = false) {
   const url = new URL("https://api.openverse.org/v1/images/");
   let filter = provider === true ? "flickr" : provider === "wellcome" ? "wellcome_collection" : provider === "europeana" ? "europeana" : "";
   if (provider === "smithsonian") {
@@ -8630,20 +8655,20 @@ async function searchOpenverse(query, request = fetch, provider = false) {
   if (!Array.isArray(data.results)) throw new Error("Invalid image search response.");
   const images = [];
   for (const item of data.results) {
-    if (item.mature || !plain2(item.source) || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(item.id || "") || item.source === "wikimedia" || filter && !filter.split(",").includes(item.source)) continue;
+    if (item.mature || !plain(item.source) || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(item.id || "") || item.source === "wikimedia" || filter && !filter.split(",").includes(item.source) || relevantOnly && !matchesSubject(query, plain(item.title))) continue;
     const license = item.license === "cc0" ? "CC0-1.0" : item.license === "pdm" ? "PDM-1.0" : ["by", "by-sa"].includes(item.license || "") ? `CC-${item.license.toUpperCase()}-${item.license_version}` : "";
     try {
       images.push(readIllustration({
         version: 1,
         source: "openverse",
-        sourceName: `${item.source?.startsWith("smithsonian_") ? "Smithsonian" : item.source === "wellcome_collection" ? "Wellcome Collection" : item.source === "europeana" ? "Europeana" : plain2(item.source)} via Openverse`,
+        sourceName: `${item.source?.startsWith("smithsonian_") ? "Smithsonian" : item.source === "wellcome_collection" ? "Wellcome Collection" : item.source === "europeana" ? "Europeana" : plain(item.source)} via Openverse`,
         sourceUrl: `https://api.openverse.org/v1/images/${item.id}/`,
         url: item.url,
         filePage: item.foreign_landing_url,
-        title: plain2(item.title),
-        alt: plain2(item.title),
-        creator: plain2(item.creator),
-        attribution: plain2(item.attribution),
+        title: plain(item.title),
+        alt: plain(item.title),
+        creator: plain(item.creator),
+        attribution: plain(item.attribution),
         license,
         licenseUrl: item.license_url
       }));
@@ -8653,7 +8678,7 @@ async function searchOpenverse(query, request = fetch, provider = false) {
   }
   return images;
 }
-async function searchEuPhotos(query, request = fetch) {
+async function searchEuPhotos(query, request = fetch, relevantOnly = false) {
   const url = new URL(euEndpoint);
   url.search = new URLSearchParams({
     kwgg: query.trim().slice(0, 200),
@@ -8665,17 +8690,19 @@ async function searchEuPhotos(query, request = fetch) {
     fl: "ref,type,titles_json,summary_json,copyright_json,cc_by_json,cooperator_json,media_json"
   }).toString();
   const data = await json(url, request);
+  if (data.responseHeader?.status === 0 && typeof data.responseHeader.QTime === "number" && Object.keys(data).every((key) => key === "responseHeader")) return [];
   if (!Array.isArray(data.response?.docs)) throw new Error("Invalid EU photo search response.");
   const images = [];
   for (const item of data.response.docs) {
+    if (relevantOnly && !matchesSubject(query, plain(item.titles_json?.EN), plain(item.summary_json?.EN))) continue;
     const holders = item.copyright_json?.holders?.EN, terms = item.cc_by_json;
     if (item.type !== "PHOTO" || !/^P-\d+\/\d+-\d+$/.test(item.ref || "") || !holders?.length || !holders.every((holder) => ["European Union", "European Commission", "Commission of the European Communities"].includes(holder)) || !terms?.length || terms.some((term) => term.cc_by !== "0" || Object.keys(term.titles || {}).length || Object.keys(term.links || {}).length)) continue;
     const path = item.media_json?.LOW?.PATH || item.media_json?.MED?.PATH;
     if (!path || !/^\/\d+\/\d+\/\d+\/[\w-]+\.jpg$/.test(path) || !/^\d{4}$/.test(item.copyright_json?.year || "")) continue;
-    const creator = item.cooperator_json?.PHOTOGRAPHER?.EN?.coop?.map(plain2).filter(Boolean).join(", ");
+    const creator = item.cooperator_json?.PHOTOGRAPHER?.EN?.coop?.map(plain).filter(Boolean).join(", ");
     if (!creator) continue;
     const page = `https://audiovisual.ec.europa.eu/en/photo/${item.ref.replace("/", "~2F")}`;
-    const agencies = item.cooperator_json?.AGENCY?.EN?.coop?.map(plain2).filter(Boolean).join(", ");
+    const agencies = item.cooperator_json?.AGENCY?.EN?.coop?.map(plain).filter(Boolean).join(", ");
     try {
       images.push(readIllustration({
         version: 1,
@@ -8684,8 +8711,8 @@ async function searchEuPhotos(query, request = fetch) {
         sourceUrl: page,
         filePage: page,
         url: `https://ec.europa.eu/avservices/repository/photo${path}`,
-        title: plain2(item.titles_json?.EN),
-        alt: plain2(item.summary_json?.EN) || plain2(item.titles_json?.EN),
+        title: plain(item.titles_json?.EN),
+        alt: plain(item.summary_json?.EN) || plain(item.titles_json?.EN),
         creator,
         attribution: `\xA9 European Union, ${item.copyright_json.year}${agencies ? ` \xB7 ${agencies}` : ""}. Thumbnail display.`,
         license: "CC-BY-4.0",
@@ -8713,7 +8740,7 @@ async function searchImages(query, source = "all", suggest = false, request = fe
     const key = JSON.stringify([id, query.trim(), suggest, language]), cached = cache.get(key);
     if (request === fetch && cached && cached.until > Date.now()) return cached.images;
     try {
-      const images = id === "commons" ? await searchCommons(query, request, suggest, language, (images2) => onProgress?.({ images: images2, issues: [...issues] })) : id === "eu" ? await searchEuPhotos(query, request) : await searchOpenverse(query, request, id === "flickr" ? true : ["wellcome", "smithsonian", "europeana"].includes(id) ? id : false);
+      const images = id === "commons" ? await searchCommons(query, request, suggest, language, (images2) => onProgress?.({ images: images2, issues: [...issues] })) : id === "eu" ? await searchEuPhotos(query, request, suggest) : await searchOpenverse(query, request, id === "flickr" ? true : ["wellcome", "smithsonian", "europeana"].includes(id) ? id : false, suggest);
       if (request === fetch) {
         if (cache.size >= 200) cache.delete(cache.keys().next().value);
         cache.set(key, { until: Date.now() + 10 * 60 * 1e3, images });
