@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "browser": {
+    "./relay/plain.js": "./relay/plain-browser.js"
+  },
   "packageManager": "pnpm@11.18.0",
   "engines": {
     "node": ">=24"

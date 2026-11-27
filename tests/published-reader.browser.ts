@@ -17,6 +17,7 @@ test('public editions read CDN files on first load, refresh and outage without r
     url: 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Example.jpg',
     filePage: 'https://commons.wikimedia.org/wiki/File:Example.jpg',
     license: 'CC-BY-4.0', licenseUrl: 'https://creativecommons.org/licenses/by/4.0/'};
+  const publicDomainPhoto = {...photo, title: 'Public domain fixture', license: 'CC0-1.0', licenseUrl: 'https://creativecommons.org/publicdomain/zero/1.0/'};
   const webp = await sharp({create: {width: 2, height: 2, channels: 3, background: 'skyblue'}}).webp().toBuffer();
   for (const path of ['', 'fr', 'sw']) {
     const page = await browser.newPage();
@@ -48,15 +49,16 @@ test('public editions read CDN files on first load, refresh and outage without r
         if (offline) return route.fulfill({status: 503});
         const entry = (name: string) => ({
           attemptedAt: at, lastSuccessAt: at, status: 'success', error: null,
-          stories: [{title: name + version, url: 'https://example.org/' + name, summary: 'Reporting', credits: 'Reporter',
+          stories: [{title: name === SOURCES[2]!.id ? 'Unchanged headline' : name + version, url: 'https://example.org/' + name, summary: 'Reporting', credits: 'Reporter',
             publishedAt: at, image: null, noteId: name === SOURCES[1]!.id ? 'c'.repeat(64) : id, clusterId: group}],
         });
         const thumbnailPath = `assets/headline-thumbnails/${String(version).padStart(64, '0')}.webp`;
-        const thumbnail = {file: thumbnailPath, image: photo, suggested: false};
+        const thumbnail = {file: thumbnailPath, image: photo, suggested: version === 1};
+        const publicDomainThumbnail = {file: 'assets/headline-thumbnails/' + 'a'.repeat(64) + '.webp', image: publicDomainPhoto, suggested: version === 1};
         if (file === 'data/news.json') return route.fulfill({json: {
           generatedAt: olderSnapshot ? new Date(Date.parse(at) - 1000).toISOString() : at, schemaVersion: 2, sources: Object.fromEntries(SOURCES.map(source => [source.id, entry(source.id)])),
           illustrations: {['c'.repeat(64)]: photo, invalid: {}},
-          thumbnails: Object.fromEntries([...SOURCES.map((source, index) => [`https://example.org/${source.id}`, index === 0 ? thumbnail : null]),
+          thumbnails: Object.fromEntries([...SOURCES.map((source, index) => [`https://example.org/${source.id}`, index === 0 ? thumbnail : index === 2 ? publicDomainThumbnail : null]),
             ['https://example.org/invalid-type', false],
             ['https://example.org/invalid-path', {file: '../outside.webp', image: photo, suggested: false}],
             ['https://example.org/invalid-credits', {file: thumbnailPath, image: {...photo, alt: ''}, suggested: false}],
@@ -88,12 +90,34 @@ test('public editions read CDN files on first load, refresh and outage without r
     await ready();
     assert.equal(await page.locator('#stringer-news h3').first().textContent(), 'stringer1');
     assert.ok(await page.locator('#world-news article').count());
+    if (!path) await page.setViewportSize({width: 320, height: 850});
+    if (path === 'fr') {
+      const localizedSuggestion = page.locator('#world-news .image-suggested-label').first();
+      await localizedSuggestion.waitFor();
+      assert.equal((await localizedSuggestion.textContent())?.trim(), 'Image suggérée automatiquement');
+    }
     if (!path) {
       const img = page.locator('#world-news .wire-thumbnail img').first();
       await img.evaluate(image => (image as HTMLImageElement).decode());
       assert.equal(await img.getAttribute('alt'), 'Illustration');
       assert.match(await img.getAttribute('src') || '', /assets\/headline-thumbnails\//);
       assert.ok(await page.locator('#world-news .wire-thumbnail figcaption button[aria-label*="credits" i]').count());
+      const suggestedCard = img.locator('xpath=ancestor::article');
+      await suggestedCard.locator('.image-suggested-label').waitFor();
+      assert.equal((await suggestedCard.locator('.image-suggested-label').textContent())?.trim(), 'Automatically suggested image');
+      assert.equal(await img.getAttribute('aria-description'), 'Automatically suggested image');
+      await suggestedCard.locator('.image-credit-button').click();
+      const credits = page.locator('dialog[aria-labelledby="image-credit-title"] .image-credit-entry').first();
+      await credits.waitFor();
+      assert.match(await credits.textContent() || '', /Creator/);
+      assert.match(await credits.textContent() || '', /CC BY 4\.0/);
+      assert.match(await credits.textContent() || '', /Thumbnail resized and converted to WebP/);
+      await page.locator('dialog[aria-labelledby="image-credit-title"] .reader-dialog-close').click();
+      const publicDomainCard = page.locator('#world-news article').filter({has: page.locator('h3', {hasText: 'Unchanged headline'})}).first();
+      await publicDomainCard.locator('.image-suggested-label').waitFor();
+      await publicDomainCard.locator('img').evaluate(img => img.setAttribute('data-before-approval', 'true'));
+      assert.equal(await publicDomainCard.locator('.image-credit-button').count(), 0);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
       await page.locator('#world-news .wire-thumbnail[data-published-miss="true"] .story-placeholder:visible').first().waitFor();
       await page.locator('#relay-status').click();
       await page.locator('#headline-image-status li:visible').filter({hasText: 'Image unavailable'}).first().waitFor();
@@ -110,6 +134,16 @@ test('public editions read CDN files on first load, refresh and outage without r
       await thumbnail.evaluate(image => (image as HTMLImageElement).decode());
     }
     assert.equal(await page.locator('#stringer-news h3').first().textContent(), 'stringer2');
+    if (!path) {
+      const approvedCard = thumbnail.locator('xpath=ancestor::article');
+      assert.equal(await approvedCard.locator('.image-suggested-label').count(), 0);
+      assert.equal(await thumbnail.getAttribute('aria-description'), null);
+      const approvedPublicDomainCard = page.locator('#world-news article').filter({has: page.locator('h3', {hasText: 'Unchanged headline'})}).first();
+      await approvedPublicDomainCard.locator('.image-suggested-label').waitFor({state: 'detached'});
+      assert.equal(await approvedPublicDomainCard.locator('img').getAttribute('data-before-approval'), 'true');
+      assert.equal(await approvedPublicDomainCard.locator('.image-credit-caption').evaluate(node => (node as HTMLElement).hidden), true);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
+    }
     if (!path) {
       const retainedThumbnail = await thumbnail.getAttribute('src');
       version++;

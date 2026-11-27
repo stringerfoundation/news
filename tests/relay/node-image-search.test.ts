@@ -1,17 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { load } from 'cheerio';
-import { searchCommons } from '../../relay/commons.js';
+import { clearArtist, searchCommons } from '../../relay/commons.js';
 import { searchEuPhotos, searchOpenverse } from '../../relay/open-images.js';
-
-// Suggestion publishing is approval-only. Adapt the browser parser in Node
-// tests with the already-installed Cheerio parser without shipping a server parser.
-Object.defineProperty(globalThis, 'DOMParser', { configurable: true, value: class {
-  parseFromString(markup: string) {
-    const $ = load(markup);
-    return { body: { textContent: $('body').text() || $.root().text() } };
-  }
-} });
 
 test('image metadata parsing works in Node and strips markup into text', async () => {
   const commons = await searchCommons('Example', async () => Response.json({ query: { pages: [{ title: 'File:Example.jpg', imageinfo: [{
@@ -30,6 +20,75 @@ test('image metadata parsing works in Node and strips markup into text', async (
   }] }));
   assert.equal(openverse[0]?.title, 'Openverse title');
   assert.equal(openverse[0]?.creator, 'Creator');
+});
+
+test('Node Commons auto suggestions keep license, restriction and named-credit gates', async () => {
+  assert.equal(clearArtist('Ada Lovelace'), true);
+  assert.equal(clearArtist('Unknown author'), false);
+  assert.equal(clearArtist('unknown photographer'), false);
+  assert.equal(clearArtist('N/A'), false);
+  const record = (artist: string, restriction = '') => ({ query: { pages: [{ title: 'File:Example.jpg', imageinfo: [{
+    mime: 'image/jpeg', thumburl: 'https://upload.wikimedia.org/wikipedia/commons/0/00/example.jpg',
+    descriptionurl: 'https://commons.wikimedia.org/wiki/File:Example.jpg', extmetadata: {
+      Artist: { value: artist }, ObjectName: { value: 'Example photo' }, LicenseUrl: { value: 'https://creativecommons.org/licenses/by/4.0/' },
+      ...(restriction ? { Restrictions: { value: restriction } } : {}),
+    },
+  }] }] } });
+  const request = (entry: ReturnType<typeof record>) => async (input: Parameters<typeof fetch>[0]) =>
+    new URL(String(input)).hostname === 'en.wikipedia.org' ? Response.json({ query: { pages: [] } }) : Response.json(entry);
+
+  // Manual editor search stays available even when the source has a placeholder artist.
+  assert.equal((await searchCommons('Example', request(record('Unknown author'))))[0]?.creator, 'Unknown author');
+  assert.deepEqual(await searchCommons('Example', request(record('Unknown author')), true), []);
+  assert.deepEqual(await searchCommons('Example', request(record('Unknown photographer', 'insignia')), true), []);
+  assert.equal((await searchCommons('Example', request(record('<b>Ada Example</b>')), true))[0]?.creator, 'Ada Example');
+});
+
+test('English Wikipedia representatives match the requested name, including EU expansion', async () => {
+  const run = async (query: string, pageTitles: string[]) => {
+    let representativeFiles = '';
+    const representativePages = pageTitles.map(title => ({ title: `File:${title}.jpg`, imageinfo: [{
+      mime: 'image/jpeg', thumburl: `https://upload.wikimedia.org/wikipedia/commons/0/00/${encodeURIComponent(title)}.jpg`,
+      descriptionurl: `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(title)}`,
+      extmetadata: { Artist: { value: 'Ada Photographer' }, LicenseUrl: { value: 'https://creativecommons.org/licenses/by/4.0/' }, ObjectName: { value: title } },
+    }] }));
+    const request: typeof fetch = async input => {
+      const url = new URL(String(input));
+      if (url.hostname === 'en.wikipedia.org') return Response.json({ query: { pages: pageTitles.map(title => ({ title,
+        pageimage: `${title}.jpg` })) } });
+      if (url.searchParams.has('titles')) {
+        representativeFiles = url.searchParams.get('titles') || '';
+        const allowed = new Set(representativeFiles.split('|').map(title => title.replace(/^File:/, '').replaceAll('_', ' ')));
+        return Response.json({ query: { pages: representativePages.filter(page => allowed.has(page.title!.replace(/^File:/, ''))) } });
+      }
+      return Response.json({ query: { pages: [] } });
+    };
+    let representative: string[] = [];
+    const matches = await searchCommons(query, request, true, 'en', images => { representative = images.map(image => image.title); });
+    return { representativeFiles, representative, matches: matches.map(image => image.title) };
+  };
+
+  const steinmeier = await run('Steinmeier', ['Brussels summit', 'Frank-Walter Steinmeier']);
+  assert.deepEqual(steinmeier.representativeFiles, 'File:Frank-Walter Steinmeier.jpg');
+  assert.deepEqual(steinmeier.representative, ['Frank-Walter Steinmeier']);
+  const eu = await run('EU', ['International committee', 'European Union']);
+  assert.deepEqual(eu.representativeFiles, 'File:European Union.jpg');
+  assert.deepEqual(eu.representative, ['European Union']);
+});
+
+test('localized Wikipedia fallback accepts the EU alias and tolerates empty or failed Commons pages', async () => {
+  const lookup = async (query: string, commonsResponse: Record<string, unknown>) => searchCommons(query, async input => {
+    const url = new URL(String(input));
+    if (url.hostname === 'fr.wikipedia.org') {
+      if (url.searchParams.has('titles')) return Response.json({ query: { pages: [] } });
+      return Response.json({ query: { pages: [{ title: 'EU', pageimage: 'European_union.png' }] } });
+    }
+    if (url.searchParams.has('titles')) return Response.json(commonsResponse);
+    return Response.json({ query: { pages: [] } });
+  }, true, 'fr');
+
+  assert.deepEqual(await lookup('EU', { query: { pages: [] } }), []);
+  assert.deepEqual(await lookup('European Union', { error: 'Commons unavailable' }), []);
 });
 
 test('EU Solr header-only zero results are empty while malformed responses still fail', async () => {
