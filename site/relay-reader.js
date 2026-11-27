@@ -8261,7 +8261,7 @@ var ImageSession = class {
   }
 };
 
-// relay/plain.ts
+// relay/plain-browser.ts
 function plain(value) {
   if (typeof value !== "string") return "";
   const text2 = new DOMParser().parseFromString(value, "text/html").body.textContent;
@@ -8317,7 +8317,15 @@ function headlineMentionsSubject(headline, title) {
   const phrase = (value) => value.normalize("NFC").toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, " ").trim();
   const subject = phrase(title);
   const text2 = phrase(headline);
+  if (subject === "eu") return /(?:^| )eu(?: |$)|(?:^| )european union(?: |$)/u.test(text2);
   return subject.length >= 2 && (/\p{Script=Han}/u.test(subject) ? text2.includes(subject) : ` ${text2} `.includes(` ${subject} `));
+}
+function pageTitleMatchesSubject(query, title) {
+  const phrase = (value) => value.normalize("NFC").toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, " ").trim();
+  const subject = phrase(query), page = phrase(title), words = new Set(page.split(" "));
+  if (subject === "eu") return words.has("eu") || /\beuropean (?:union|commission|parliament)\b/u.test(page);
+  const terms = subject.split(" ").filter(Boolean);
+  return terms.length > 0 && terms.every((term) => words.has(term));
 }
 async function wikipediaPages(wiki, params, request, timeout = 8e3) {
   wiki.search = new URLSearchParams({
@@ -8356,13 +8364,8 @@ async function representativeImages(query, request, language) {
       titles = representativeFiles(ordered, query);
     }
     if (!titles.length) {
-      const pages = await wikipediaPages(wiki, {
-        generator: "search",
-        gsrnamespace: "0",
-        gsrlimit: localized ? "5" : "1",
-        gsrsearch: query
-      }, request);
-      const matches = localized ? pages.filter((page) => headlineMentionsSubject(query, page.title ?? "")) : pages.slice(0, 1);
+      const pages = await wikipediaPages(wiki, { generator: "search", gsrnamespace: "0", gsrsearch: query, gsrlimit: "5" }, request);
+      const matches = localized ? pages.filter((page) => headlineMentionsSubject(query, page.title ?? "")) : pages.filter((page) => pageTitleMatchesSubject(query, page.title ?? ""));
       titles = representativeFiles(matches, query);
     }
     if (!titles.length) return [];
@@ -8381,7 +8384,7 @@ async function representativeImages(query, request, language) {
     if (!files.ok) return [];
     const result = await files.json();
     for (const image of result.query?.pages || []) image.index = titles.findIndex((title) => title.replaceAll("_", " ") === image.title);
-    return readImages(result);
+    return readImages(result, true);
   } catch {
     return [];
   }
@@ -8421,9 +8424,13 @@ async function searchCommonsFiles(query, request, suggest) {
   if (data.error) throw new Error("Commons search is unavailable. Please retry.");
   const normalize = (value) => value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
   const words = normalize(query).split(" ");
-  return readImages(data).filter((image) => !suggest || words.every((word) => normalize(`${image.title} ${decodeURIComponent(new URL(image.filePage).pathname)}`).split(" ").includes(word)));
+  return readImages(data, suggest).filter((image) => !suggest || words.every((word) => normalize(`${image.title} ${decodeURIComponent(new URL(image.filePage).pathname)}`).split(" ").includes(word)));
 }
-function readImages(data) {
+function clearArtist(creator) {
+  const normalized = creator.toLowerCase().replace(/[()[\],.;:]+/g, " ").replace(/\s+/g, " ").trim();
+  return !!normalized && !/^(?:unknown(?: (?:author|artist|creator|photographer))?|(?:author|artist|creator|photographer) unknown|not (?:available|known|provided|specified)|n\/?a|unspecified|no (?:author|artist|creator|photographer))$/.test(normalized);
+}
+function readImages(data, requireClearArtist = false) {
   if (data.error) return [];
   const results = [];
   for (const page of [...data.query?.pages || []].sort((a, b) => (a.index || 0) - (b.index || 0))) {
@@ -8437,6 +8444,7 @@ function readImages(data) {
     try {
       const title = plain(meta.ObjectName?.value) || (page.title || "").replace(/^File:/, "");
       const creator = plain(meta.Artist?.value);
+      if (requireClearArtist && !clearArtist(creator)) continue;
       const imageUrl = new URL(info.thumburl || info.url || "");
       imageUrl.search = "";
       imageUrl.hash = "";

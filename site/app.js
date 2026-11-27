@@ -77,7 +77,7 @@ function readCommonsImage(data) {
   return readIllustration(data);
 }
 
-// relay/plain.ts
+// relay/plain-browser.ts
 function plain(value) {
   if (typeof value !== "string") return "";
   const text2 = new DOMParser().parseFromString(value, "text/html").body.textContent;
@@ -133,7 +133,15 @@ function headlineMentionsSubject(headline, title) {
   const phrase = (value) => value.normalize("NFC").toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, " ").trim();
   const subject = phrase(title);
   const text2 = phrase(headline);
+  if (subject === "eu") return /(?:^| )eu(?: |$)|(?:^| )european union(?: |$)/u.test(text2);
   return subject.length >= 2 && (/\p{Script=Han}/u.test(subject) ? text2.includes(subject) : ` ${text2} `.includes(` ${subject} `));
+}
+function pageTitleMatchesSubject(query, title) {
+  const phrase = (value) => value.normalize("NFC").toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, " ").trim();
+  const subject = phrase(query), page = phrase(title), words = new Set(page.split(" "));
+  if (subject === "eu") return words.has("eu") || /\beuropean (?:union|commission|parliament)\b/u.test(page);
+  const terms = subject.split(" ").filter(Boolean);
+  return terms.length > 0 && terms.every((term) => words.has(term));
 }
 async function wikipediaPages(wiki, params, request, timeout = 8e3) {
   wiki.search = new URLSearchParams({
@@ -172,13 +180,8 @@ async function representativeImages(query, request, language) {
       titles = representativeFiles(ordered, query);
     }
     if (!titles.length) {
-      const pages = await wikipediaPages(wiki, {
-        generator: "search",
-        gsrnamespace: "0",
-        gsrlimit: localized ? "5" : "1",
-        gsrsearch: query
-      }, request);
-      const matches = localized ? pages.filter((page) => headlineMentionsSubject(query, page.title ?? "")) : pages.slice(0, 1);
+      const pages = await wikipediaPages(wiki, { generator: "search", gsrnamespace: "0", gsrsearch: query, gsrlimit: "5" }, request);
+      const matches = localized ? pages.filter((page) => headlineMentionsSubject(query, page.title ?? "")) : pages.filter((page) => pageTitleMatchesSubject(query, page.title ?? ""));
       titles = representativeFiles(matches, query);
     }
     if (!titles.length) return [];
@@ -197,7 +200,7 @@ async function representativeImages(query, request, language) {
     if (!files.ok) return [];
     const result = await files.json();
     for (const image of result.query?.pages || []) image.index = titles.findIndex((title) => title.replaceAll("_", " ") === image.title);
-    return readImages(result);
+    return readImages(result, true);
   } catch {
     return [];
   }
@@ -237,9 +240,13 @@ async function searchCommonsFiles(query, request, suggest) {
   if (data.error) throw new Error("Commons search is unavailable. Please retry.");
   const normalize = (value) => value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
   const words = normalize(query).split(" ");
-  return readImages(data).filter((image) => !suggest || words.every((word) => normalize(`${image.title} ${decodeURIComponent(new URL(image.filePage).pathname)}`).split(" ").includes(word)));
+  return readImages(data, suggest).filter((image) => !suggest || words.every((word) => normalize(`${image.title} ${decodeURIComponent(new URL(image.filePage).pathname)}`).split(" ").includes(word)));
 }
-function readImages(data) {
+function clearArtist(creator) {
+  const normalized = creator.toLowerCase().replace(/[()[\],.;:]+/g, " ").replace(/\s+/g, " ").trim();
+  return !!normalized && !/^(?:unknown(?: (?:author|artist|creator|photographer))?|(?:author|artist|creator|photographer) unknown|not (?:available|known|provided|specified)|n\/?a|unspecified|no (?:author|artist|creator|photographer))$/.test(normalized);
+}
+function readImages(data, requireClearArtist = false) {
   if (data.error) return [];
   const results = [];
   for (const page of [...data.query?.pages || []].sort((a, b) => (a.index || 0) - (b.index || 0))) {
@@ -253,6 +260,7 @@ function readImages(data) {
     try {
       const title = plain(meta.ObjectName?.value) || (page.title || "").replace(/^File:/, "");
       const creator = plain(meta.Artist?.value);
+      if (requireClearArtist && !clearArtist(creator)) continue;
       const imageUrl = new URL(info.thumburl || info.url || "");
       imageUrl.search = "";
       imageUrl.hash = "";
@@ -2154,7 +2162,7 @@ var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
 ));
 
 // english-atomstr.ts
-import { articleLink, NEWSWIRE_LIMIT, urlIdentity } from "./news-model.js?v=317d80475f465f8c";
+import { articleLink, NEWSWIRE_LIMIT, urlIdentity } from "./news-model.js?v=eb7101e72059f21e";
 var ENGLISH_ATOMSTR_SOURCES = [
   { id: "aljazeera", name: "Al Jazeera", feeds: [{
     url: "https://www.aljazeera.com/xml/rss/all.xml",
@@ -2204,9 +2212,9 @@ function withEnglishAtomstrFallback(displayed, live, embedded, now = Date.now())
 }
 
 // app.ts
-import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, STALE_MS as STALE_MS2, CDN_SNAPSHOT_MAX_AGE_MS as CDN_SNAPSHOT_MAX_AGE_MS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink as articleLink2, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=317d80475f465f8c";
-import relayConfig from "./relay-config.js?v=317d80475f465f8c";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=317d80475f465f8c";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, STALE_MS as STALE_MS2, CDN_SNAPSHOT_MAX_AGE_MS as CDN_SNAPSHOT_MAX_AGE_MS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink as articleLink2, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=eb7101e72059f21e";
+import relayConfig from "./relay-config.js?v=eb7101e72059f21e";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=eb7101e72059f21e";
 
 // public-assets.ts
 var PUBLIC_MODULES = ["app", "news-model", "relay-config", "stringer-media", "response", "publications"];
@@ -2500,7 +2508,7 @@ async function connectNostr() {
       })
     ]).finally(() => clearTimeout(timer));
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=317d80475f465f8c");
+    const identity = await import("./relay-reader.js?v=eb7101e72059f21e");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -2957,6 +2965,17 @@ function describeSuggestedImage(image, suggested) {
   if (suggested) image.setAttribute("aria-description", t("Automatically suggested image"));
   else image.removeAttribute("aria-description");
 }
+function syncSuggestedThumbnailLabel(caption, suggested) {
+  if (!suggested) {
+    caption.querySelector(".image-suggested-label")?.remove();
+    caption.hidden = !caption.childElementCount;
+    return;
+  }
+  caption.hidden = false;
+  const label = element("span", t("Automatically suggested image"), "image-suggested-label");
+  label.setAttribute("aria-hidden", "true");
+  caption.prepend(label);
+}
 var storyCards = /* @__PURE__ */ new WeakMap();
 function renderStories(target, stories, emptyMessage) {
   const oldChildren = [...target.children];
@@ -2991,7 +3010,8 @@ function renderStories(target, stories, emptyMessage) {
     const suggested = publishedThumbnail ? publishedThumbnail.suggested : !!commons && !publishedImage && commons.filePage !== selection?.winner?.filePage;
     const key = JSON.stringify([
       story,
-      publishedThumbnail,
+      hasPublishedThumbnail,
+      publishedThumbnail?.file,
       commons && imageCreditKey(commons),
       !!(imageStoryId && trusted),
       commons ? null : [search?.error, search?.searched, !!search?.results.length]
@@ -3014,6 +3034,7 @@ function renderStories(target, stories, emptyMessage) {
       }
       if (card.suggested !== suggested) {
         describeSuggestedImage(existing.querySelector(".story-media img"), suggested);
+        syncSuggestedThumbnailLabel(existing.querySelector(".image-credit-caption"), suggested);
         card.suggested = suggested;
       }
       if (searchId && !hasPublishedThumbnail && !search?.loading && !search?.searched)
@@ -3063,6 +3084,7 @@ function renderStories(target, stories, emptyMessage) {
       if (commons) {
         caption = thumbnailCredit(commons);
         describeSuggestedImage(image, suggested);
+        syncSuggestedThumbnailLabel(caption, suggested);
       } else if (photoCredit) {
         caption = element("figcaption", photoCredit, "image-credit-caption");
         thumbnailCredits.set(caption, { key: url, credit: { title: story.title, credit: photoCredit } });
@@ -3407,7 +3429,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled && !publishedReader) {
-      const reader = await import("./relay-reader.js?v=317d80475f465f8c");
+      const reader = await import("./relay-reader.js?v=eb7101e72059f21e");
       ImageSessionClass = reader.ImageSession;
       searchImages2 = reader.searchImages;
       commonsSubject2 = reader.commonsSubject;
@@ -3527,7 +3549,7 @@ async function loadLocalized() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = swahiliEdition || publishedReader ? null : await import("./atomstr-reader.js?v=317d80475f465f8c");
+    const reader = swahiliEdition || publishedReader ? null : await import("./atomstr-reader.js?v=eb7101e72059f21e");
     if (!snapshot) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
@@ -3570,7 +3592,7 @@ async function loadLocalized() {
         try {
           let original;
           if (relayConfig.enabled && !publishedReader) {
-            const relay = await import("./relay-reader.js?v=317d80475f465f8c");
+            const relay = await import("./relay-reader.js?v=eb7101e72059f21e");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
@@ -3625,7 +3647,7 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden && Date.now() - lastAttempt >= interval) load();
 });
 if (publishedReader) searchImages2 = searchImages;
-else if (localizedEdition) void import("./relay-reader.js?v=317d80475f465f8c").then((reader) => {
+else if (localizedEdition) void import("./relay-reader.js?v=eb7101e72059f21e").then((reader) => {
   searchImages2 = reader.searchImages;
   loadSuggestions();
 }, () => suggestionQueue.clear());
