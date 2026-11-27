@@ -438,6 +438,7 @@ async function searchImages(query, source = "all", suggest = false, request = fe
 
 // locales/fr.ts
 var french = {
+  "Preview \xB7 {date}": "Aper\xE7u \xB7 {date}",
   "Headlines from publishers in this language.": "Titres de m\xE9dias francophones.",
   "Close menu": "Fermer le menu",
   "Open menu": "Ouvrir le menu",
@@ -565,6 +566,7 @@ var fr_default = french;
 
 // locales/es.ts
 var spanish = {
+  "Preview \xB7 {date}": "Vista previa \xB7 {date}",
   "Headlines from publishers in this language.": "Titulares de medios en espa\xF1ol.",
   "Close menu": "Cerrar men\xFA",
   "Open menu": "Abrir men\xFA",
@@ -692,6 +694,7 @@ var es_default = spanish;
 
 // locales/ar.ts
 var arabic = {
+  "Preview \xB7 {date}": "\u0645\u0639\u0627\u064A\u0646\u0629 \xB7 {date}",
   "Headlines from publishers in this language.": "\u0639\u0646\u0627\u0648\u064A\u0646 \u0645\u0646 \u0648\u0633\u0627\u0626\u0644 \u0625\u0639\u0644\u0627\u0645 \u0628\u0627\u0644\u0644\u063A\u0629 \u0627\u0644\u0639\u0631\u0628\u064A\u0629.",
   "Close menu": "\u0625\u063A\u0644\u0627\u0642 \u0627\u0644\u0642\u0627\u0626\u0645\u0629",
   "Open menu": "\u0641\u062A\u062D \u0627\u0644\u0642\u0627\u0626\u0645\u0629",
@@ -819,6 +822,7 @@ var ar_default = arabic;
 
 // locales/zh.ts
 var chinese = {
+  "Preview \xB7 {date}": "\u9884\u89C8 \xB7 {date}",
   "Headlines from publishers in this language.": "\u4E2D\u6587\u5A92\u4F53\u7684\u65B0\u95FB\u6807\u9898\u3002",
   "Close menu": "\u5173\u95ED\u83DC\u5355",
   "Open menu": "\u6253\u5F00\u83DC\u5355",
@@ -946,6 +950,7 @@ var zh_default = chinese;
 
 // locales/ru.ts
 var russian = {
+  "Preview \xB7 {date}": "\u041F\u0440\u0435\u0434\u043F\u0440\u043E\u0441\u043C\u043E\u0442\u0440 \xB7 {date}",
   "Headlines from publishers in this language.": "\u0417\u0430\u0433\u043E\u043B\u043E\u0432\u043A\u0438 \u0440\u0443\u0441\u0441\u043A\u043E\u044F\u0437\u044B\u0447\u043D\u044B\u0445 \u0421\u041C\u0418.",
   "Close menu": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C \u043C\u0435\u043D\u044E",
   "Open menu": "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u043C\u0435\u043D\u044E",
@@ -1073,6 +1078,7 @@ var ru_default = russian;
 
 // locales/nl.ts
 var dutch = {
+  "Preview \xB7 {date}": "Voorbeeld \xB7 {date}",
   "Headlines from publishers in this language.": "Koppen van Nederlandstalige nieuwsmedia.",
   "Close menu": "Menu sluiten",
   "Open menu": "Menu openen",
@@ -1200,6 +1206,7 @@ var nl_default = dutch;
 
 // locales/de.ts
 var german = {
+  "Preview \xB7 {date}": "Vorschau \xB7 {date}",
   "Headlines from publishers in this language.": "Schlagzeilen deutschsprachiger Medien.",
   "Close menu": "Men\xFC schlie\xDFen",
   "Open menu": "Men\xFC \xF6ffnen",
@@ -1327,6 +1334,7 @@ var de_default = german;
 
 // locales/sw.ts
 var swahili = {
+  "Preview \xB7 {date}": "Onyesho la kukagua \xB7 {date}",
   "Headlines from publishers in this language.": "Vichwa vya habari kutoka kwa vyombo vya habari vya Kiswahili.",
   "Close menu": "Funga menyu",
   "Open menu": "Fungua menyu",
@@ -1463,6 +1471,7 @@ var sw_default = swahili;
 
 // reader-locales.ts
 var portuguese = {
+  "Preview \xB7 {date}": "Pr\xE9-visualiza\xE7\xE3o \xB7 {date}",
   "Show more headlines": "Mostrar mais manchetes",
   "Show more courageous stories": "Mostrar mais reportagens corajosas",
   "Show fewer courageous stories": "Mostrar menos reportagens corajosas",
@@ -2162,7 +2171,7 @@ var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
 ));
 
 // english-atomstr.ts
-import { articleLink, NEWSWIRE_LIMIT, urlIdentity } from "./news-model.js?v=eb7101e72059f21e";
+import { articleLink, NEWSWIRE_LIMIT, urlIdentity } from "./news-model.js?v=a80c0650711729fd";
 var ENGLISH_ATOMSTR_SOURCES = [
   { id: "aljazeera", name: "Al Jazeera", feeds: [{
     url: "https://www.aljazeera.com/xml/rss/all.xml",
@@ -2212,9 +2221,9 @@ function withEnglishAtomstrFallback(displayed, live, embedded, now = Date.now())
 }
 
 // app.ts
-import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, STALE_MS as STALE_MS2, CDN_SNAPSHOT_MAX_AGE_MS as CDN_SNAPSHOT_MAX_AGE_MS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink as articleLink2, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=eb7101e72059f21e";
-import relayConfig from "./relay-config.js?v=eb7101e72059f21e";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=eb7101e72059f21e";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, STALE_MS as STALE_MS2, CDN_SNAPSHOT_MAX_AGE_MS as CDN_SNAPSHOT_MAX_AGE_MS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink as articleLink2, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=a80c0650711729fd";
+import relayConfig from "./relay-config.js?v=a80c0650711729fd";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=a80c0650711729fd";
 
 // public-assets.ts
 var PUBLIC_MODULES = ["app", "news-model", "relay-config", "stringer-media", "response", "publications"];
@@ -2243,13 +2252,24 @@ var swahiliEdition = locale === "sw";
 var localizedEdition = swahiliEdition || mirrorSources.length > 0;
 function readEmbeddedAtomstr() {
   try {
-    return JSON.parse(document.getElementById("atomstr-headlines")?.textContent || "{}");
+    return JSON.parse(document.getElementById("atomstr-headlines")?.textContent || "{}") ?? {};
   } catch {
     return {};
   }
 }
 var embeddedAtomstr = readEmbeddedAtomstr();
 var t = translator(locale);
+var previewBuild = document.querySelector('meta[name="preview-commit"]') && document.querySelector("#reader-build time[datetime]");
+var previewTime = Date.parse(previewBuild?.dateTime ?? "");
+var previewCollectionTime = Object.values(embeddedAtomstr).reduce((latest, entry) => Math.max(latest, Date.parse(String(entry?.lastSuccessAt)) || 0), previewTime);
+function snapshotReferenceTime() {
+  return Number.isFinite(previewTime) ? previewCollectionTime : Date.now();
+}
+if (Number.isFinite(previewTime)) {
+  requiredElement("#page-title").after(element("p", t("Preview \xB7 {date}", {
+    date: formatLocalDateTime(new Date(previewTime), locale)
+  }), "build-info"));
+}
 var menuToggle = requiredElement(".header-menu-toggle");
 var headerMenu = requiredElement("#header-menu");
 function setHeaderMenu(open) {
@@ -2332,7 +2352,7 @@ function displayedSnapshot() {
 }
 function displayedWorldSources() {
   const displayed = displayedSnapshot().sources;
-  return localizedEdition ? displayed : withEnglishAtomstrFallback(displayed, snapshot.sources, embeddedAtomstr);
+  return localizedEdition ? displayed : withEnglishAtomstrFallback(displayed, snapshot.sources, embeddedAtomstr, snapshotReferenceTime());
 }
 var loading = false;
 var showingEmbeddedStringer = false;
@@ -2508,7 +2528,7 @@ async function connectNostr() {
       })
     ]).finally(() => clearTimeout(timer));
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=eb7101e72059f21e");
+    const identity = await import("./relay-reader.js?v=a80c0650711729fd");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -3398,7 +3418,7 @@ async function loadCdnSnapshot() {
     });
     if (!response.ok) return null;
     const value = applyContentPermissions(validateSnapshot(JSON.parse(await readResponseText(response))));
-    if (Date.now() - Date.parse(value.generatedAt) > CDN_SNAPSHOT_MAX_AGE_MS2) return null;
+    if (snapshotReferenceTime() - Date.parse(value.generatedAt) > CDN_SNAPSHOT_MAX_AGE_MS2) return null;
     for (const [id, image] of Object.entries(value.illustrations ?? {})) {
       try {
         value.illustrations[id] = readIllustration({ ...image });
@@ -3429,7 +3449,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled && !publishedReader) {
-      const reader = await import("./relay-reader.js?v=eb7101e72059f21e");
+      const reader = await import("./relay-reader.js?v=a80c0650711729fd");
       ImageSessionClass = reader.ImageSession;
       searchImages2 = reader.searchImages;
       commonsSubject2 = reader.commonsSubject;
@@ -3490,7 +3510,7 @@ async function load() {
     console.error("[Stringer reader] Collection refresh failed:", error);
     feedback.textContent = t(snapshot ? "Could not check for updates. Keeping the previously loaded collection." : "The news collection is unavailable. We\u2019ll retry automatically.");
     if (!snapshot) {
-      const sources2 = withEnglishAtomstrFallback({}, {}, embeddedAtomstr);
+      const sources2 = withEnglishAtomstrFallback({}, {}, embeddedAtomstr, snapshotReferenceTime());
       const stories = worldStories({ sources: sources2 }, Object.keys(sources2), publisherSources);
       renderStories(requiredElement("#world-news"), stories, "");
       updateStoryVisibility();
@@ -3522,7 +3542,7 @@ async function refreshPublishedHeadlines() {
     });
     if (!response.ok) throw new Error("Published headlines unavailable");
     const data = JSON.parse(await readResponseText(response));
-    if (!(Date.parse(data.generatedAt) >= Date.now() - CDN_SNAPSHOT_MAX_AGE_MS2)) throw new Error("Expired edition");
+    if (!(Date.parse(data.generatedAt) >= snapshotReferenceTime() - CDN_SNAPSHOT_MAX_AGE_MS2)) throw new Error("Expired edition");
     publishedThumbnails = readPublishedThumbnails(data.thumbnails);
     localizedThumbnailResponseReceived = true;
     loadSuggestions();
@@ -3549,7 +3569,7 @@ async function loadLocalized() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = swahiliEdition || publishedReader ? null : await import("./atomstr-reader.js?v=eb7101e72059f21e");
+    const reader = swahiliEdition || publishedReader ? null : await import("./atomstr-reader.js?v=a80c0650711729fd");
     if (!snapshot) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
@@ -3562,7 +3582,7 @@ async function loadLocalized() {
           sources2[source.id] = collected[source.id] ?? { ...initialSource, status: "failure", error: "Publisher feed unavailable" };
         }
       } else {
-        const cutoff = Date.now() - ATOMSTR_MAX_AGE_MS;
+        const cutoff = snapshotReferenceTime() - ATOMSTR_MAX_AGE_MS;
         for (const [id, cached] of Object.entries(sources2)) {
           const entry = embeddedAtomstr[id];
           if (!entry?.lastSuccessAt || entry.lastSuccessAt <= (cached.lastSuccessAt ?? "")) continue;
@@ -3592,7 +3612,7 @@ async function loadLocalized() {
         try {
           let original;
           if (relayConfig.enabled && !publishedReader) {
-            const relay = await import("./relay-reader.js?v=eb7101e72059f21e");
+            const relay = await import("./relay-reader.js?v=a80c0650711729fd");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
@@ -3647,7 +3667,7 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden && Date.now() - lastAttempt >= interval) load();
 });
 if (publishedReader) searchImages2 = searchImages;
-else if (localizedEdition) void import("./relay-reader.js?v=eb7101e72059f21e").then((reader) => {
+else if (localizedEdition) void import("./relay-reader.js?v=a80c0650711729fd").then((reader) => {
   searchImages2 = reader.searchImages;
   loadSuggestions();
 }, () => suggestionQueue.clear());
