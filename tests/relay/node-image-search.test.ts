@@ -81,7 +81,7 @@ test('localized Wikipedia fallback accepts the EU alias and tolerates empty or f
     const url = new URL(String(input));
     if (url.hostname === 'fr.wikipedia.org') {
       if (url.searchParams.has('titles')) return Response.json({ query: { pages: [] } });
-      return Response.json({ query: { pages: [{ title: query === 'EU' ? 'EU' : 'EU', pageimage: 'European_union.png' }] } });
+      return Response.json({ query: { pages: [{ title: 'EU', pageimage: 'European_union.png' }] } });
     }
     if (url.searchParams.has('titles')) return Response.json(commonsResponse);
     return Response.json({ query: { pages: [] } });
