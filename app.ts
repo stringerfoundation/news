@@ -676,7 +676,7 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
     const imageData = wire ? commons : story.image;
     const imageUrl = wire ? (publishedThumbnail ? new URL(`./${publishedThumbnail.file}`, import.meta.url).href : commons?.url) : safeImageUrl(imageData?.url) || localImage;
     const suggested = publishedThumbnail ? publishedThumbnail.suggested : !!commons && !publishedImage && commons.filePage !== selection?.winner?.filePage;
-    const key = JSON.stringify([story, publishedThumbnail, commons && imageCreditKey(commons), !!(imageStoryId && trusted),
+    const key = JSON.stringify([story, hasPublishedThumbnail, publishedThumbnail?.file, commons && imageCreditKey(commons), !!(imageStoryId && trusted),
       commons ? null : [search?.error, search?.searched, !!search?.results.length]]);
     const controls = imageStoryId && trusted ? JSON.stringify([
       trusted, voteBusy, search, selection?.scores, selection?.latest.get(trusted)?.vote.candidateId,

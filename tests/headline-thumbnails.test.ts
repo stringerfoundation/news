@@ -225,7 +225,7 @@ test('localized searches use the full headline with the edition language', async
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test('search failure and post-deadline results leave explicit nulls', async () => {
+test('search failure and post-deadline results leave explicit nulls', async t => {
   const root = await mkdtemp(join(tmpdir(), 'headline-thumbs-'));
   const site = await makeSite(root, ['Unavailable']); const lateSite = await makeSite(join(root, 'late'), ['Too late']);
   try {
@@ -233,9 +233,11 @@ test('search failure and post-deadline results leave explicit nulls', async () =
       search: async () => { throw new Error('Commons search unavailable'); }, log: () => {},
     });
     assert.equal(JSON.parse(await readFile(join(site, 'data', 'news.json'), 'utf8')).thumbnails['https://example.org/0'], null);
+    let now = Date.now();
+    t.mock.method(Date, 'now', () => now);
     await publishHeadlineThumbnails(lateSite, join(root, '.late-cache'), {
-      timeBudgetMs: 1,
-      search: async () => { await new Promise(resolve => setTimeout(resolve, 5)); return [image(50)]; },
+      timeBudgetMs: 1000,
+      search: async () => { now += 1001; return [image(50)]; },
       download: async () => { throw new Error('download must not begin after deadline'); }, log: () => {},
     });
     assert.equal(JSON.parse(await readFile(join(lateSite, 'data', 'news.json'), 'utf8')).thumbnails['https://example.org/0'], null);

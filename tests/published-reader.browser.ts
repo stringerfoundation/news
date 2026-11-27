@@ -49,12 +49,12 @@ test('public editions read CDN files on first load, refresh and outage without r
         if (offline) return route.fulfill({status: 503});
         const entry = (name: string) => ({
           attemptedAt: at, lastSuccessAt: at, status: 'success', error: null,
-          stories: [{title: name + version, url: 'https://example.org/' + name, summary: 'Reporting', credits: 'Reporter',
+          stories: [{title: name === SOURCES[2]!.id ? 'Unchanged headline' : name + version, url: 'https://example.org/' + name, summary: 'Reporting', credits: 'Reporter',
             publishedAt: at, image: null, noteId: name === SOURCES[1]!.id ? 'c'.repeat(64) : id, clusterId: group}],
         });
         const thumbnailPath = `assets/headline-thumbnails/${String(version).padStart(64, '0')}.webp`;
         const thumbnail = {file: thumbnailPath, image: photo, suggested: version === 1};
-        const publicDomainThumbnail = {file: thumbnailPath, image: publicDomainPhoto, suggested: version === 1};
+        const publicDomainThumbnail = {file: 'assets/headline-thumbnails/' + 'a'.repeat(64) + '.webp', image: publicDomainPhoto, suggested: version === 1};
         if (file === 'data/news.json') return route.fulfill({json: {
           generatedAt: olderSnapshot ? new Date(Date.parse(at) - 1000).toISOString() : at, schemaVersion: 2, sources: Object.fromEntries(SOURCES.map(source => [source.id, entry(source.id)])),
           illustrations: {['c'.repeat(64)]: photo, invalid: {}},
@@ -113,8 +113,9 @@ test('public editions read CDN files on first load, refresh and outage without r
       assert.match(await credits.textContent() || '', /CC BY 4\.0/);
       assert.match(await credits.textContent() || '', /Thumbnail resized and converted to WebP/);
       await page.locator('dialog[aria-labelledby="image-credit-title"] .reader-dialog-close').click();
-      const publicDomainCard = page.locator('#world-news article').filter({has: page.locator('h3', {hasText: SOURCES[2]!.id + '1'})}).first();
+      const publicDomainCard = page.locator('#world-news article').filter({has: page.locator('h3', {hasText: 'Unchanged headline'})}).first();
       await publicDomainCard.locator('.image-suggested-label').waitFor();
+      await publicDomainCard.locator('img').evaluate(img => img.setAttribute('data-before-approval', 'true'));
       assert.equal(await publicDomainCard.locator('.image-credit-button').count(), 0);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
       await page.locator('#world-news .wire-thumbnail[data-published-miss="true"] .story-placeholder:visible').first().waitFor();
@@ -137,8 +138,9 @@ test('public editions read CDN files on first load, refresh and outage without r
       const approvedCard = thumbnail.locator('xpath=ancestor::article');
       assert.equal(await approvedCard.locator('.image-suggested-label').count(), 0);
       assert.equal(await thumbnail.getAttribute('aria-description'), null);
-      const approvedPublicDomainCard = page.locator('#world-news article').filter({has: page.locator('h3', {hasText: SOURCES[2]!.id + '2'})}).first();
+      const approvedPublicDomainCard = page.locator('#world-news article').filter({has: page.locator('h3', {hasText: 'Unchanged headline'})}).first();
       await approvedPublicDomainCard.locator('.image-suggested-label').waitFor({state: 'detached'});
+      assert.equal(await approvedPublicDomainCard.locator('img').getAttribute('data-before-approval'), 'true');
       assert.equal(await approvedPublicDomainCard.locator('.image-credit-caption').evaluate(node => (node as HTMLElement).hidden), true);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
     }
