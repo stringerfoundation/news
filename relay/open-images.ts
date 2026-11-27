@@ -1,14 +1,20 @@
 import { searchCommons } from './commons.js';
 import { readIllustration, type CommonsImage } from './illustration.js';
+import { plain } from './plain.js';
 
 export type ImageSource = 'all' | 'commons' | 'openverse' | 'flickr' | 'eu' | 'wellcome' | 'smithsonian' | 'europeana';
 export interface ImageSearchResult { images: CommonsImage[]; issues: string[] }
 const sources = { commons: 'Wikimedia Commons', openverse: 'Openverse', flickr: 'Flickr via Openverse', eu: 'EU audiovisual library', wellcome: 'Wellcome Collection via Openverse', smithsonian: 'Smithsonian via Openverse', europeana: 'Europeana via Openverse' };
 const euEndpoint = 'https://gfdwwnbuul.execute-api.eu-west-1.amazonaws.com/avsportal/avsportal';
 const searchUnavailable = 'Search is unavailable. Please retry.';
-function plain(value: unknown): string {
-  if (typeof value !== 'string') return '';
-  return new DOMParser().parseFromString(value, 'text/html').body.textContent?.replace(/\s+/g, ' ').trim().slice(0, 2000) || '';
+function matchesSubject(query: string, ...values: string[]): boolean {
+  const fold = (value: string) => value.normalize('NFD').toLowerCase().replace(/\p{M}/gu, '');
+  const terms = fold(query).match(/[\p{L}\p{N}]+/gu) || [];
+  const text = fold(values.join(' ')).replace(/[^\p{L}\p{N}]+/gu, ' ');
+  if (!terms.length) return false;
+  if (terms.length === 1 && terms[0] === 'eu') return /\beu\b|\beuropean (?:union|commission|parliament)\b/u.test(text);
+  const words = new Set(text.split(/\s+/));
+  return terms.every(term => words.has(term));
 }
 async function json(url: URL, request: typeof fetch, timeout = 12000) {
   const response = await request(url, { credentials: 'omit', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(timeout) })
@@ -20,7 +26,7 @@ interface OpenverseImage {
   id?: string; title?: string; creator?: string; attribution?: string; url?: string; foreign_landing_url?: string;
   license?: string; license_version?: string; license_url?: string; source?: string; mature?: boolean;
 }
-export async function searchOpenverse(query: string, request: typeof fetch = fetch, provider: boolean | 'wellcome' | 'smithsonian' | 'europeana' = false): Promise<CommonsImage[]> {
+export async function searchOpenverse(query: string, request: typeof fetch = fetch, provider: boolean | 'wellcome' | 'smithsonian' | 'europeana' = false, relevantOnly = false): Promise<CommonsImage[]> {
   const url = new URL('https://api.openverse.org/v1/images/');
   let filter = provider === true ? 'flickr' : provider === 'wellcome' ? 'wellcome_collection' : provider === 'europeana' ? 'europeana' : '';
   if (provider === 'smithsonian') {
@@ -35,7 +41,7 @@ export async function searchOpenverse(query: string, request: typeof fetch = fet
   if (!Array.isArray(data.results)) throw new Error('Invalid image search response.');
   const images: CommonsImage[] = [];
   for (const item of data.results) {
-    if (item.mature || !plain(item.source) || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(item.id || '') || item.source === 'wikimedia' || (filter && !filter.split(',').includes(item.source!))) continue;
+    if (item.mature || !plain(item.source) || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(item.id || '') || item.source === 'wikimedia' || (filter && !filter.split(',').includes(item.source!)) || (relevantOnly && !matchesSubject(query, plain(item.title)))) continue;
     const license = item.license === 'cc0' ? 'CC0-1.0' : item.license === 'pdm' ? 'PDM-1.0'
       : ['by', 'by-sa'].includes(item.license || '') ? `CC-${item.license!.toUpperCase()}-${item.license_version}` : '';
     try {
@@ -55,14 +61,18 @@ interface EuPhoto {
   cooperator_json?: Record<string, { EN?: { coop?: string[] } }>;
   media_json?: { LOW?: { PATH?: string }; MED?: { PATH?: string } };
 }
-export async function searchEuPhotos(query: string, request: typeof fetch = fetch): Promise<CommonsImage[]> {
+export async function searchEuPhotos(query: string, request: typeof fetch = fetch, relevantOnly = false): Promise<CommonsImage[]> {
   const url = new URL(euEndpoint);
   url.search = new URLSearchParams({ kwgg: query.trim().slice(0, 200), type: 'PHOTO', hasMedia: '1', wt: 'json', index: '1', pagesize: '10',
     fl: 'ref,type,titles_json,summary_json,copyright_json,cc_by_json,cooperator_json,media_json' }).toString();
-  const data = await json(url, request) as { response?: { docs?: EuPhoto[] } };
+  const data = await json(url, request) as { response?: { docs?: EuPhoto[] }; responseHeader?: { status?: number; QTime?: number } };
+  // The live endpoint returns this valid Solr header-only shape for some ordinary
+  // zero-result searches (including short terms). Keep all other malformed payloads visible.
+  if (data.responseHeader?.status === 0 && typeof data.responseHeader.QTime === 'number' && Object.keys(data).every(key => key === 'responseHeader')) return [];
   if (!Array.isArray(data.response?.docs)) throw new Error('Invalid EU photo search response.');
   const images: CommonsImage[] = [];
   for (const item of data.response.docs) {
+    if (relevantOnly && !matchesSubject(query, plain(item.titles_json?.EN), plain(item.summary_json?.EN))) continue;
     const holders = item.copyright_json?.holders?.EN, terms = item.cc_by_json;
     // The EU's CC BY 4.0 default applies to EU-owned content only. Do not infer
     // reuse rights for third-party holders or files carrying individual notices.
@@ -103,8 +113,8 @@ export async function searchImages(query: string, source: ImageSource = 'all', s
     if (request === fetch && cached && cached.until > Date.now()) return cached.images;
     try {
       const images = id === 'commons' ? await searchCommons(query, request, suggest, language, images => onProgress?.({ images, issues: [...issues] }))
-        : id === 'eu' ? await searchEuPhotos(query, request)
-        : await searchOpenverse(query, request, id === 'flickr' ? true : ['wellcome', 'smithsonian', 'europeana'].includes(id) ? id as 'wellcome' | 'smithsonian' | 'europeana' : false);
+        : id === 'eu' ? await searchEuPhotos(query, request, suggest)
+        : await searchOpenverse(query, request, id === 'flickr' ? true : ['wellcome', 'smithsonian', 'europeana'].includes(id) ? id as 'wellcome' | 'smithsonian' | 'europeana' : false, suggest);
       if (request === fetch) {
         if (cache.size >= 200) cache.delete(cache.keys().next().value!);
         cache.set(key, { until: Date.now() + 10 * 60 * 1000, images });

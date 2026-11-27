@@ -207,3 +207,11 @@ test('asset requests survive an unavailable edge cache and HEAD skips cache writ
     assert.equal(response.headers.get('x-worker-cache'), 'MISS');
   }
 });
+
+test('only content-addressed headline thumbnails receive immutable cache headers', async t => {
+  t.mock.method(globalThis, 'fetch', async () => new Response('fixture'));
+  const path = '/news-assets/assets/headline-thumbnails/';
+  const response = await worker.fetch(request(path + 'a'.repeat(64) + '.webp'), env);
+  assert.equal(response.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+  assert.equal((await worker.fetch(request(path + 'a.webp'), env)).status, 404);
+});

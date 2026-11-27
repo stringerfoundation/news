@@ -124,6 +124,16 @@ class PublisherTests(unittest.TestCase):
             self.assertIn('noindex, nofollow', preview)
             self.assertIn(SHA, preview)
 
+    def test_publishes_only_content_addressed_headline_thumbnail_paths(self):
+        name = 'assets/headline-thumbnails/' + 'a' * 64 + '.webp'
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            publisher.unpack(archive(extra={name: b'fixture'}), target)
+            self.assertEqual((target / name).read_bytes(), b'fixture')
+            for invalid in (name.replace('.webp', '.svg'), name.replace('a' * 64, 'unverified')):
+                with self.assertRaises(ValueError):
+                    publisher.unpack(archive(extra={invalid: b'fixture'}), target)
+
     def test_rejects_traversal_links_source_extra_files_and_missing_assets_before_writing(self):
         link = tarfile.TarInfo('assets/stringer-thumbnails/link.png')
         link.type, link.linkname = tarfile.SYMTYPE, '/tmp/outside'

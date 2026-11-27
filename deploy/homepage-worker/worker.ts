@@ -1,4 +1,4 @@
-import { isPublicAsset } from '../../public-assets.ts';
+import { isHeadlineThumbnail, isPublicAsset } from '../../public-assets.ts';
 import { EDITIONS, localeForLanguage, type Locale } from '../../reader-locales.ts';
 import relayConfig from '../../relay-config.ts';
 import type { HTMLRewriter as CloudflareHTMLRewriter } from '@cloudflare/workers-types';
@@ -70,8 +70,9 @@ export function routeFor(request: Request): Route {
   return isPublicAsset(path) ? { kind: 'asset', path: '/' + path } : { kind: 'missing' };
 }
 
-/** Short shared TTLs only. Never immutable: ?v= paths are not content-addressed. */
+/** Only thumbnails whose filenames hash their contents are immutable. */
 export function assetCacheControl(path: string): string {
+  if (isHeadlineThumbnail(path.slice(1))) return 'public, max-age=31536000, immutable';
   if (path.endsWith('.json')) return 'public, max-age=60, s-maxage=300';
   if (/\.(?:js|css)$/.test(path)) return 'public, max-age=60, s-maxage=300';
   return 'public, max-age=86400'; // Remaining allowlisted assets are images.
