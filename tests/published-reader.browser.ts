@@ -93,9 +93,8 @@ test('public editions read CDN files on first load, refresh and outage without r
     assert.ok(await page.locator('#world-news article').count());
     if (!path) await page.setViewportSize({width: 320, height: 850});
     if (path === 'fr') {
-      const localizedSuggestion = page.locator('#world-news .image-suggested-label').first();
-      await localizedSuggestion.waitFor();
-      assert.equal((await localizedSuggestion.textContent())?.trim(), 'Image suggérée automatiquement');
+      await page.locator('#world-news img[data-suggested]').first().waitFor();
+      assert.equal(await page.getByText('Image suggérée automatiquement', {exact: true}).count(), 0);
     }
     if (!path) {
       const img = page.locator('#world-news .wire-thumbnail img').first();
@@ -104,9 +103,8 @@ test('public editions read CDN files on first load, refresh and outage without r
       assert.match(await img.getAttribute('src') || '', /assets\/headline-thumbnails\//);
       assert.ok(await page.locator('#world-news .wire-thumbnail figcaption button[aria-label*="credits" i]').count());
       const suggestedCard = img.locator('xpath=ancestor::article');
-      await suggestedCard.locator('.image-suggested-label').waitFor();
-      assert.equal((await suggestedCard.locator('.image-suggested-label').textContent())?.trim(), 'Automatically suggested image');
-      assert.equal(await img.getAttribute('aria-description'), 'Automatically suggested image');
+      assert.equal(await suggestedCard.getByText('Automatically suggested image', {exact: true}).count(), 0);
+      assert.equal(await img.getAttribute('aria-description'), null);
       await suggestedCard.locator('.image-credit-button').click();
       const credits = page.locator('dialog[aria-labelledby="image-credit-title"] .image-credit-entry').first();
       await credits.waitFor();
@@ -115,7 +113,7 @@ test('public editions read CDN files on first load, refresh and outage without r
       assert.match(await credits.textContent() || '', /Thumbnail resized and converted to WebP/);
       await page.locator('dialog[aria-labelledby="image-credit-title"] .reader-dialog-close').click();
       const publicDomainCard = page.locator('#world-news article').filter({has: page.locator('h3', {hasText: 'Unchanged headline'})}).first();
-      await publicDomainCard.locator('.image-suggested-label').waitFor();
+      await publicDomainCard.locator('img[data-suggested]').waitFor();
       await publicDomainCard.locator('img').evaluate(img => img.setAttribute('data-before-approval', 'true'));
       assert.equal(await publicDomainCard.locator('.image-credit-button').count(), 0);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);
@@ -140,7 +138,7 @@ test('public editions read CDN files on first load, refresh and outage without r
       assert.equal(await approvedCard.locator('.image-suggested-label').count(), 0);
       assert.equal(await thumbnail.getAttribute('aria-description'), null);
       const approvedPublicDomainCard = page.locator('#world-news article').filter({has: page.locator('h3', {hasText: 'Unchanged headline'})}).first();
-      await approvedPublicDomainCard.locator('.image-suggested-label').waitFor({state: 'detached'});
+      await approvedPublicDomainCard.locator('img[data-suggested]').waitFor({state: 'detached'});
       assert.equal(await approvedPublicDomainCard.locator('img').getAttribute('data-before-approval'), 'true');
       assert.equal(await approvedPublicDomainCard.locator('.image-credit-caption').evaluate(node => (node as HTMLElement).hidden), true);
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true);

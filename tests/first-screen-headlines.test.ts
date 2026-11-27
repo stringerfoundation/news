@@ -12,7 +12,7 @@ const source = (id: string, stories: ReturnType<typeof story>[], status: 'succes
 });
 const snapshot = (sources: Record<string, any>) => ({ schemaVersion: 1, generatedAt: new Date().toISOString(), sources }) as any;
 
-test('English selection follows the combined live world headline order and caps at five', async () => {
+test('English selection follows the combined live world headline order', async () => {
   const root = await mkdtemp(join(tmpdir(), 'first-screen-'));
   try {
     await writeFile(join(root, 'index.html'), '<html><script id="atomstr-headlines" type="application/json">{}</script></html>');

@@ -19,5 +19,5 @@ export async function firstScreenHeadlines(site: string, locale: string, snapsho
   } else {
     registry = locale === 'sw' ? [swahiliPublisher, ...collectedSwahiliPublishers] : sourcesForLocale(locale);
   }
-  return worldStories({ sources }, Object.keys(sources), registry).slice(0, 5);
+  return worldStories({ sources }, Object.keys(sources), registry).slice(0, 15);
 }

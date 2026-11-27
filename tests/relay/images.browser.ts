@@ -39,7 +39,7 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
   const browser = await launchBrowser();
   const errors: string[] = [];
   const searchedSubjects = new Set<string>();
-  const suggestedImage = '.wire-thumbnail > a > img[aria-description="Automatically suggested image"]';
+  const suggestedImage = '.wire-thumbnail > a > img[data-suggested]';
   async function checkCredits(page: Page, text: RegExp, licensed = false) {
     const caption = page.locator('#world-news .wire-thumbnail > figcaption');
     const credit = caption.getByRole('button', { name: 'Image credits' });
