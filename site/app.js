@@ -2171,7 +2171,7 @@ var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
 ));
 
 // english-atomstr.ts
-import { articleLink, NEWSWIRE_LIMIT, urlIdentity } from "./news-model.js?v=f52a46476b92371c";
+import { articleLink, NEWSWIRE_LIMIT, urlIdentity } from "./news-model.js?v=d8a277d0994613db";
 var ENGLISH_ATOMSTR_SOURCES = [
   { id: "aljazeera", name: "Al Jazeera", feeds: [{
     url: "https://www.aljazeera.com/xml/rss/all.xml",
@@ -2221,9 +2221,9 @@ function withEnglishAtomstrFallback(displayed, live, embedded, now = Date.now())
 }
 
 // app.ts
-import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, STALE_MS as STALE_MS2, CDN_SNAPSHOT_MAX_AGE_MS as CDN_SNAPSHOT_MAX_AGE_MS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink as articleLink2, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=f52a46476b92371c";
-import relayConfig from "./relay-config.js?v=f52a46476b92371c";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=f52a46476b92371c";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, STALE_MS as STALE_MS2, CDN_SNAPSHOT_MAX_AGE_MS as CDN_SNAPSHOT_MAX_AGE_MS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink as articleLink2, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=d8a277d0994613db";
+import relayConfig from "./relay-config.js?v=d8a277d0994613db";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=d8a277d0994613db";
 
 // public-assets.ts
 var PUBLIC_MODULES = ["app", "news-model", "relay-config", "stringer-media", "response", "publications"];
@@ -2528,7 +2528,7 @@ async function connectNostr() {
       })
     ]).finally(() => clearTimeout(timer));
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=f52a46476b92371c");
+    const identity = await import("./relay-reader.js?v=d8a277d0994613db");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -2981,21 +2981,6 @@ function imageCreditKey(image) {
   const { url, filePage, title, alt, creator, attribution, license, licenseUrl, sourceName } = image;
   return [url, filePage, title, alt, creator, attribution, license, licenseUrl, sourceName];
 }
-function describeSuggestedImage(image, suggested) {
-  if (suggested) image.setAttribute("aria-description", t("Automatically suggested image"));
-  else image.removeAttribute("aria-description");
-}
-function syncSuggestedThumbnailLabel(caption, suggested) {
-  if (!suggested) {
-    caption.querySelector(".image-suggested-label")?.remove();
-    caption.hidden = !caption.childElementCount;
-    return;
-  }
-  caption.hidden = false;
-  const label = element("span", t("Automatically suggested image"), "image-suggested-label");
-  label.setAttribute("aria-hidden", "true");
-  caption.prepend(label);
-}
 var storyCards = /* @__PURE__ */ new WeakMap();
 function renderStories(target, stories, emptyMessage) {
   const oldChildren = [...target.children];
@@ -3053,8 +3038,7 @@ function renderStories(target, stories, emptyMessage) {
         card.controls = controls;
       }
       if (card.suggested !== suggested) {
-        describeSuggestedImage(existing.querySelector(".story-media img"), suggested);
-        syncSuggestedThumbnailLabel(existing.querySelector(".image-credit-caption"), suggested);
+        existing.querySelector(".story-media img").toggleAttribute("data-suggested", suggested);
         card.suggested = suggested;
       }
       if (searchId && !hasPublishedThumbnail && !search?.loading && !search?.searched)
@@ -3103,8 +3087,7 @@ function renderStories(target, stories, emptyMessage) {
       let caption;
       if (commons) {
         caption = thumbnailCredit(commons);
-        describeSuggestedImage(image, suggested);
-        syncSuggestedThumbnailLabel(caption, suggested);
+        image.toggleAttribute("data-suggested", suggested);
       } else if (photoCredit) {
         caption = element("figcaption", photoCredit, "image-credit-caption");
         thumbnailCredits.set(caption, { key: url, credit: { title: story.title, credit: photoCredit } });
@@ -3449,7 +3432,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled && !publishedReader) {
-      const reader = await import("./relay-reader.js?v=f52a46476b92371c");
+      const reader = await import("./relay-reader.js?v=d8a277d0994613db");
       ImageSessionClass = reader.ImageSession;
       searchImages2 = reader.searchImages;
       commonsSubject2 = reader.commonsSubject;
@@ -3569,7 +3552,7 @@ async function loadLocalized() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = swahiliEdition || publishedReader ? null : await import("./atomstr-reader.js?v=f52a46476b92371c");
+    const reader = swahiliEdition || publishedReader ? null : await import("./atomstr-reader.js?v=d8a277d0994613db");
     if (!snapshot) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
@@ -3612,7 +3595,7 @@ async function loadLocalized() {
         try {
           let original;
           if (relayConfig.enabled && !publishedReader) {
-            const relay = await import("./relay-reader.js?v=f52a46476b92371c");
+            const relay = await import("./relay-reader.js?v=d8a277d0994613db");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
@@ -3667,7 +3650,7 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden && Date.now() - lastAttempt >= interval) load();
 });
 if (publishedReader) searchImages2 = searchImages;
-else if (localizedEdition) void import("./relay-reader.js?v=f52a46476b92371c").then((reader) => {
+else if (localizedEdition) void import("./relay-reader.js?v=d8a277d0994613db").then((reader) => {
   searchImages2 = reader.searchImages;
   loadSuggestions();
 }, () => suggestionQueue.clear());
