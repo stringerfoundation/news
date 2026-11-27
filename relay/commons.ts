@@ -52,8 +52,17 @@ function headlineMentionsSubject(headline: string, title: string): boolean {
   const phrase = (value: string) => value.normalize('NFC').toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, ' ').trim();
   const subject = phrase(title);
   const text = phrase(headline);
+  if (subject === 'eu') return /(?:^| )eu(?: |$)|(?:^| )european union(?: |$)/u.test(text);
   return subject.length >= 2 && (/\p{Script=Han}/u.test(subject)
     ? text.includes(subject) : ` ${text} `.includes(` ${subject} `));
+}
+
+function pageTitleMatchesSubject(query: string, title: string): boolean {
+  const phrase = (value: string) => value.normalize('NFC').toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, ' ').trim();
+  const subject = phrase(query), page = phrase(title), words = new Set(page.split(' '));
+  if (subject === 'eu') return words.has('eu') || /\beuropean (?:union|commission|parliament)\b/u.test(page);
+  const terms = subject.split(' ').filter(Boolean);
+  return terms.length > 0 && terms.every(term => words.has(term));
 }
 
 async function wikipediaPages(wiki: URL, params: Record<string, string>, request: typeof fetch, timeout = 8000): Promise<WikipediaPage[]> {
@@ -88,9 +97,9 @@ async function representativeImages(query: string, request: typeof fetch, langua
       titles = representativeFiles(ordered, query);
     }
     if (!titles.length) {
-      const pages = await wikipediaPages(wiki, { generator: 'search', gsrnamespace: '0',
-        gsrlimit: localized ? '5' : '1', gsrsearch: query }, request);
-      const matches = localized ? pages.filter(page => headlineMentionsSubject(query, page.title ?? '')) : pages.slice(0, 1);
+      const pages = await wikipediaPages(wiki, { generator: 'search', gsrnamespace: '0', gsrsearch: query, gsrlimit: '5' }, request);
+      const matches = localized ? pages.filter(page => headlineMentionsSubject(query, page.title ?? ''))
+        : pages.filter(page => pageTitleMatchesSubject(query, page.title ?? ''));
       titles = representativeFiles(matches, query);
     }
     if (!titles.length) return [];
@@ -101,7 +110,7 @@ async function representativeImages(query: string, request: typeof fetch, langua
     if (!files.ok) return [];
     const result = await files.json() as CommonsResponse;
     for (const image of result.query?.pages || []) image.index = titles.findIndex(title => title.replaceAll('_', ' ') === image.title);
-    return readImages(result);
+    return readImages(result, true);
   } catch { return []; /* Optional subject lookup can fall back to Commons search. */ }
 }
 export async function searchCommons(query: string, request: typeof fetch = fetch, suggest = false, language = 'en', onRepresentative?: (images: CommonsImage[]) => void): Promise<CommonsImage[]> {
@@ -130,10 +139,14 @@ async function searchCommonsFiles(query: string, request: typeof fetch, suggest:
   if (data.error) throw new Error('Commons search is unavailable. Please retry.');
   const normalize = (value: string) => value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   const words = normalize(query).split(' ');
-  return readImages(data).filter(image => !suggest || words.every(word =>
+  return readImages(data, suggest).filter(image => !suggest || words.every(word =>
     normalize(`${image.title} ${decodeURIComponent(new URL(image.filePage).pathname)}`).split(' ').includes(word)));
 }
-function readImages(data: CommonsResponse): CommonsImage[] {
+export function clearArtist(creator: string): boolean {
+  const normalized = creator.toLowerCase().replace(/[()[\],.;:]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return !!normalized && !/^(?:unknown(?: (?:author|artist|creator|photographer))?|(?:author|artist|creator|photographer) unknown|not (?:available|known|provided|specified)|n\/?a|unspecified|no (?:author|artist|creator|photographer))$/.test(normalized);
+}
+function readImages(data: CommonsResponse, requireClearArtist = false): CommonsImage[] {
   if (data.error) return [];
   const results: CommonsImage[] = [];
   for (const page of [...(data.query?.pages || [])].sort((a, b) => (a.index || 0) - (b.index || 0))) {
@@ -151,6 +164,7 @@ function readImages(data: CommonsResponse): CommonsImage[] {
     try {
       const title = plain(meta.ObjectName?.value) || (page.title || '').replace(/^File:/, '');
       const creator = plain(meta.Artist?.value);
+      if (requireClearArtist && !clearArtist(creator)) continue;
       const imageUrl = new URL(info.thumburl || info.url || '');
       imageUrl.search = ''; imageUrl.hash = '';
       results.push(readCommonsImage({ version: 1, url: imageUrl.href, filePage: info.descriptionurl, title,

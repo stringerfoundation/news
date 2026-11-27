@@ -1,3 +1,4 @@
+import { readCommonsImage, readIllustration, type CommonsImage } from '../../relay/illustration.ts';
 import { isHeadlineThumbnail } from '../../public-assets.ts';
 import { createHash } from 'node:crypto';
 import { EDITIONS } from '../../reader-locales.ts';
@@ -29,8 +30,11 @@ test('Pages artifact contains only the public asset allowlist', async () => {
   const snapshot = JSON.parse(await readFile('_site/data/news.json', 'utf8'));
   for (const data of [snapshot, ...await Promise.all(EDITIONS.filter(edition => edition.path).map(async edition =>
     JSON.parse(await readFile(`_site/${edition.path}/headlines.json`, 'utf8'))))]) {
-    for (const thumb of Object.values(data.thumbnails ?? {}) as ({file: string} | null)[]) {
+    for (const thumb of Object.values(data.thumbnails ?? {}) as ({file: string; suggested: boolean; image: CommonsImage} | null)[]) {
       if (!thumb) continue;
+      assert.equal(typeof thumb.suggested, 'boolean');
+      const validate = thumb.suggested ? readCommonsImage : readIllustration;
+      validate({...thumb.image});
       assert.ok(isHeadlineThumbnail(thumb.file));
       const bytes = await readFile(`_site/${thumb.file}`);
       assert.equal(bytes.toString('ascii', 8, 12), 'WEBP');

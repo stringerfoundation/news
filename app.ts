@@ -629,6 +629,17 @@ function describeSuggestedImage(image: HTMLImageElement, suggested: boolean) {
   if (suggested) image.setAttribute('aria-description', t('Automatically suggested image'));
   else image.removeAttribute('aria-description');
 }
+function syncSuggestedThumbnailLabel(caption: HTMLElement, suggested: boolean) {
+  if (!suggested) {
+    caption.querySelector('.image-suggested-label')?.remove();
+    caption.hidden = !caption.childElementCount;
+    return;
+  }
+  caption.hidden = false;
+  const label = element('span', t('Automatically suggested image'), 'image-suggested-label');
+  label.setAttribute('aria-hidden', 'true');
+  caption.prepend(label);
+}
 const storyCards = new WeakMap<Element, { key: string; controls: string | null; suggested: boolean }>();
 function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessage: string) {
   const oldChildren = [...target.children];
@@ -680,6 +691,7 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
       }
       if (card.suggested !== suggested) {
         describeSuggestedImage(existing.querySelector<HTMLImageElement>('.story-media img')!, suggested);
+        syncSuggestedThumbnailLabel(existing.querySelector<HTMLElement>('.image-credit-caption')!, suggested);
         card.suggested = suggested;
       }
       if (searchId && !hasPublishedThumbnail && !search?.loading && !search?.searched)
@@ -727,6 +739,7 @@ function renderStories(target: HTMLElement, stories: DisplayStory[], emptyMessag
       if (commons) {
         caption = thumbnailCredit(commons);
         describeSuggestedImage(image, suggested);
+        syncSuggestedThumbnailLabel(caption, suggested);
       } else if (photoCredit) {
         caption = element('figcaption', photoCredit, 'image-credit-caption');
         thumbnailCredits.set(caption, { key: url, credit: { title: story.title, credit: photoCredit } });

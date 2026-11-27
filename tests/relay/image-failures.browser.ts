@@ -54,7 +54,7 @@ test('reusable image searches fail closed for malformed responses and recover fr
         ? { query: { pages: [{ pageimage: 'Subject.png' }] } } : new URL(String(input)).searchParams.has('titles') ? { error: 'Unavailable' } : { query: {} }), { status: 200 }), true);
       const representativeAfterFailure = await searchCommons('Subject', async input => {
         const url = new URL(String(input));
-        if (url.hostname === 'en.wikipedia.org') return Response.json({ query: { pages: [{ pageimage: 'Subject.png' }] } });
+        if (url.hostname === 'en.wikipedia.org') return Response.json({ query: { pages: [{ title: 'Subject', pageimage: 'Subject.png' }] } });
         if (url.searchParams.has('titles')) return Response.json({ query: { pages: [entry] } });
         return new Response(null, { status: 503 });
       }, true);
