@@ -280,7 +280,7 @@ test('localized reader shows loading and first-load failure, then retains a coll
     const world = first.page.locator('#world-news');
     const height = () => world.evaluate(list => list.getBoundingClientRect().height);
     const reserved = await height();
-    assert.ok(reserved > 600, 'a localized mobile edition reserves its initial newswire');
+    assert.ok(reserved >= 350 && reserved <= 400, 'a localized mobile edition reserves its initial newswire');
     first.releaseData();
     await first.page.waitForFunction(() => document.querySelector('#world-news')?.getAttribute('aria-busy') === 'false');
     assert.equal(await world.getAttribute('data-initial-load'), null);

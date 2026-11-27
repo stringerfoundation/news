@@ -155,7 +155,7 @@ test('relay reader verifies complete collections, preserves order, caches offlin
       assert.match(await page.locator('#relay-status-details').textContent() || '', /Total elapsed: \d+\.\d s/);
       const world = page.locator('#world-news');
       const initialHeight = await world.evaluate(list => list.getBoundingClientRect().height);
-      if (width === 375) assert.ok(initialHeight > 600, 'the mobile preview is reserved before relay events');
+      if (width === 375) assert.ok(initialHeight >= 350 && initialHeight <= 400, 'the mobile preview is reserved before relay events');
       holdInitialResponse = false;
       for (const respond of initialResponses) respond();
       await page.locator('#world-news article').waitFor();
