@@ -1,4 +1,5 @@
 const german: Readonly<Record<string, string>> = {
+  'Preview · {date}': 'Vorschau · {date}',
   'Headlines from publishers in this language.': 'Schlagzeilen deutschsprachiger Medien.',
   'Close menu': 'Menü schließen',
   'Open menu': 'Menü öffnen',

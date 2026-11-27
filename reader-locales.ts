@@ -8,6 +8,7 @@ import de from './locales/de.ts';
 import sw from './locales/sw.ts';
 // Interface translations only. Reporting is always displayed in its original language.
 const portuguese: Readonly<Record<string, string>> = {
+  'Preview · {date}': 'Pré-visualização · {date}',
   'Show more headlines': 'Mostrar mais manchetes',
   'Show more courageous stories': 'Mostrar mais reportagens corajosas',
   'Show fewer courageous stories': 'Mostrar menos reportagens corajosas',

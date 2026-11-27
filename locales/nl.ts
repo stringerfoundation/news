@@ -1,4 +1,5 @@
 const dutch: Readonly<Record<string, string>> = {
+  'Preview · {date}': 'Voorbeeld · {date}',
   'Headlines from publishers in this language.': 'Koppen van Nederlandstalige nieuwsmedia.',
   'Close menu': 'Menu sluiten', 'Open menu': 'Menu openen', 'Sources': 'Bronnen',
   'Choose news sources': 'Kies nieuwsbronnen', 'Enable all': 'Alles inschakelen',

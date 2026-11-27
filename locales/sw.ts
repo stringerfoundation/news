@@ -1,4 +1,5 @@
 const swahili: Readonly<Record<string, string>> = {
+  'Preview · {date}': 'Onyesho la kukagua · {date}',
   'Headlines from publishers in this language.': 'Vichwa vya habari kutoka kwa vyombo vya habari vya Kiswahili.',
   'Close menu': 'Funga menyu', 'Open menu': 'Fungua menyu', 'Sources': 'Vyanzo',
   'Choose news sources': 'Chagua vyanzo vya habari', 'Enable all': 'Washa vyote',

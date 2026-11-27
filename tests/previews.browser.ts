@@ -7,6 +7,7 @@ import { createServer } from 'node:http';
 import { readFile, mkdir, rm } from 'node:fs/promises';
 import { resolve, relative } from 'node:path';
 import { launchBrowser } from '../scripts/browser.ts';
+import sharp from 'sharp';
 import { SOURCES } from '../news-model.ts';
 
 test('built production and PR previews preserve relative assets, indexing and mobile behavior', async () => {
@@ -16,7 +17,12 @@ test('built production and PR previews preserve relative assets, indexing and mo
   // Use the real publisher and checked build; synthetic news stays inside this test server.
   execFileSync('python3', ['-B', '-c', `from pathlib import Path; import runpy; p = runpy.run_path('scripts/pages-preview.py'); p['apply_site'](Path(${JSON.stringify(root)}), Path('_site')); p['apply_site'](Path(${JSON.stringify(root)}), Path('_site'), '18', '${'a'.repeat(40)}')`]);
   const at = new Date().toISOString();
-  const snapshot = { schemaVersion: 2, generatedAt: at, sources: Object.fromEntries(SOURCES.map(source => [source.id, {
+  const thumbnail = 'assets/headline-thumbnails/' + 'a'.repeat(64) + '.webp';
+  const image = {version: 1, title: 'Sample map', alt: 'Sample map', creator: 'Map artist', attribution: 'Map artist',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Map.jpg', filePage: 'https://commons.wikimedia.org/wiki/File:Map.jpg',
+    license: 'CC-BY-4.0', licenseUrl: 'https://creativecommons.org/licenses/by/4.0/'};
+  const webp = await sharp({create: {width: 16, height: 16, channels: 3, background: 'blue'}}).webp().toBuffer();
+  const snapshot = { thumbnails: {'https://example.test/bbc/0': {file: thumbnail, image, suggested: true}}, schemaVersion: 2, generatedAt: at, sources: Object.fromEntries(SOURCES.map(source => [source.id, {
     attemptedAt: at, lastSuccessAt: at, status: 'success', error: null,
     stories: Array.from({ length: 6 }, (_, index) => ({ title: `Synthetic ${source.id} fixture ${index}`, url: `https://example.test/${source.id}/${index}`,
       summary: 'Synthetic test fixture.', credits: 'Fixture author', publishedAt: at, image: null })),
@@ -28,8 +34,9 @@ test('built production and PR previews preserve relative assets, indexing and mo
     if (relative(root, path).startsWith('..')) { response.writeHead(404).end(); return; }
     try {
       const data = name.endsWith('data/news.json') ? JSON.stringify(snapshot)
-        : name.endsWith('relay-config.js') ? 'export default {enabled:false};' : await readFile(path);
-      response.setHeader('Content-Type', name.endsWith('.js') ? 'text/javascript' : name.endsWith('.css') ? 'text/css' : name.endsWith('.json') ? 'application/json' : name.endsWith('.png') ? 'image/png' : 'text/html');
+        : name.endsWith(thumbnail) ? webp
+        : name.endsWith('relay-config.js') ? 'export default {enabled:false,publishedReader:true};' : await readFile(path);
+      response.setHeader('Content-Type', name.endsWith('.js') ? 'text/javascript' : name.endsWith('.css') ? 'text/css' : name.endsWith('.json') ? 'application/json' : name.endsWith('.webp') ? 'image/webp' : name.endsWith('.png') ? 'image/png' : 'text/html');
       response.end(data);
     } catch { response.writeHead(404).end(); }
   });
@@ -43,8 +50,16 @@ test('built production and PR previews preserve relative assets, indexing and mo
       page.on('pageerror', error => errors.push(error.message));
       page.on('response', response => { if (response.url().includes('/news/') && !response.ok()) failedAssets.push(response.url()); });
       const path = '/news/' + (preview ? 'pr-preview/18/' : '');
+      if (preview) await page.clock.setFixedTime(new Date(Date.parse(at) + 48 * 60 * 60_000));
       await page.goto(`http://127.0.0.1:${(server.address() as AddressInfo).port}${path}`);
       await page.waitForSelector('#world-news article');
+      if (preview) {
+        assert.match(await page.locator('#page-title + .build-info').innerText(), /Preview/);
+        const img = page.locator('#world-news img').first();
+        await img.evaluate(node => (node as HTMLImageElement).decode());
+        assert.equal(await img.evaluate(node => (node as HTMLImageElement).naturalWidth), 16);
+        assert.ok((await img.getAttribute('src'))?.includes(path + thumbnail));
+      }
       const robots = await page.locator('meta[name="robots"]').getAttribute('content');
       assert.equal(robots?.includes('noindex'), true);
       assert.equal(await page.locator('#world-news article').count(), 30);

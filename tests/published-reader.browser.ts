@@ -22,7 +22,7 @@ test('public editions read CDN files on first load, refresh and outage without r
   for (const path of ['', 'fr', 'sw']) {
     const page = await browser.newPage();
     await page.setViewportSize({width: 375, height: 850});
-    await page.clock.install();
+    await page.clock.install({time: new Date(Date.parse(at) + (path === 'fr' ? 48 : 0) * 60 * 60_000)});
     const sockets: string[] = [], files: string[] = [], externalSearches: string[] = [];
     let version = 1;
     let offline = false;
@@ -68,8 +68,9 @@ test('public editions read CDN files on first load, refresh and outage without r
       }
       if (!file || file.endsWith('/')) {
         let html = await readFile(`_site/${file}index.html`, 'utf8');
-        if (path === 'fr') {
-          const embedded = {[publisher]: {lastSuccessAt: at, stories: [{title: 'Embedded headline', url: `https://example.org/${publisher}`,
+        if (path === 'fr') html = html.replace('</head>', '<meta name="preview-commit" content="archived-fixture"></head>');
+        if (path) {
+          const embedded = path === 'sw' ? null : {unavailable: null, [publisher]: {lastSuccessAt: at, stories: [{title: 'Embedded headline', url: `https://example.org/${publisher}`,
             summary: 'Reporting', credits: 'Reporter', publishedAt: at, image: null}]}};
           const script = `<script id="atomstr-headlines" type="application/json">${JSON.stringify(embedded)}</script>`;
           html = html.includes('id="atomstr-headlines"') ? html.replace(/<script[^>]*id="atomstr-headlines"[^>]*>[\s\S]*?<\/script>/, script) : html.replace('</head>', `${script}</head>`);
