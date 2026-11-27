@@ -163,6 +163,19 @@ test('public editions read CDN files on first load, refresh and outage without r
     assert.deepEqual(externalSearches, []);
     assert.equal(files.filter(file => file === 'data/news.json').length, path ? 3 : 4);
     if (path) assert.equal(files.filter(file => file === path + '/headlines.json').length, 3);
+    if (!path) {
+      const before = await thumbnail.locator('xpath=ancestor::article').locator('h3').innerText();
+      const headline = page.getByRole('heading', {name: before, exact: true});
+      const card = page.locator('#world-news article').filter({has: headline});
+      const brokenUrl = 'https://reader.test/broken-thumbnail.webp';
+      await page.route(brokenUrl, route => route.fulfill({contentType: 'image/webp', body: 'invalid image bytes'}));
+      await thumbnail.evaluate((node, url) => { (node as HTMLImageElement).src = url; }, brokenUrl);
+      await card.locator('.image-load-failed').waitFor({state: 'attached'});
+      assert.equal(await headline.textContent(), before);
+      assert.equal(await card.locator('.image-credit-button').count(), 0);
+      assert.equal(await card.locator('[aria-label="Image unavailable"]').count(), 1);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    }
     await page.close();
   }
 });

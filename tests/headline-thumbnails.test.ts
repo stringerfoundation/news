@@ -243,3 +243,29 @@ test('search failure and post-deadline results leave explicit nulls', async t =>
     assert.equal(JSON.parse(await readFile(join(lateSite, 'data', 'news.json'), 'utf8')).thumbnails['https://example.org/0'], null);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test('publishes fifteen thumbnails per edition and prioritizes all first-screen searches', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'expanded-thumbnails-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const titles = (edition: string) => Array.from({ length: 16 }, (_, i) => edition + ' ' + (i + 1));
+  const site = await makeSite(root, titles('English'), titles('French'));
+  const searches: string[] = [];
+  await publishHeadlineThumbnails(site, join(root, 'cache'), {
+    concurrency: 1,
+    search: async (_query, _request, _suggest, language) => {
+      searches.push(language);
+      return [image(searches.length)];
+    },
+    download: async url => Buffer.from(url),
+  });
+  assert.deepEqual(searches.slice(0, 10), [...Array(5).fill('en'), ...Array(5).fill('fr')]);
+  const expectedUrls = titles('headline').slice(0, 15).map((_, i) => 'https://example.org/' + i);
+  for (const path of ['data/news.json', 'fr/headlines.json']) {
+    const { thumbnails } = JSON.parse(await readFile(join(site, path), 'utf8'));
+    assert.deepEqual(Object.keys(thumbnails), expectedUrls);
+    for (const url of expectedUrls) {
+      const published = thumbnails[url];
+      assert.equal(await readFile(join(site, published.file), 'utf8'), published.image.url);
+    }
+  }
+});
