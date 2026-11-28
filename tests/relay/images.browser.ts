@@ -231,8 +231,7 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     const pendingImage = reader.locator('#world-news .wire-thumbnail > a > img');
     await pendingImage.waitFor({state: 'attached'});
     const dot = reader.locator('#world-news .wire-thumbnail > .story-placeholder');
-    await dot.waitFor({state: 'attached'});
-    assert.equal(await dot.isVisible(), false);
+    await dot.waitFor({state: 'visible'});
     assert.equal(await pendingImage.isVisible(), false);
     await footerCredits.click();
     await credits.getByText('No image credits to show yet.').waitFor();
@@ -248,10 +247,9 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     await reader.reload();
     await reader.getByRole('heading', { name: 'The Failures of Emmanuel Macron' }).waitFor();
     const failedFigure = reader.locator('#world-news .wire-thumbnail.image-load-failed');
-    await failedFigure.locator('.story-placeholder[aria-label="Image unavailable"]').waitFor({state: 'attached'});
-    assert.equal(await failedFigure.locator('.story-placeholder').isVisible(), false);
+    await failedFigure.getByRole('img', {name: 'Image unavailable', exact: true}).waitFor();
     const headline = failedFigure.locator('..').locator('.story-body');
-    assert.equal(await headline.evaluate(body => getComputedStyle(body).gridColumn), '1 / -1');
+    assert.equal(await headline.evaluate(body => getComputedStyle(body).gridColumnStart), '2');
     await footerCredits.click();
     await credits.getByText('No image credits to show yet.').waitFor();
     await credits.getByRole('button', { name: 'Close' }).click();
