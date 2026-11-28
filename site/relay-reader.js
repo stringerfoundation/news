@@ -8290,8 +8290,9 @@ function commonsSubject(title) {
     const place = geographicContext[1].split(/\s+(?:Suggest|Suggests|Says|Say|Calls|Call|Warns|Warn|Faces|Face|Move|Moves|Could|Would|Will|Should|Propose|Proposes|Drop|Drops|Cut|Cuts|Flee|Fleeing)\b/)[0];
     return place.trim().slice(0, 200);
   }
-  const names = [...title.matchAll(/\p{Lu}[\p{L}\p{M}'’.-]*(?:\s+(?:(?:de|del|der|van|von|le)\s+)*\p{Lu}[\p{L}\p{M}'’.-]*)*/gu)].map((match) => ({
-    name: match[0].replace(/^(?:Ex-|Former\s+)/, "").split(/\s+(?:Prompt|Prompts|Suggest|Suggests|Says|Say|Hits|Warns|Faces|Under|Over|Will|Would|Could|May|Must|As|Has|Have|Is|Are|Was|Were|Sparks|Questions)\b/)[0],
+  const subjectText = title.replace(/['’]s\b/gu, ", ");
+  const names = [...subjectText.matchAll(/\p{Lu}[\p{L}\p{M}'’.-]*(?:\s+(?:(?:de|del|der|van|von|le)\s+)*\p{Lu}[\p{L}\p{M}'’.-]*)*/gu)].map((match) => ({
+    name: match[0].replace(/^(?:Ex-|Former\s+)/, "").split(/\s+(?:Can|Prompt|Prompts|Suggest|Suggests|Says|Say|Hits|Warns|Faces|Under|Over|Will|Would|Could|May|Must|As|Has|Have|Is|Are|Was|Were|Sparks|Questions)\b/)[0],
     index: match.index
   }));
   const ignored = /^(?:A|An|The|At|By|For|From|In|Into|Of|On|Onto|To|With|As|After|Before|Across|Against|Among|Around|Through|During|Despite|Following|While|When|Where|Why|How|What|Who|Which|Whose|Is|Are|Was|Were|Be|Been|Being|Do|Does|Did|Have|Has|Had|Can|Could|May|Might|Must|Shall|Should|Will|Would|And|But|Or|Nor|So|Yet|If|Then|Than|This|That|These|Those|My|Your|His|Her|Its|Our|Their|Latest|Live|Breaking|Opinion|Analysis|Watch|Photos|Praise|Failings|Failure|Failures|Talks|Deaths|Death|Flooding|Says|Say|More|Why)$/i;
@@ -8300,10 +8301,12 @@ function commonsSubject(title) {
     const start = words.findIndex((word) => !ignored.test(word));
     const candidate = start < 0 ? "" : words.slice(start).join(" ");
     const clean3 = candidate === "New" ? "" : candidate;
-    const prefix = title.slice(0, index).trimEnd();
+    const prefix = subjectText.slice(0, index).trimEnd();
     return { candidate: clean3, contextualPhrase: !!clean3 && clean3.includes(" ") && /\p{Ll}$/u.test(prefix) };
   }).filter((item) => item.candidate);
-  const subject = candidates.find((item) => item.contextualPhrase)?.candidate || candidates[0]?.candidate;
+  const first = candidates[0]?.candidate;
+  const leadingSubject = first && title.startsWith(first) && /^ (?:Can|Could|Will|Would|Must|May)\b/.test(title.slice(first.length)) ? first : void 0;
+  const subject = leadingSubject || candidates.find((item) => item.contextualPhrase)?.candidate || first;
   return (places[subject || ""] || subject || title).trim().slice(0, 200);
 }
 function namedSubjects(headline) {

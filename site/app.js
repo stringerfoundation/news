@@ -106,8 +106,9 @@ function commonsSubject(title) {
     const place = geographicContext[1].split(/\s+(?:Suggest|Suggests|Says|Say|Calls|Call|Warns|Warn|Faces|Face|Move|Moves|Could|Would|Will|Should|Propose|Proposes|Drop|Drops|Cut|Cuts|Flee|Fleeing)\b/)[0];
     return place.trim().slice(0, 200);
   }
-  const names = [...title.matchAll(/\p{Lu}[\p{L}\p{M}'’.-]*(?:\s+(?:(?:de|del|der|van|von|le)\s+)*\p{Lu}[\p{L}\p{M}'’.-]*)*/gu)].map((match) => ({
-    name: match[0].replace(/^(?:Ex-|Former\s+)/, "").split(/\s+(?:Prompt|Prompts|Suggest|Suggests|Says|Say|Hits|Warns|Faces|Under|Over|Will|Would|Could|May|Must|As|Has|Have|Is|Are|Was|Were|Sparks|Questions)\b/)[0],
+  const subjectText = title.replace(/['’]s\b/gu, ", ");
+  const names = [...subjectText.matchAll(/\p{Lu}[\p{L}\p{M}'’.-]*(?:\s+(?:(?:de|del|der|van|von|le)\s+)*\p{Lu}[\p{L}\p{M}'’.-]*)*/gu)].map((match) => ({
+    name: match[0].replace(/^(?:Ex-|Former\s+)/, "").split(/\s+(?:Can|Prompt|Prompts|Suggest|Suggests|Says|Say|Hits|Warns|Faces|Under|Over|Will|Would|Could|May|Must|As|Has|Have|Is|Are|Was|Were|Sparks|Questions)\b/)[0],
     index: match.index
   }));
   const ignored = /^(?:A|An|The|At|By|For|From|In|Into|Of|On|Onto|To|With|As|After|Before|Across|Against|Among|Around|Through|During|Despite|Following|While|When|Where|Why|How|What|Who|Which|Whose|Is|Are|Was|Were|Be|Been|Being|Do|Does|Did|Have|Has|Had|Can|Could|May|Might|Must|Shall|Should|Will|Would|And|But|Or|Nor|So|Yet|If|Then|Than|This|That|These|Those|My|Your|His|Her|Its|Our|Their|Latest|Live|Breaking|Opinion|Analysis|Watch|Photos|Praise|Failings|Failure|Failures|Talks|Deaths|Death|Flooding|Says|Say|More|Why)$/i;
@@ -116,10 +117,12 @@ function commonsSubject(title) {
     const start = words.findIndex((word) => !ignored.test(word));
     const candidate = start < 0 ? "" : words.slice(start).join(" ");
     const clean = candidate === "New" ? "" : candidate;
-    const prefix = title.slice(0, index).trimEnd();
+    const prefix = subjectText.slice(0, index).trimEnd();
     return { candidate: clean, contextualPhrase: !!clean && clean.includes(" ") && /\p{Ll}$/u.test(prefix) };
   }).filter((item) => item.candidate);
-  const subject = candidates.find((item) => item.contextualPhrase)?.candidate || candidates[0]?.candidate;
+  const first = candidates[0]?.candidate;
+  const leadingSubject = first && title.startsWith(first) && /^ (?:Can|Could|Will|Would|Must|May)\b/.test(title.slice(first.length)) ? first : void 0;
+  const subject = leadingSubject || candidates.find((item) => item.contextualPhrase)?.candidate || first;
   return (places[subject || ""] || subject || title).trim().slice(0, 200);
 }
 function namedSubjects(headline) {
@@ -2171,7 +2174,7 @@ var SWAHILI_CONTENT_PERMISSIONS = Object.freeze(Object.fromEntries(
 ));
 
 // english-atomstr.ts
-import { articleLink, NEWSWIRE_LIMIT, urlIdentity } from "./news-model.js?v=60da0b7ea981ecf0";
+import { articleLink, NEWSWIRE_LIMIT, urlIdentity } from "./news-model.js?v=454c387e8d5d5b12";
 var ENGLISH_ATOMSTR_SOURCES = [
   { id: "aljazeera", name: "Al Jazeera", feeds: [{
     url: "https://www.aljazeera.com/xml/rss/all.xml",
@@ -2221,9 +2224,9 @@ function withEnglishAtomstrFallback(displayed, live, embedded, now = Date.now())
 }
 
 // app.ts
-import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, STALE_MS as STALE_MS2, CDN_SNAPSHOT_MAX_AGE_MS as CDN_SNAPSHOT_MAX_AGE_MS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink as articleLink2, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=60da0b7ea981ecf0";
-import relayConfig from "./relay-config.js?v=60da0b7ea981ecf0";
-import { STRINGER_MEDIA } from "./stringer-media.js?v=60da0b7ea981ecf0";
+import { SOURCES as SOURCES2, CONTENT_PERMISSIONS as CONTENT_PERMISSIONS2, STALE_MS as STALE_MS2, CDN_SNAPSHOT_MAX_AGE_MS as CDN_SNAPSHOT_MAX_AGE_MS2, applyContentPermissions, safeUrl as safeUrl2, safeImageUrl, articleLink as articleLink2, validateSnapshot, worldStories, formatLocalDateTime, formatPublicationDate } from "./news-model.js?v=454c387e8d5d5b12";
+import relayConfig from "./relay-config.js?v=454c387e8d5d5b12";
+import { STRINGER_MEDIA } from "./stringer-media.js?v=454c387e8d5d5b12";
 
 // public-assets.ts
 var PUBLIC_MODULES = ["app", "news-model", "relay-config", "stringer-media", "response", "publications"];
@@ -2528,7 +2531,7 @@ async function connectNostr() {
       })
     ]).finally(() => clearTimeout(timer));
     if (!/^[0-9a-f]{64}$/.test(key)) throw new Error("The signer returned an invalid account.");
-    const identity = await import("./relay-reader.js?v=60da0b7ea981ecf0");
+    const identity = await import("./relay-reader.js?v=454c387e8d5d5b12");
     if (revision !== accountRevision || window.nostr !== signer) return;
     voter = key;
     accountNpub = identity.npubEncode(key);
@@ -3432,7 +3435,7 @@ async function load() {
   try {
     let next;
     if (relayConfig.enabled && !publishedReader) {
-      const reader = await import("./relay-reader.js?v=60da0b7ea981ecf0");
+      const reader = await import("./relay-reader.js?v=454c387e8d5d5b12");
       ImageSessionClass = reader.ImageSession;
       searchImages2 = reader.searchImages;
       commonsSubject2 = reader.commonsSubject;
@@ -3552,7 +3555,7 @@ async function loadLocalized() {
   document.querySelectorAll(".story-list").forEach((list) => list.setAttribute("aria-busy", "true"));
   let redraw;
   try {
-    const reader = swahiliEdition || publishedReader ? null : await import("./atomstr-reader.js?v=60da0b7ea981ecf0");
+    const reader = swahiliEdition || publishedReader ? null : await import("./atomstr-reader.js?v=454c387e8d5d5b12");
     if (!snapshot) {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const initialSource = { stories: [], status: "loading", lastSuccessAt: null, attemptedAt: now, error: null };
@@ -3595,7 +3598,7 @@ async function loadLocalized() {
         try {
           let original;
           if (relayConfig.enabled && !publishedReader) {
-            const relay = await import("./relay-reader.js?v=60da0b7ea981ecf0");
+            const relay = await import("./relay-reader.js?v=454c387e8d5d5b12");
             const cached = relay.cachedRelaySnapshot(relayConfig);
             if (cached) {
               snapshot.sources.stringer = cached.sources.stringer;
@@ -3650,7 +3653,7 @@ document.addEventListener("visibilitychange", () => {
   if (!document.hidden && Date.now() - lastAttempt >= interval) load();
 });
 if (publishedReader) searchImages2 = searchImages;
-else if (localizedEdition) void import("./relay-reader.js?v=60da0b7ea981ecf0").then((reader) => {
+else if (localizedEdition) void import("./relay-reader.js?v=454c387e8d5d5b12").then((reader) => {
   searchImages2 = reader.searchImages;
   loadSuggestions();
 }, () => suggestionQueue.clear());
