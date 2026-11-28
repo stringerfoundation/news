@@ -16,8 +16,10 @@ export function commonsSubject(title: string): string {
     const place = geographicContext[1].split(/\s+(?:Suggest|Suggests|Says|Say|Calls|Call|Warns|Warn|Faces|Face|Move|Moves|Could|Would|Will|Should|Propose|Proposes|Drop|Drops|Cut|Cuts|Flee|Fleeing)\b/)[0]!;
     return place.trim().slice(0, 200);
   }
-  const names = [...title.matchAll(/\p{Lu}[\p{L}\p{M}'’.-]*(?:\s+(?:(?:de|del|der|van|von|le)\s+)*\p{Lu}[\p{L}\p{M}'’.-]*)*/gu)].map(match => ({
-    name: match[0].replace(/^(?:Ex-|Former\s+)/, '').split(/\s+(?:Prompt|Prompts|Suggest|Suggests|Says|Say|Hits|Warns|Faces|Under|Over|Will|Would|Could|May|Must|As|Has|Have|Is|Are|Was|Were|Sparks|Questions)\b/)[0]!,
+  // End subject names at possessives before ranking headline phrases.
+  const subjectText = title.replace(/['’]s\b/gu, ', ');
+  const names = [...subjectText.matchAll(/\p{Lu}[\p{L}\p{M}'’.-]*(?:\s+(?:(?:de|del|der|van|von|le)\s+)*\p{Lu}[\p{L}\p{M}'’.-]*)*/gu)].map(match => ({
+    name: match[0].replace(/^(?:Ex-|Former\s+)/, '').split(/\s+(?:Can|Prompt|Prompts|Suggest|Suggests|Says|Say|Hits|Warns|Faces|Under|Over|Will|Would|Could|May|Must|As|Has|Have|Is|Are|Was|Were|Sparks|Questions)\b/)[0]!,
     index: match.index,
   }));
   // Title-style introductions such as "The Failures of" describe the article,
@@ -28,12 +30,14 @@ export function commonsSubject(title: string): string {
     const start = words.findIndex(word => !ignored.test(word));
     const candidate = start < 0 ? '' : words.slice(start).join(' ');
     const clean = candidate === 'New' ? '' : candidate;
-    const prefix = title.slice(0, index).trimEnd();
+    const prefix = subjectText.slice(0, index).trimEnd();
     return { candidate: clean, contextualPhrase: !!clean && clean.includes(' ') && /\p{Ll}$/u.test(prefix) };
   }).filter(item => item.candidate);
   // Multiword names after a lowercase connector or role noun are strong clues:
   // "in New Delhi", "of Emmanuel Macron", and "actor Gerard Depardieu".
-  const subject = candidates.find(item => item.contextualPhrase)?.candidate || candidates[0]?.candidate;
+  const first = candidates[0]?.candidate;
+  const leadingSubject = first && title.startsWith(first) && /^ (?:Can|Could|Will|Would|Must|May)\b/.test(title.slice(first.length)) ? first : undefined;
+  const subject = leadingSubject || candidates.find(item => item.contextualPhrase)?.candidate || first;
   return (places[subject || ''] || subject || title).trim().slice(0, 200);
 }
 interface ImagePage { index?: number; title?: string; imageinfo?: { mime?: string; thumburl?: string; url?: string; descriptionurl?: string; extmetadata?: Record<string, { value?: string }> }[] }
