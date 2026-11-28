@@ -248,8 +248,12 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     await reader.getByRole('heading', { name: 'The Failures of Emmanuel Macron' }).waitFor();
     const failedFigure = reader.locator('#world-news .wire-thumbnail.image-load-failed');
     await failedFigure.getByRole('img', {name: 'Image unavailable', exact: true}).waitFor();
-    const headline = failedFigure.locator('..').locator('.story-body');
-    assert.equal(await headline.evaluate(body => getComputedStyle(body).gridColumnStart), '2');
+    await reader.waitForFunction(() => {
+      const card = document.querySelector('#world-news .image-load-failed')?.closest('article');
+      const dot = card?.querySelector('.story-placeholder')?.getBoundingClientRect();
+      const headline = card?.querySelector('.story-body')?.getBoundingClientRect();
+      return dot && headline && dot.width > 0 && headline.left >= dot.right;
+    });
     await footerCredits.click();
     await credits.getByText('No image credits to show yet.').waitFor();
     await credits.getByRole('button', { name: 'Close' }).click();
