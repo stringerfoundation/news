@@ -231,7 +231,8 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     const pendingImage = reader.locator('#world-news .wire-thumbnail > a > img');
     await pendingImage.waitFor({state: 'attached'});
     const dot = reader.locator('#world-news .wire-thumbnail > .story-placeholder');
-    assert.equal(await dot.isVisible(), true);
+    await dot.waitFor({state: 'attached'});
+    assert.equal(await dot.isVisible(), false);
     assert.equal(await pendingImage.isVisible(), false);
     await footerCredits.click();
     await credits.getByText('No image credits to show yet.').waitFor();
@@ -246,7 +247,11 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     brokenImage = true;
     await reader.reload();
     await reader.getByRole('heading', { name: 'The Failures of Emmanuel Macron' }).waitFor();
-    await reader.getByRole('img', {name: 'Image unavailable', exact: true}).waitFor();
+    const failedFigure = reader.locator('#world-news .wire-thumbnail.image-load-failed');
+    await failedFigure.locator('.story-placeholder[aria-label="Image unavailable"]').waitFor({state: 'attached'});
+    assert.equal(await failedFigure.locator('.story-placeholder').isVisible(), false);
+    const headline = failedFigure.locator('..').locator('.story-body');
+    assert.equal(await headline.evaluate(body => getComputedStyle(body).gridColumn), '1 / -1');
     await footerCredits.click();
     await credits.getByText('No image credits to show yet.').waitFor();
     await credits.getByRole('button', { name: 'Close' }).click();
@@ -444,7 +449,10 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     assert.equal(await firstCard.getByRole('dialog').isVisible(), false);
     await multi.setViewportSize({ width: 1280, height: 1000 });
     await untrusted.setViewportSize({ width: 1280, height: 1000 });
-    assert.deepEqual(await multi.evaluate(() => [...document.querySelectorAll('#world-news article')].map(card => card.getBoundingClientRect().height)), await untrusted.evaluate(() => [...document.querySelectorAll('#world-news article')].map(card => card.getBoundingClientRect().height)));
+    const editorRows = await multi.locator('#world-news article').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height));
+    const publicRows = await untrusted.locator('#world-news article').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height));
+    assert.equal(publicRows.length, editorRows.length);
+    assert.ok(publicRows.every((height, index) => height < editorRows[index]!), 'these short desktop headlines reclaim the space used by editor controls');
     await multi.locator('#world-news').screenshot({ path: '.test-output/image-voting-desktop.png' });
     assert.deepEqual(await multi.evaluate(async moduleUrl => {
       const { searchCommons } = await import(moduleUrl) as typeof import('../../relay/commons.js');

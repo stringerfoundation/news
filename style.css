@@ -189,6 +189,12 @@ html[data-shuffling-stringer] #stringer-news { visibility: hidden; }
   .column-heading h2 { font-size: clamp(20px, 1.7vw, 24px); line-height: 1.2; }
   .column-heading>p:last-child { margin-top: 6px; font-size: 14px; }
   .story { padding: 12px 0; }
+  #global-newswire .story { padding-block: 6px; }
+  #global-newswire .wire-thumbnail > .story-placeholder { visibility: hidden; }
+  #global-newswire .story.with-image:has(.wire-thumbnail > .story-placeholder:only-child) .story-body { grid-column: 1 / -1; }
+  #global-newswire .story .meta { margin-top: 4px; }
+  #global-newswire .story.with-image { grid-template-columns: 96px minmax(0, 1fr); }
+  #global-newswire .wire-thumbnail img { width: 96px; height: 64px; }
   .story h3 { font-size: 18px; line-height: 1.35; }
   .story:first-child h3 { font-size: 21px; line-height: 1.3; }
   .story .summary { margin: 7px 0; }
@@ -248,9 +254,7 @@ html[data-shuffling-stringer] #stringer-news { visibility: hidden; }
 .account-npub { display: block; white-space: normal; overflow-wrap: anywhere; font-size: 12px; }
 .account-nip05 { font-size: 13px; overflow-wrap: anywhere; }
 
-/* The same media slot is reserved for every reader; moderation stays inside it. */
-#global-newswire .story.with-image { min-height: 151px; }
-#global-newswire .wire-thumbnail { display: grid; position: relative; grid-column: 1; grid-row: 1; grid-template-columns: minmax(0, 1fr); grid-template-rows: 80px 24px 28px; height: 132px; }
+#global-newswire .wire-thumbnail { display: grid; position: relative; grid-column: 1; grid-row: 1; grid-template-columns: minmax(0, 1fr); grid-template-rows: 64px auto auto; }
 #global-newswire .wire-thumbnail > a { grid-column: 1; grid-row: 1; }
 #global-newswire .wire-thumbnail > figcaption {
   pointer-events: none;

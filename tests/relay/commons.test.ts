@@ -19,5 +19,8 @@ test('Commons suggestions search the named subject instead of the entire headlin
   assert.equal(commonsSubject('Judges in Israel Suggest Dropping Key Corruption Case Against Netanyahu'), 'Israel');
   assert.equal(commonsSubject('French actor Gerard Depardieu to face trial for rape, court rules'), 'Gerard Depardieu');
   assert.equal(commonsSubject('New trial hearings begin tomorrow'), 'New trial hearings begin tomorrow');
+  assert.equal(commonsSubject("British police link substance release at Don Toliver's recent Manchester concert to robbery attempts"), 'Don Toliver');
+  assert.equal(commonsSubject('Russia’s Big Ambitions for A.I. Are Undercut by Constraints of War'), 'Russia');
+  assert.equal(commonsSubject('Quebec Can Keep Its Ban on Religious Symbols, Canada’s Top Court Rules'), 'Quebec');
   assert.equal(commonsSubject('no named subject'), 'no named subject');
 });
