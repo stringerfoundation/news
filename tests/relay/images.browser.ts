@@ -449,7 +449,10 @@ test('trusted NIP-07 approval propagates to other readers, withdraws, and follow
     assert.equal(await firstCard.getByRole('dialog').isVisible(), false);
     await multi.setViewportSize({ width: 1280, height: 1000 });
     await untrusted.setViewportSize({ width: 1280, height: 1000 });
-    assert.deepEqual(await multi.evaluate(() => [...document.querySelectorAll('#world-news article')].map(card => card.getBoundingClientRect().height)), await untrusted.evaluate(() => [...document.querySelectorAll('#world-news article')].map(card => card.getBoundingClientRect().height)));
+    const editorRows = await multi.locator('#world-news article').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height));
+    const publicRows = await untrusted.locator('#world-news article').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height));
+    assert.equal(publicRows.length, editorRows.length);
+    assert.ok(publicRows.every((height, index) => height < editorRows[index]!), 'these short desktop headlines reclaim the space used by editor controls');
     await multi.locator('#world-news').screenshot({ path: '.test-output/image-voting-desktop.png' });
     assert.deepEqual(await multi.evaluate(async moduleUrl => {
       const { searchCommons } = await import(moduleUrl) as typeof import('../../relay/commons.js');
