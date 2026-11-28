@@ -190,8 +190,6 @@ html[data-shuffling-stringer] #stringer-news { visibility: hidden; }
   .column-heading>p:last-child { margin-top: 6px; font-size: 14px; }
   .story { padding: 12px 0; }
   #global-newswire .story { padding-block: 6px; }
-  #global-newswire .wire-thumbnail > .story-placeholder { visibility: hidden; }
-  #global-newswire .story.with-image:has(.wire-thumbnail > .story-placeholder:only-child) .story-body { grid-column: 1 / -1; }
   #global-newswire .story .meta { margin-top: 4px; }
   #global-newswire .story.with-image { grid-template-columns: 96px minmax(0, 1fr); }
   #global-newswire .wire-thumbnail img { width: 96px; height: 64px; }
